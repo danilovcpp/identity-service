@@ -1,0 +1,8 @@
+**
+!global.json
+!Directory.Build.props
+!Directory.Packages.props
+!src/
+!src/**
+src/**/bin/
+src/**/obj/
