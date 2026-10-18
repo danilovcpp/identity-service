@@ -1,12 +1,14 @@
 #requires -Version 7.4
 # Isolated local-only smoke. Requires a Release build, dotnet-ef and Docker Linux containers.
+param([switch] $Stage4)
 $ErrorActionPreference = 'Stop'
 $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 Push-Location $root
 $suffix = [Guid]::NewGuid().ToString('N')
-$project = "identity-stage3-smoke-$suffix"
-$environmentFile = Join-Path $root ".env.stage3-smoke-$suffix"
-$secretDirectory = Join-Path $root "secrets/stage3-smoke-$suffix"
+$stage = if ($Stage4) { 4 } else { 3 }
+$project = "identity-stage$stage-smoke-$suffix"
+$environmentFile = Join-Path $root ".env.stage$stage-smoke-$suffix"
+$secretDirectory = Join-Path $root "secrets/stage$stage-smoke-$suffix"
 $outboxPath = Join-Path $secretDirectory 'outbox.key'
 $jwtPath = Join-Path $secretDirectory 'jwt.pem'
 $previousConnection = [Environment]::GetEnvironmentVariable('Database__ConnectionString')
@@ -104,7 +106,55 @@ try {
     Assert-True (($database -join '').Trim() -eq '2|2|t|t') 'Unexpected persisted session/token/outbox state.'
     $uid = Invoke-Compose exec -T api id -u
     Assert-True (($uid -join '').Trim() -ne '0') 'API runs as root.'
-    Write-Output 'Stage 3 Docker smoke passed: register -> Mailpit -> verify -> login -> public JWKS -> restart -> login; persisted sessions/hashes, cleared outbox, non-root.'
+    if ($Stage4) {
+        $headers = @{ Authorization = "Bearer $($pair.accessToken)" }
+        $sessions = Invoke-RestMethod "$api/api/v1/sessions" -Headers $headers
+        Assert-True ($sessions.Count -eq 2 -and @($sessions | Where-Object isCurrent).Count -eq 1) 'Own session list invalid.'
+        $rotated = Invoke-RestMethod "$api/api/v1/auth/refresh" -Method Post -ContentType 'application/json' -Body (@{ refreshToken = $pair.refreshToken } | ConvertTo-Json -Compress)
+        Assert-True ($rotated.refreshToken -cne $pair.refreshToken) 'Rotation reused the old token.'
+        Invoke-Compose restart api
+        $restarted = $false
+        for ($attempt = 0; $attempt -lt 30; $attempt++) {
+            try {
+                $health = Invoke-RestMethod "$api/health/live" -TimeoutSec 2
+                if ($health.status -eq 'healthy') { $restarted = $true; break }
+            } catch { }
+            Start-Sleep -Seconds 1
+        }
+        Assert-True $restarted 'API did not restart after rotation.'
+        $next = Invoke-RestMethod "$api/api/v1/auth/refresh" -Method Post -ContentType 'application/json' -Body (@{ refreshToken = $rotated.refreshToken } | ConvertTo-Json -Compress)
+        $replay = Invoke-WebRequest "$api/api/v1/auth/refresh" -Method Post -ContentType 'application/json' -Body (@{ refreshToken = $pair.refreshToken } | ConvertTo-Json -Compress) -SkipHttpErrorCheck
+        Assert-True ($replay.StatusCode -eq 401) 'Replay was accepted.'
+        $replayText = if ($replay.Content -is [byte[]]) { [System.Text.Encoding]::UTF8.GetString($replay.Content) } else { $replay.Content }
+        Assert-True (($replayText | ConvertFrom-Json).code -eq 'invalid_refresh_token') 'Replay problem code invalid.'
+        $denied = Invoke-WebRequest "$api/api/v1/auth/refresh" -Method Post -ContentType 'application/json' -Body (@{ refreshToken = $next.refreshToken } | ConvertTo-Json -Compress) -SkipHttpErrorCheck
+        Assert-True ($denied.StatusCode -eq 401) 'Replay left the latest refresh token active.'
+        $deniedAccess = Invoke-WebRequest "$api/api/v1/sessions" -Headers @{ Authorization = "Bearer $($next.accessToken)" } -SkipHttpErrorCheck
+        Assert-True ($deniedAccess.StatusCode -eq 401) 'Revoked session JWT was accepted by Identity.'
+        $otherHeaders = @{ Authorization = "Bearer $($second.accessToken)" }
+        $third = Invoke-RestMethod "$api/api/v1/auth/login" -Method Post -ContentType 'application/json' -Body $body
+        $list = Invoke-RestMethod "$api/api/v1/sessions" -Headers $otherHeaders
+        $target = @($list | Where-Object { -not $_.isCurrent })
+        Assert-True ($target.Count -eq 1) 'Session revoke target invalid.'
+        $revoked = Invoke-WebRequest "$api/api/v1/sessions/$($target[0].id)" -Method Delete -Headers $otherHeaders
+        Assert-True ($revoked.StatusCode -eq 204) 'Own session revoke failed.'
+        $all = Invoke-WebRequest "$api/api/v1/auth/logout-all" -Method Post -Headers $otherHeaders
+        Assert-True ($all.StatusCode -eq 204) 'Logout-all failed.'
+        $afterAll = Invoke-WebRequest "$api/api/v1/sessions" -Headers $otherHeaders -SkipHttpErrorCheck
+        Assert-True ($afterAll.StatusCode -eq 401) 'Logout-all left current JWT active on Identity.'
+        $last = Invoke-RestMethod "$api/api/v1/auth/login" -Method Post -ContentType 'application/json' -Body $body
+        $logoutBody = @{ refreshToken = $last.refreshToken } | ConvertTo-Json -Compress
+        $logout = Invoke-WebRequest "$api/api/v1/auth/logout" -Method Post -ContentType 'application/json' -Body $logoutBody
+        $repeat = Invoke-WebRequest "$api/api/v1/auth/logout" -Method Post -ContentType 'application/json' -Body $logoutBody
+        Assert-True ($logout.StatusCode -eq 204 -and $repeat.StatusCode -eq 204) 'Logout is not idempotent.'
+        $afterLogout = Invoke-WebRequest "$api/api/v1/auth/refresh" -Method Post -ContentType 'application/json' -Body $logoutBody -SkipHttpErrorCheck
+        Assert-True ($afterLogout.StatusCode -eq 401) 'Logout left a refresh token active.'
+        $state = Invoke-Compose exec -T postgres psql -U identity -d identity -t -A -c "SELECT (SELECT count(*) FROM sessions), (SELECT count(*) FROM refresh_tokens), (SELECT bool_and(revoked_at IS NOT NULL) FROM refresh_tokens), (SELECT bool_and(audience = 'identity-native') FROM sessions), (SELECT count(*) FROM security_audit_events WHERE event_type = 'refresh_replay_detected');"
+        Assert-True (($state -join '').Trim() -eq '4|6|t|t|1') 'Stage 4 persisted state invalid.'
+        Write-Output 'Stage 4 Docker smoke passed: registration/email/login/JWKS -> rotation -> restart -> rotation -> replay/family revoke -> own sessions/revoke -> logout-all -> login/logout -> failed refresh; non-root.'
+    } else {
+        Write-Output 'Stage 3 Docker smoke passed: register -> Mailpit -> verify -> login -> public JWKS -> restart -> login; persisted sessions/hashes, cleared outbox, non-root.'
+    }
 } finally {
     [Environment]::SetEnvironmentVariable('Database__ConnectionString', $previousConnection)
     $cleanupFailed = $false

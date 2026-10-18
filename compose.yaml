@@ -13,6 +13,10 @@ services:
       Jwt__Issuer: "${JWT_ISSUER:-https://identity.localhost}"
       Jwt__ActiveKeyId: dev-jwt
       Jwt__PrivateKeyPath: /run/secrets/identity_jwt_key
+      SessionCleanup__Enabled: "${SESSION_CLEANUP_ENABLED:-true}"
+      SessionCleanup__BatchSize: "${SESSION_CLEANUP_BATCH_SIZE:-25}"
+      SessionCleanup__PollSeconds: "${SESSION_CLEANUP_POLL_SECONDS:-300}"
+      SessionCleanup__RetentionSeconds: "${SESSION_CLEANUP_RETENTION_SECONDS:-86400}"
       Identity__Clients__0__ClientId: native
       Identity__Clients__0__Audience: identity-native
       Identity__Clients__0__Enabled: "true"

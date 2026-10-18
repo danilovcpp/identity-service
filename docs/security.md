@@ -1,4 +1,28 @@
-# Безопасность Identity — этапы 0–3
+# Безопасность Identity — этапы 0–4
+
+Refresh хранит полную consumed/replaced chain. Row locks user/session/token и fresh
+чтение после блокировки предотвращают двойную rotation одного token. Replay любого
+consumed token, включая уже expired, отзывает session и все refresh строки, включая
+победителя конкурентного запроса. Revoke/audit commit предшествует 401; сбой commit
+возвращает 500 без ложного обещания завершённого отзыва. Grace window нет.
+
+ClientId/audience берутся только из session binding. Подмена полей JSON их не меняет,
+неактивный/locked пользователь, disabled client, changed audience и legacy unbound
+session не получают новых токенов. Raw refresh ни в БД, ни в audit, ни в логах.
+Login/refresh response — обычный class с безопасным ToString и Cache-Control no-store.
+
+Logout public и идемпотентен; logout-all/revoke требуют Bearer и повторно проверяют
+текущую session/user под row locks. Владелец берётся из sub, никогда из JSON/query.
+Чужой/неизвестный UUID даёт одинаковый 404. Свои сессии доступны между включёнными
+клиентами одного пользователя без business roles. Отзыв текущей сессии немедленно
+блокирует её JWT на Identity; сторонний API видит отзыв только по exp (+skew).
+Ручной revoke пишет event_type=logout и reason UserRevoked в session; отдельного
+session_revoked audit type спецификация не определяет.
+
+Cleanup хранит всё семейство до absolute expiry + 1 день (настраивается), даже после
+logout. Истечение отдельного refresh не является основанием удаления replay evidence.
+Потеря ответа после commit rotation требует нового login; повтор старого токена
+обрабатывается как replay. Клиентам нужна сериализация refresh и защищённое хранилище.
 
 Login сериализует попытки одного аккаунта через PostgreSQL FOR UPDATE. После 5 неверных
 паролей аккаунт закрыт на 15 минут; обращения во время блокировки её не продлевают.
@@ -33,7 +57,7 @@ test/private key в исходниках; ключи тестов случайн
 
 Схема БД хранит credentials отдельно от профиля и только token_hash для токенов.
 Реализованы registration/verification/login, JWT/JWKS и начальный refresh token.
-Refresh rotation/replay/logout относятся к этапу 4.
+Refresh rotation/replay/logout и управление собственными сессиями реализованы.
 Секреты в репозиторий не включены; `.env` и файлы ключей исключены из Git, а Docker
 получает только исходники и файлы сборки через allowlist контекста.
 Локальный пароль PostgreSQL обязателен и задаётся пользователем вне исходников.
@@ -50,7 +74,7 @@ Database options обязательны; Include Error Detail и Log Parameters 
 string запрещены startup validation. EF sensitive-data logging не включён.
 Уникальность normalized_email/token_hash, FK и check constraints применяются в БД.
 Для изменяемых строк xmin предотвращает незаметное перезаписывание конкурентных
-изменений. Это не заменяет будущие use-case транзакции и обработку replay.
+изменений. Refresh/revoke дополнительно используют явные транзакции и row locks.
 
 Outbox допускает только типизированный AES-GCM envelope (keyId, nonce, ciphertext,
 tag), хранит его в jsonb с ограничениями формы и очищает payload после MarkProcessed.
@@ -59,7 +83,8 @@ AES-256-GCM реализован через System.Security.Cryptography.AesGcm 
 Ключи читаются из отдельных файлов вне БД/репозитория, старые key ID поддерживаются
 до отправки backlog. Исходные массивы plaintext и key buffers очищаются по окончании использования.
 Audit metadata ограничен числовым attemptCount; произвольные
-email/IP/password/token поля не принимаются. Retention worker появится позже.
+email/IP/password/token поля не принимаются. Retention audit/outbox относится к следующим этапам;
+cleanup refresh-семейств реализован на этапе 4.
 
 Пароли обрабатываются Microsoft PasswordHasher (PBKDF2, IdentityV3, 600000 iterations
 по умолчанию, минимум 600000). NFKC применяется одинаково в validation/hash/verify;

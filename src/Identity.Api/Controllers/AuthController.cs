@@ -1,7 +1,11 @@
 using Identity.Api.Configuration;
 using Identity.Api.Contracts;
 using Identity.Application.Abstractions.Cqrs;
+using Identity.Application.Common;
 using Identity.Application.Features.Auth.Login;
+using Identity.Application.Features.Auth.Logout;
+using Identity.Application.Features.Auth.LogoutAll;
+using Identity.Application.Features.Auth.Refresh;
 using Identity.Application.Features.Auth.Register;
 using Identity.Application.Features.Auth.RequestEmailVerification;
 using Identity.Application.Features.Auth.VerifyEmail;
@@ -17,16 +21,45 @@ public sealed class AuthController(ICommandDispatcher commands) : ApiController
 {
     private static readonly VerificationAcceptedResponse AcceptedResponse = new("If the request is eligible, a verification email will be sent.");
 
-    [HttpPost("login")]
+    [HttpPost("refresh")]
     [AllowAnonymous]
-    [ServiceFilter(typeof(AccountRateLimitFilter))]
-    [ProducesResponseType<LoginResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<TokenPairResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<LoginResult>> Login(LoginRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<TokenPairResult>> Refresh(RefreshTokenRequest request, CancellationToken cancellationToken)
     {
         Response.Headers.CacheControl = "no-store";
         Response.Headers.Pragma = "no-cache";
-        var result = await commands.Execute<LoginCommand, LoginResult>(new LoginCommand(request.Email ?? "", request.Password ?? "",
+        return Ok(await commands.Execute<RefreshCommand, TokenPairResult>(new RefreshCommand(request.RefreshToken ?? ""), cancellationToken));
+    }
+
+    [HttpPost("logout")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Logout(RefreshTokenRequest request, CancellationToken cancellationToken)
+    {
+        await commands.Execute<LogoutCommand, Unit>(new LogoutCommand(request.RefreshToken ?? ""), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("logout-all")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> LogoutAll(CancellationToken cancellationToken)
+    {
+        await commands.Execute<LogoutAllCommand, Unit>(new LogoutAllCommand(CurrentUserId, CurrentSessionId), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("login")]
+    [AllowAnonymous]
+    [ServiceFilter(typeof(AccountRateLimitFilter))]
+    [ProducesResponseType<TokenPairResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<TokenPairResult>> Login(LoginRequest request, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+        Response.Headers.Pragma = "no-cache";
+        var result = await commands.Execute<LoginCommand, TokenPairResult>(new LoginCommand(request.Email ?? "", request.Password ?? "",
             request.ClientId ?? "", Request.Headers.UserAgent.ToString()), cancellationToken);
         return Ok(result);
     }

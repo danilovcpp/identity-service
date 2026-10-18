@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Identity.Application.Common;
 using Identity.Application.Features.Auth.Login;
 using Identity.Domain.Entities;
 using Identity.Infrastructure.Security;
@@ -110,6 +111,6 @@ public sealed class LoginSecurityTests
         Assert.Equal(created, credential.PasswordChangedAt);
         Assert.Equal("upgraded-hash", credential.PasswordHash);
         Assert.DoesNotContain("secret-password", new LoginCommand("user@identity.example", "secret-password", "native", null).ToString()!);
-        Assert.DoesNotContain("secret-access", new LoginResult("secret-access", "secret-refresh", 900).ToString()!);
+        Assert.DoesNotContain("secret-access", new TokenPairResult("secret-access", "secret-refresh", 900).ToString()!);
     }
 }

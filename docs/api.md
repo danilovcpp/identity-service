@@ -1,8 +1,54 @@
-# HTTP API Identity — этапы 0–3
+# HTTP API Identity — этапы 0–4
 
 Бизнес-операции используют префикс `/api/v1` и MVC Controllers. MVC по умолчанию
 требует Bearer authentication; публичные actions явно помечены AllowAnonymous.
-Refresh rotation/logout/profile/sessions API ещё не публикуются.
+Profile/password lifecycle API ещё не публикуются.
+
+## Refresh, logout и собственные сессии
+
+Все токены в примерах — placeholders. Не сохраняйте реальные значения в shell history
+и публичных логах; используйте защищённое хранилище/ввод вашего клиента.
+
+```sh
+curl -i http://localhost:5080/api/v1/auth/refresh -H "Content-Type: application/json" --data '{"refreshToken":"<current-refresh-token>"}'
+curl -i http://localhost:5080/api/v1/auth/logout -H "Content-Type: application/json" --data '{"refreshToken":"<current-refresh-token>"}'
+curl -i http://localhost:5080/api/v1/auth/logout-all -X POST -H "Authorization: Bearer <access-token>"
+curl -i http://localhost:5080/api/v1/sessions -H "Authorization: Bearer <access-token>"
+curl -i http://localhost:5080/api/v1/sessions/<own-session-id> -X DELETE -H "Authorization: Bearer <access-token>"
+```
+
+Refresh возвращает тот же token response, что login, с новой парой и no-store.
+Он сохраняет sid/client_id/audience, обновляет jti и lastUsedAt. ClientId/audience
+из дополнительных JSON-полей не используются: источник — сохранённая сессия.
+Новый refresh действует не дольше absoluteExpiresAt, даже если осталось меньше 7 дней.
+Unknown/expired/revoked token, expired/revoked session, неактивный/temporarily locked
+user, выключенный клиент или изменившаяся audience дают одинаковый 401 invalid_refresh_token.
+Некорректное значение refreshToken также даёт эту 401; malformed JSON — стандартный 400.
+При выключенном Jwt:Enabled refresh также возвращает generic 401.
+
+Повторный обмен consumed token — replay: отзывает **всё семейство**, включая уже
+выданную замену, и записывает audit. Даже истёкший consumed token остаётся evidence
+до cleanup. Из двух параллельных refresh один может получить 200, второй получит
+401 и отзовёт также токен победителя. Клиент обязан сериализовать refresh одной сессии
+и атомарно заменить обе сохранённые строки. Grace window/retry старого токена нет.
+Если после commit потерян ответ, автоматический повтор старого refresh приведёт
+к отзыву семейства: выполните новый login. Сбой до commit откатывает изменения.
+
+Logout принимает также consumed/expired token известного семейства и отзывает его
+без выдачи новой пары. Для unknown/malformed/already revoked значения — тот же пустой
+204. Logout-all и DELETE требуют действующего Bearer. После отзыва текущей сессии
+её JWT больше не подходит для Identity, поэтому повторный protected запрос даст 401.
+DELETE уже отозванной своей сессии с другим действующим собственным JWT даёт 204.
+Чужая/отсутствующая сессия — одинаковый 404 session_not_found.
+
+GET sessions возвращает массив объектов с `id`, `clientId`, `createdAt`, `lastUsedAt`,
+`absoluteExpiresAt`, `userAgent`, `isCurrent` (по sid). Сортировка lastUsedAt descending,
+потом id. Токены/хеши/профили чужих пользователей не возвращаются. Query-параметр userId
+не выбирает владельца: он всегда берётся из проверенного sub. Revoked/expired и legacy
+sessions без audience binding в массив не входят. Ответ no-store.
+
+Отзыв немедленно проверяется Identity через БД. Внешний API, проверяющий подпись
+локально, продолжает принимать старый access JWT до exp (+skew). Это не OAuth/OIDC.
 
 ## Login и JWT/JWKS
 
@@ -26,12 +72,12 @@ Dev Compose задаёт issuer `https://identity.localhost`, clients `native` �
 доступен по локальному HTTP. Production transport должен быть HTTPS.
 `clientId` публичный; он выбирает audience и не аутентифицирует приложение.
 Refresh token — 32 random bytes в base64url; сохраняйте в secure OS/server storage.
-Начальный refresh token уже выдаётся, но endpoint его обмена появится на этапе 4.
+Refresh token обменивается один раз; клиент обязан сериализовать refresh одной сессии.
 
 Access JWT содержит только sub/iss/aud/jti/sid/client_id/iat/nbf/exp/token_use=access,
 RS256 и kid. JWKS содержит только kty/use/alg/kid/n/e. Identity проверяет также
-активность user/session по БД. Защищённые бизнес-операции появятся в последующих этапах;
-сейчас этот путь покрыт test-only контроллером, отсутствующим в production assembly.
+активность user/session и сохранённую audience по БД. Bearer-защищены sessions API
+и logout-all. Refresh/logout передают непрозрачный токен только в JSON body.
 
 Пример для отдельного .NET API: загрузите JWKS из доверенного фиксированного HTTPS URL
 при старте и настройте стандартный JwtBearer. Пример использует только public keys;
@@ -83,6 +129,11 @@ builder.Services.AddAuthorization();
 | POST | `/api/v1/auth/email/verification-request` | `202` generic | `{email}` |
 | POST | `/api/v1/auth/email/verify` | `204` / `400 invalid_verification_token` | `{token}` |
 | POST | `/api/v1/auth/login` | `200` / generic `401 invalid_credentials` | `{email,password,clientId}` |
+| POST | `/api/v1/auth/refresh` | `200` / generic `401 invalid_refresh_token` | `{refreshToken}`; rotation, replay отзывает семейство |
+| POST | `/api/v1/auth/logout` | `204` | `{refreshToken}`; public, идемпотентно |
+| POST | `/api/v1/auth/logout-all` | `204` | Bearer; все собственные сессии, включая текущую |
+| GET | `/api/v1/sessions` | `200` | Bearer; массив собственных активных сессий |
+| DELETE | `/api/v1/sessions/{id}` | `204` / `404 session_not_found` | Bearer; своя сессия, чужая/отсутствующая неразличимы |
 | GET | `/.well-known/jwks.json` | `200` | Публичный JWK Set; cache max-age=300 |
 | GET | `/health/live` | `200 application/json`, `{"status":"healthy"}` | Процесс принимает HTTP-запросы |
 | GET | `/health/ready` | `200 {"status":"ready"}` / `503 {"status":"not_ready"}` | Подключение к PostgreSQL |

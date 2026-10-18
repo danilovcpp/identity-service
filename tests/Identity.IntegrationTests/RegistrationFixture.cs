@@ -68,6 +68,7 @@ public sealed class RegistrationFixture : IAsyncLifetime
             ["Database:ConnectionString"] = _postgres.GetConnectionString(),
             ["Registration:Enabled"] = "true",
             ["Outbox:Enabled"] = "false",
+            ["SessionCleanup:Enabled"] = "false",
             ["Outbox:PollSeconds"] = "0.05",
             ["Outbox:BaseRetrySeconds"] = "1",
             ["Outbox:MaxAttempts"] = "2",

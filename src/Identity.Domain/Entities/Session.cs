@@ -10,6 +10,8 @@ public sealed class Session
     public Guid Id { get; private set; }
     public Guid UserId { get; private set; }
     public string ClientId { get; private set; } = null!;
+    // Null is only possible for sessions persisted before audience binding was introduced.
+    public string? Audience { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset LastUsedAt { get; private set; }
     public DateTimeOffset AbsoluteExpiresAt { get; private set; }
@@ -17,7 +19,7 @@ public sealed class Session
     public SessionRevokeReason? RevokeReason { get; private set; }
     public string? UserAgent { get; private set; }
 
-    public static Session Create(Guid userId, string clientId, string? userAgent, DateTimeOffset now, DateTimeOffset absoluteExpiresAt)
+    public static Session Create(Guid userId, string clientId, string? userAgent, DateTimeOffset now, DateTimeOffset absoluteExpiresAt, string audience)
     {
         var sanitizedAgent = userAgent is null ? null : new string(userAgent.Where(character => !char.IsControl(character)).Take(512).ToArray());
         return new Session
@@ -25,6 +27,7 @@ public sealed class Session
             Id = Guid.NewGuid(),
             UserId = DomainRules.Identifier(userId),
             ClientId = DomainRules.Text(clientId, 100),
+            Audience = DomainRules.Text(audience, 300),
             UserAgent = sanitizedAgent,
             CreatedAt = now.ToUniversalTime(),
             LastUsedAt = now.ToUniversalTime(),

@@ -12,6 +12,18 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsSer
         ProblemDetails problem;
         switch (exception)
         {
+            case InvalidRefreshTokenException:
+                problem = new ProblemDetails { Status = StatusCodes.Status401Unauthorized, Title = "Invalid refresh token" };
+                problem.Extensions["code"] = "invalid_refresh_token";
+                break;
+            case UnauthorizedSessionException:
+                problem = new ProblemDetails { Status = StatusCodes.Status401Unauthorized, Title = "Unauthorized" };
+                problem.Extensions["code"] = "unauthorized";
+                break;
+            case SessionNotFoundException:
+                problem = new ProblemDetails { Status = StatusCodes.Status404NotFound, Title = "Session not found" };
+                problem.Extensions["code"] = "session_not_found";
+                break;
             case InvalidCredentialsException:
                 problem = new ProblemDetails { Status = StatusCodes.Status401Unauthorized, Title = "Invalid credentials" };
                 problem.Extensions["code"] = "invalid_credentials";

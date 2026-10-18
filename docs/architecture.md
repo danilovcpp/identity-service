@@ -1,11 +1,37 @@
-# Архитектура Identity — этапы 0–3
+# Архитектура Identity — этапы 0–4
+
+Этап 4 добавляет отдельные команды/handlers Refresh, Logout, LogoutAll, RevokeSession,
+query GetSessions и их явные DI registrations. Login/refresh используют общий
+TokenPairResult; JSON контракт login не меняется. Actor sub/sid извлекаются в API
+только из проверенных claims, в Application приходят Guid, без HttpContext.
+SessionsController/AuthController не получают DbContext или repositories.
+
+ISessionRepository возвращает immutable owner IDs через AsNoTracking до транзакции,
+затем все мутации придерживаются user FOR UPDATE → session FOR UPDATE → refresh FOR UPDATE.
+Tracked token читается только после блокировок, чтобы ожидающий конкурентный запрос
+видел committed consumed state. Порядок общий с Login; LogoutAll сериализован также
+с Login/refresh всех сессий пользователя. GetSessions — read-only projection/AsNoTracking.
+
+Consumed/replaced, новая строка refresh, lastUsedAt и audit фиксируются одной транзакцией.
+Replay фиксирует revoke session/all token rows и audit **до** generic 401. Bulk token
+updates используют ту же явную транзакцию; tracked token после них не модифицируется.
+См. [EF Core bulk operations/transactions](https://learn.microsoft.com/en-us/ef/core/saving/execute-insert-update-delete).
+Сбой до commit откатывает всё; потеря ответа после commit не делает старый token usable.
+
+Session.Audience сохраняется при login; mismatch с client configuration запрещает
+refresh и собственный JWT доступ. Legacy NULL не интерпретируется как текущая audience.
+Миграция SessionAudienceBinding добавляет binding/index и NO ACTION self-FK, сохраняя
+same-family replacement constraint. Полная цепочка удаляется только после срока
+семейства + retention. [PostgreSQL FK constraints](https://www.postgresql.org/docs/17/ddl-constraints.html).
+SessionCleanupWorker создаёт scoped processor; тот выбирает bounded family batch с
+SKIP LOCKED и удаляет family/session атомарно. Domain/Application не зависят от worker/EF.
 
 Этап 3 добавляет LoginCommand/validator/handler в Application. ILoginSettings,
 ILoginPasswordVerifier, ITokenService и ILoginRepository сохраняют независимость
 от IConfiguration/JWT/EF/HTTP. Handler использует существующие user/credential
 repositories и UoW; один row lock user сериализует counters, rehash и создание session.
 LoginRepository выполняет read-only проверку активного user/session через AsNoTracking.
-Миграции не менялись: все нужные таблицы/constraints созданы этапом 1.
+На этапе 3 миграции не менялись; этап 4 добавляет audience binding и индекс cleanup.
 
 Infrastructure содержит options/clients, immutable RSA key ring, JwtTokenService
 на Microsoft.IdentityModel.JsonWebTokens и публичную JWK projection. Key ring загружается
@@ -66,8 +92,8 @@ BeginTransactionAsync нужен для границы use case с нескол�
 
 Для изменяемых строк настроен shadow concurrency token PostgreSQL xmin: потерянное
 обновление вызывает DbUpdateConcurrencyException, а UnitOfWork переводит его в
-ConcurrencyConflictException. Это базовая защита строки, не полный протокол refresh
-rotation/replay; блокировки семейства и отзыв всей сессии относятся к этапу 4.
+ConcurrencyConflictException. Для refresh rotation/replay этап 4 дополнительно
+использует явные блокировки пользователя/сессии/токена и отзыв всего семейства.
 См. [официальное описание xmin в Npgsql](https://www.npgsql.org/efcore/modeling/concurrency.html).
 
 Конфигурация Database options проверяется ValidateOnStart; Domain/Application

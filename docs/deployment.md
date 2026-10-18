@@ -1,4 +1,54 @@
-# Запуск и конфигурация Identity — этапы 0–3
+# Запуск и конфигурация Identity — этапы 0–4
+
+## Обновление до этапа 4 и cleanup refresh history
+
+Перед запуском новой версии примените миграцию
+`20261018221422_SessionAudienceBinding` обычной отдельной EF deployment-командой.
+Она добавляет nullable sessions.audience (<=300), check constraint, индекс
+ix_sessions_expiry и меняет self-FK replacement на NO ACTION для атомарного удаления
+целой истёкшей цепочки одним DELETE. Composite FK по token/session сохраняется.
+
+**Сессии этапа 3 требуют нового login.** Их исходная audience не была сохранена;
+миграция оставляет NULL, ничего не подставляет из текущей конфигурации. Refresh и
+Identity JWT guard отклоняют такую сессию; доступ к старым JWT во внешнем API
+ограничен exp (+skew). Старые строки/хеши не удаляются при миграции, logout по старому
+refresh и logout-all из новой сессии позволяют отозвать их. Восстановить binding
+без доказательства исходной audience нельзя. Down удаляет binding; не используйте
+rollback схемы как способ продления/восстановления сессий.
+
+SessionCleanupWorker работает в API при включённых Jwt:Enabled и SessionCleanup:Enabled.
+Одна транзакция выбирает ограниченное число семейств с FOR UPDATE SKIP LOCKED,
+удаляет все refresh rows выбранных семейств, затем sessions. Старые audit events
+и user rows сохраняются. Незавершённая транзакция откатывается целиком.
+
+| Options/env | Default / пределы |
+| --- | --- |
+| `SessionCleanup__Enabled` | true; Compose: SESSION_CLEANUP_ENABLED |
+| `SessionCleanup__BatchSize` | 25 семейств за итерацию; 1–100; SESSION_CLEANUP_BATCH_SIZE |
+| `SessionCleanup__PollSeconds` | 300; 1–3600; SESSION_CLEANUP_POLL_SECONDS |
+| `SessionCleanup__RetentionSeconds` | 86400 после absolute session expiry; 3600–604800; SESSION_CLEANUP_RETENTION_SECONDS |
+
+Даже revoked/consumed/expired refresh сохраняются до absoluteExpiresAt сессии плюс
+retention. Ранний logout не сокращает этот срок. Это сохраняет replay evidence для
+всех ещё потенциально действующих семейств, включая expiry старого токена раньше нового.
+На точной границе cleanup ещё сохраняет историю; удаление после неё. Несколько API
+могут запускать cleanup одновременно; заблокированные сессии пропускаются до следующего цикла.
+
+Batch ограничивает число **семейств**, а не token rows внутри одного семейства.
+Удаление одного большого семейства атомарно и может занять дольше; мониторьте размер
+таблицы/длительность maintenance и настройте batch/poll для своего потока.
+При отключённом worker корректность rotation/replay сохраняется, растёт только история.
+Очистка audit/outbox/one-time tokens не добавлялась в этап 4.
+
+Локальная проверка всех уже реализованных операций (PowerShell 7.4+, Docker, Release build):
+
+```powershell
+pwsh -NoProfile -File scripts/Test-Stage4Smoke.ps1
+```
+
+Скрипт повторно использует bootstrap этапа 3, создаёт отдельный Compose project,
+применяет обе миграции, проверяет rotation/restart/replay/revoke/logout-all/logout,
+затем удаляет только свои контейнеры/network/volume/env/key files.
 
 ## Login, clients и RSA keys
 
@@ -39,7 +89,8 @@ Options проверяются ValidateOnStart; key ring до начала пр�
 Файлы/настройки неизменны в течение жизни процесса, изменение требует restart.
 Все replicas должны получать одни и те же ключи и client configuration.
 Не переиспользуйте clientId с другой audience: для новой audience создайте новый ID.
-На этапе 4 привязка audience к refresh-семейству будет реализована вместе с refresh.
+Audience сохраняется в sessions и не меняется при refresh. Изменённая audience
+в конфигурации отключает refresh существующих семейств; необходим новый login.
 
 Ротация RS256:
 

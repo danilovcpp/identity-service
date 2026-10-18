@@ -11,9 +11,9 @@ namespace Identity.Application.Features.Auth.Login;
 
 public sealed class LoginHandler(IUserRepository users, ICredentialRepository credentials, ILoginRepository login,
     IUnitOfWork work, ILoginSettings settings, ILoginPasswordVerifier verifier, IPasswordService passwords,
-    ITokenGenerator tokens, ITokenService accessTokens, TimeProvider clock, OperationContext operation) : ICommandHandler<LoginCommand, LoginResult>
+    ITokenGenerator tokens, ITokenService accessTokens, TimeProvider clock, OperationContext operation) : ICommandHandler<LoginCommand, TokenPairResult>
 {
-    public async Task<LoginResult> Handle(LoginCommand command, CancellationToken cancellationToken)
+    public async Task<TokenPairResult> Handle(LoginCommand command, CancellationToken cancellationToken)
     {
         if (!settings.Enabled) { throw new LoginDisabledException(); }
         await using var transaction = await work.BeginTransactionAsync(cancellationToken);
@@ -41,7 +41,7 @@ public sealed class LoginHandler(IUserRepository users, ICredentialRepository cr
 
         user!.ResetLoginFailures(now);
         if (verification == PasswordVerificationResult.SuccessRehashNeeded) { credential.Rehash(passwords.Hash(command.Password)); }
-        var session = Session.Create(user.Id, command.ClientId, command.UserAgent, now, now + settings.SessionLifetime);
+        var session = Session.Create(user.Id, command.ClientId, command.UserAgent, now, now + settings.SessionLifetime, audience);
         var rawRefresh = tokens.Generate();
         login.Add(session);
         login.Add(RefreshToken.Create(session, tokens.Hash(rawRefresh), now,
@@ -51,6 +51,6 @@ public sealed class LoginHandler(IUserRepository users, ICredentialRepository cr
         var access = await accessTokens.IssueAsync(new AccessTokenSubject(user.Id, session.Id, command.ClientId, audience), cancellationToken);
         await work.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return new LoginResult(access.Token, rawRefresh, access.LifetimeSeconds);
+        return new TokenPairResult(access.Token, rawRefresh, access.LifetimeSeconds);
     }
 }

@@ -22,7 +22,7 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
         builder.HasAlternateKey(token => new { token.Id, token.SessionId }).HasName("ak_refresh_tokens_id_session");
         builder.HasOne<RefreshToken>().WithMany()
             .HasForeignKey(token => new { token.ReplacedByTokenId, token.SessionId })
-            .HasPrincipalKey(token => new { token.Id, token.SessionId }).OnDelete(DeleteBehavior.Restrict);
+            .HasPrincipalKey(token => new { token.Id, token.SessionId }).OnDelete(DeleteBehavior.NoAction);
         builder.HasIndex(token => token.TokenHash).IsUnique().HasDatabaseName("ux_refresh_tokens_hash");
         builder.HasIndex(token => token.SessionId).HasDatabaseName("ix_refresh_tokens_session");
         builder.HasIndex(token => token.ExpiresAt).HasDatabaseName("ix_refresh_tokens_expiry");

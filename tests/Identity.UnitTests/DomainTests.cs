@@ -77,7 +77,7 @@ public sealed class DomainTests
     {
         var clock = new ManualTimeProvider(Now);
         var session = Session.Create(Guid.NewGuid(), "native", "Agent\r\n" + new string('x', 600),
-            clock.GetUtcNow().ToOffset(TimeSpan.FromHours(6)), Now.AddDays(30));
+            clock.GetUtcNow().ToOffset(TimeSpan.FromHours(6)), Now.AddDays(30), "identity-native");
         Assert.Equal(TimeSpan.Zero, session.CreatedAt.Offset);
         Assert.Equal(512, session.UserAgent?.Length);
         Assert.DoesNotContain('\r', session.UserAgent!);
@@ -93,10 +93,10 @@ public sealed class DomainTests
     [Fact]
     public void RefreshTokenOnlyAcceptsOneReplacementFromItsSession()
     {
-        var session = Session.Create(Guid.NewGuid(), "native", null, Now, Now.AddDays(30));
+        var session = Session.Create(Guid.NewGuid(), "native", null, Now, Now.AddDays(30), "identity-native");
         var token = RefreshToken.Create(session, new string('a', 64), Now, Now.AddDays(7));
         var replacement = RefreshToken.Create(session, new string('b', 64), Now.AddMinutes(1), Now.AddDays(7));
-        var foreign = Session.Create(Guid.NewGuid(), "native", null, Now, Now.AddDays(30));
+        var foreign = Session.Create(Guid.NewGuid(), "native", null, Now, Now.AddDays(30), "identity-native");
         var foreignToken = RefreshToken.Create(foreign, new string('c', 64), Now.AddMinutes(1), Now.AddDays(7));
         Assert.Throws<DomainException>(() => token.Consume(foreignToken, Now.AddMinutes(1)));
         token.Consume(replacement, Now.AddMinutes(1));
@@ -105,7 +105,7 @@ public sealed class DomainTests
         Assert.Throws<DomainException>(() => token.Consume(replacement, Now.AddMinutes(1)));
         Assert.Throws<DomainException>(() => RefreshToken.Create(session, "raw-token", Now, Now.AddDays(1)));
         Assert.Throws<DomainException>(() => RefreshToken.Create(session, new string('a', 64), Now, Now.AddDays(8)));
-        var shortSession = Session.Create(Guid.NewGuid(), "native", null, Now, Now.AddHours(1));
+        var shortSession = Session.Create(Guid.NewGuid(), "native", null, Now, Now.AddHours(1), "identity-native");
         Assert.Throws<DomainException>(() => RefreshToken.Create(shortSession, new string('d', 64), Now, Now.AddHours(2)));
     }
 

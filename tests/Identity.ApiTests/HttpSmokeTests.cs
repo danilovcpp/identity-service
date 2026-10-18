@@ -40,6 +40,32 @@ public sealed class HttpSmokeTests : IAsyncLifetime
         Assert.Equal("healthy", health?.Status);
     }
 
+    [Theory]
+    [InlineData("GET", "/api/v1/sessions")]
+    [InlineData("DELETE", "/api/v1/sessions/00000000-0000-0000-0000-000000000001")]
+    [InlineData("POST", "/api/v1/auth/logout-all")]
+    public async Task SessionManagementRequiresBearerAuthentication(string method, string path)
+    {
+        using var client = _factory.CreateClient();
+        using var request = new HttpRequestMessage(new HttpMethod(method), path);
+        using var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("unauthorized", json.RootElement.GetProperty("code").GetString());
+        Assert.True(json.RootElement.TryGetProperty("traceId", out _));
+    }
+
+    [Theory]
+    [InlineData("BatchSize", "0")]
+    [InlineData("PollSeconds", "0")]
+    [InlineData("RetentionSeconds", "0")]
+    public async Task InvalidCleanupConfigurationFailsStartup(string setting, string value)
+    {
+        await using var factory = _factory.WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, configuration) =>
+            configuration.AddInMemoryCollection(new Dictionary<string, string?> { [$"SessionCleanup:{setting}"] = value })));
+        Assert.Throws<Microsoft.Extensions.Options.OptionsValidationException>(() => factory.CreateClient());
+    }
+
     [Fact]
     public async Task DisabledLoginReturns503AndPublishesNoKeys()
     {

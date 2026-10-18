@@ -11,10 +11,10 @@ internal sealed class LoginRepository(IdentityDbContext context) : ILoginReposit
     public void Add(RefreshToken token) => context.RefreshTokens.Add(token);
     public void Add(SecurityAuditEvent auditEvent) => context.SecurityAuditEvents.Add(auditEvent);
 
-    public Task<bool> IsActiveAsync(Guid userId, Guid sessionId, string clientId, DateTimeOffset now, CancellationToken cancellationToken) =>
+    public Task<bool> IsActiveAsync(Guid userId, Guid sessionId, string clientId, string audience, DateTimeOffset now, CancellationToken cancellationToken) =>
         (from session in context.Sessions.AsNoTracking()
          join user in context.Users.AsNoTracking() on session.UserId equals user.Id
          where session.Id == sessionId && user.Id == userId && user.Status == UserStatus.Active
-             && session.ClientId == clientId && session.RevokedAt == null && session.CreatedAt <= now && session.AbsoluteExpiresAt > now
+             && session.ClientId == clientId && session.Audience == audience && session.RevokedAt == null && session.CreatedAt <= now && session.AbsoluteExpiresAt > now
          select session.Id).AnyAsync(cancellationToken);
 }

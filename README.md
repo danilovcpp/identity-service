@@ -3,10 +3,10 @@
 Самостоятельный self-hosted сервис учётных записей и аутентификации на .NET 10.
 Источник требований — [Identity_Codex_Spec.md](Identity_Codex_Spec.md).
 
-Реализованы **этапы 0–3**: каркас, Domain, EF Core/CQRS, регистрация и подтверждение
+Реализованы **этапы 0–4**: каркас, Domain, EF Core/CQRS, регистрация и подтверждение
 email через зашифрованный transactional outbox и SMTP, login с RS256 JWT/JWKS,
-сессией и начальным refresh token. Refresh rotation/logout/sessions API и профиль
-относятся к следующим этапам.
+сессиями и refresh rotation/replay protection, logout/logout-all, просмотр/отзыв
+собственных сессий и cleanup истории. Profile/password lifecycle — этап 5.
 
 ## Требования
 
@@ -147,8 +147,8 @@ dotnet build Identity.slnx --no-restore --configuration Release
 dotnet test Identity.slnx --no-build --no-restore --configuration Release
 dotnet format Identity.slnx --no-restore --verify-no-changes
 docker build --tag identity:local .
-# PowerShell 7.4+: изолированный end-to-end smoke этапа 3 (временные ресурсы удаляются)
-pwsh -NoProfile -File scripts/Test-Stage3Smoke.ps1
+# PowerShell 7.4+: изолированный end-to-end smoke этапа 4 (временные ресурсы удаляются)
+pwsh -NoProfile -File scripts/Test-Stage4Smoke.ps1
 ```
 
 Настройки компилятора общие: nullable, warnings-as-errors, C# 14; версии NuGet

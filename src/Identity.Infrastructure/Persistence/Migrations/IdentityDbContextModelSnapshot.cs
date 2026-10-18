@@ -303,6 +303,11 @@ namespace Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("absolute_expires_at");
 
+                    b.Property<string>("Audience")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("audience");
+
                     b.Property<string>("ClientId")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -342,11 +347,16 @@ namespace Identity.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AbsoluteExpiresAt")
+                        .HasDatabaseName("ix_sessions_expiry");
+
                     b.HasIndex("UserId", "RevokedAt")
                         .HasDatabaseName("ix_sessions_user_revocation");
 
                     b.ToTable("sessions", null, t =>
                         {
+                            t.HasCheckConstraint("ck_sessions_audience", "audience IS NULL OR (length(btrim(audience)) > 0 AND audience !~ '[[:cntrl:]]')");
+
                             t.HasCheckConstraint("ck_sessions_client", "length(btrim(client_id)) > 0");
 
                             t.HasCheckConstraint("ck_sessions_revocation", "(revoked_at IS NULL) = (revoke_reason IS NULL) AND (revoke_reason IS NULL OR revoke_reason BETWEEN 0 AND 6)");
@@ -464,7 +474,7 @@ namespace Identity.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("ReplacedByTokenId", "SessionId")
                         .HasPrincipalKey("Id", "SessionId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.SecurityAuditEvent", b =>

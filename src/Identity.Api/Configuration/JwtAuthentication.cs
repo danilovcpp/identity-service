@@ -60,7 +60,7 @@ public static class JwtAuthentication
                             || context.SecurityToken is not JsonWebToken token || !token.TryGetPayloadValue<long>("iat", out _)
                             || audience is null || token.Audiences.Count() != 1 || token.Audiences.Single() != audience
                             || !await context.HttpContext.RequestServices.GetRequiredService<ILoginRepository>()
-                                .IsActiveAsync(userId, sessionId, clientId!, clock.GetUtcNow(), context.HttpContext.RequestAborted))
+                                .IsActiveAsync(userId, sessionId, clientId!, audience, clock.GetUtcNow(), context.HttpContext.RequestAborted))
                         {
                             context.Fail("Invalid access token.");
                         }

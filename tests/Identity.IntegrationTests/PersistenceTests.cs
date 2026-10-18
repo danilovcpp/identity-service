@@ -37,8 +37,10 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
     {
         await using var context = database.CreateContext();
         var migrator = context.GetService<IMigrator>();
-        var applied = Assert.Single(await context.Database.GetAppliedMigrationsAsync());
-        Assert.EndsWith("_InitialIdentity", applied);
+        var applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
+        Assert.Equal(2, applied.Length);
+        Assert.EndsWith("_InitialIdentity", applied[0]);
+        Assert.EndsWith("_SessionAudienceBinding", applied[1]);
         Assert.False(context.Database.HasPendingModelChanges());
         Assert.Contains("IF NOT EXISTS", migrator.GenerateScript(options: MigrationsSqlGenerationOptions.Idempotent));
         await migrator.MigrateAsync("0");
@@ -46,8 +48,37 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
         var tables = await context.Database.SqlQueryRaw<string>("SELECT tablename AS \"Value\" FROM pg_tables WHERE schemaname = 'public' AND tablename <> '__EFMigrationsHistory'").ToListAsync();
         Assert.Empty(tables);
         await migrator.MigrateAsync();
-        Assert.Single(await context.Database.GetAppliedMigrationsAsync());
+        Assert.Equal(2, (await context.Database.GetAppliedMigrationsAsync()).Count());
         Assert.False(context.Database.HasPendingModelChanges());
+    }
+
+    [Fact]
+    public async Task AudienceMigrationPreservesLegacyDataWithoutGuessingItsOriginalAudience()
+    {
+        await using var context = database.CreateContext();
+        var migrator = context.GetService<IMigrator>();
+        await migrator.MigrateAsync("20261018205035_InitialIdentity");
+        var user = User.Create("legacy@identity.example", null, Now);
+        user.VerifyEmail(Now);
+        context.Add(user);
+        await context.SaveChangesAsync();
+        var id = Guid.NewGuid();
+        var tokenId = Guid.NewGuid();
+        var hash = new string('e', 64);
+        try
+        {
+            await context.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO sessions (id, user_id, client_id, created_at, last_used_at, absolute_expires_at) VALUES ({id}, {user.Id}, 'native', {Now}, {Now}, {Now.AddDays(30)})");
+            await context.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO refresh_tokens (id, session_id, token_hash, created_at, expires_at) VALUES ({tokenId}, {id}, {hash}, {Now}, {Now.AddDays(7)})");
+        }
+        finally { await migrator.MigrateAsync(); }
+        var legacy = await context.Sessions.SingleAsync();
+        Assert.Null(legacy.Audience);
+        Assert.Equal(id, legacy.Id);
+        Assert.Equal(hash, (await context.RefreshTokens.SingleAsync()).TokenHash);
+        using var provider = database.CreateProvider();
+        using var scope = provider.CreateScope();
+        Assert.False(await scope.ServiceProvider.GetRequiredService<ILoginRepository>()
+            .IsActiveAsync(user.Id, id, "native", "identity-native", Now, CancellationToken.None));
     }
 
     [Fact]
@@ -58,7 +89,7 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
         Assert.Equal(new[] { "credentials", "one_time_tokens", "outbox_messages", "refresh_tokens", "security_audit_events", "sessions", "users" }, tables.Order(StringComparer.Ordinal));
         var indexes = await context.Database.SqlQueryRaw<string>("SELECT indexname AS \"Value\" FROM pg_indexes WHERE schemaname = 'public'").ToListAsync();
         foreach (var index in new[] { "ux_users_normalized_email", "ux_refresh_tokens_hash", "ux_one_time_tokens_hash",
-            "ix_sessions_user_revocation", "ix_refresh_tokens_session", "ix_refresh_tokens_expiry", "ix_outbox_pending" })
+            "ix_sessions_user_revocation", "ix_sessions_expiry", "ix_refresh_tokens_session", "ix_refresh_tokens_expiry", "ix_outbox_pending" })
         {
             Assert.Contains(index, indexes);
         }
@@ -75,7 +106,7 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
         var offsetNow = Now.ToOffset(TimeSpan.FromHours(6));
         var user = User.Create("User@Example.com", "Initial", offsetNow);
         var credential = Credential.Create(user.Id, "encoded-hash-fixture", offsetNow);
-        var session = Session.Create(user.Id, "native", "Test\r\nAgent", offsetNow, Now.AddDays(30));
+        var session = Session.Create(user.Id, "native", "Test\r\nAgent", offsetNow, Now.AddDays(30), "identity-native");
         var refresh = RefreshToken.Create(session, new string('a', 64), offsetNow, Now.AddDays(7));
         var oneTime = OneTimeToken.Create(user.Id, OneTimeTokenPurpose.EmailVerification, new string('b', 64), offsetNow, Now.AddHours(24));
         var outbox = OutboxMessage.Create("email_verification", Envelope(), offsetNow);
@@ -128,7 +159,7 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
         {
             var now = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
             var user = User.Create("dst@example.com", null, now);
-            var session = Session.Create(user.Id, "native", null, now, now.AddDays(30));
+            var session = Session.Create(user.Id, "native", null, now, now.AddDays(30), "identity-native");
             var refresh = RefreshToken.Create(session, new string('a', 64), now, now.AddDays(7));
             context.AddRange(user, session, refresh);
             Assert.Equal(3, await context.SaveChangesAsync());
@@ -251,9 +282,9 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
         var item = entity switch
         {
             "credential" => (object)Credential.Create(missingUser, "encoded-hash-fixture", Now),
-            "session" => Session.Create(missingUser, "native", null, Now, Now.AddDays(30)),
+            "session" => Session.Create(missingUser, "native", null, Now, Now.AddDays(30), "identity-native"),
             "one_time" => OneTimeToken.Create(missingUser, OneTimeTokenPurpose.EmailVerification, new string('a', 64), Now, Now.AddHours(24)),
-            "refresh" => RefreshToken.Create(Session.Create(missingUser, "native", null, Now, Now.AddDays(30)), new string('b', 64), Now, Now.AddDays(7)),
+            "refresh" => RefreshToken.Create(Session.Create(missingUser, "native", null, Now, Now.AddDays(30), "identity-native"), new string('b', 64), Now, Now.AddDays(7)),
             _ => SecurityAuditEvent.Create(SecurityEventType.Register, missingUser, null, "trace", new AuditMetadata(), Now)
         };
         context.Add(item);
@@ -268,7 +299,7 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
     {
         await using var context = database.CreateContext();
         var user = User.Create("unique@example.com", null, Now);
-        var session = Session.Create(user.Id, "native", null, Now, Now.AddDays(30));
+        var session = Session.Create(user.Id, "native", null, Now, Now.AddDays(30), "identity-native");
         context.AddRange(user, session);
         await context.SaveChangesAsync();
         if (refresh)
@@ -301,7 +332,7 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
     {
         await using var context = database.CreateContext();
         var user = User.Create("check@example.com", null, Now);
-        context.AddRange(user, Session.Create(user.Id, "native", null, Now, Now.AddDays(30)),
+        context.AddRange(user, Session.Create(user.Id, "native", null, Now, Now.AddDays(30), "identity-native"),
             OutboxMessage.Create("email_verification", Envelope(), Now),
             SecurityAuditEvent.Create(SecurityEventType.Register, user.Id, null, "trace", new AuditMetadata(), Now));
         await context.SaveChangesAsync();
@@ -356,8 +387,8 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
     {
         await using var context = database.CreateContext();
         var user = User.Create("family@example.com", null, Now);
-        var first = Session.Create(user.Id, "native", null, Now, Now.AddDays(30));
-        var second = Session.Create(user.Id, "native", null, Now, Now.AddDays(30));
+        var first = Session.Create(user.Id, "native", null, Now, Now.AddDays(30), "identity-native");
+        var second = Session.Create(user.Id, "native", null, Now, Now.AddDays(30), "identity-native");
         var original = RefreshToken.Create(first, new string('a', 64), Now, Now.AddDays(7));
         var foreign = RefreshToken.Create(second, new string('b', 64), Now, Now.AddDays(7));
         context.AddRange(user, first, second, original, foreign);
@@ -386,7 +417,7 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
     {
         await using var setup = database.CreateContext();
         var user = User.Create("refresh-row@example.com", null, Now);
-        var session = Session.Create(user.Id, "native", null, Now, Now.AddDays(30));
+        var session = Session.Create(user.Id, "native", null, Now, Now.AddDays(30), "identity-native");
         var token = RefreshToken.Create(session, new string('a', 64), Now, Now.AddDays(7));
         setup.AddRange(user, session, token);
         await setup.SaveChangesAsync();
