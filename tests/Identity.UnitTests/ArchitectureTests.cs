@@ -1,4 +1,6 @@
 using System.Xml.Linq;
+using Identity.Application.Abstractions.Cqrs;
+using Identity.Domain.Entities;
 
 namespace Identity.UnitTests;
 
@@ -39,6 +41,20 @@ public sealed class ArchitectureTests
         Assert.Equal("Microsoft.Extensions.DependencyInjection.Abstractions", (string?)package.Attribute("Include"));
         Assert.Empty(project.Descendants("FrameworkReference"));
         Assert.Equal("Microsoft.NET.Sdk", (string?)project.Root?.Attribute("Sdk"));
+    }
+
+    [Fact]
+    public void DomainAndApplicationAssembliesDoNotDependOnAspNetOrPersistence()
+    {
+        foreach (var assembly in new[] { typeof(User).Assembly, typeof(ICommand<>).Assembly })
+        {
+            Assert.DoesNotContain(assembly.GetReferencedAssemblies(), reference =>
+                reference.Name!.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal)
+                || reference.Name.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.Ordinal)
+                || reference.Name.StartsWith("Npgsql", StringComparison.Ordinal)
+                || reference.Name.StartsWith("Identity.Infrastructure", StringComparison.Ordinal)
+                || reference.Name.StartsWith("Identity.Api", StringComparison.Ordinal));
+        }
     }
 
     private static XDocument LoadProject(string projectName) =>

@@ -1,4 +1,9 @@
+using Identity.Application.Abstractions.Persistence;
+using Identity.Infrastructure.Persistence;
+using Identity.Infrastructure.Persistence.Repositories;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Identity.Infrastructure;
 
@@ -7,7 +12,16 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-
+        services.AddOptions<DatabaseOptions>()
+            .BindConfiguration(DatabaseOptions.SectionName)
+            .Validate(DatabaseOptions.IsValid, "Database configuration is required and must disable error detail and parameter logging.")
+            .ValidateOnStart();
+        services.AddDbContext<IdentityDbContext>((provider, options) =>
+            options.UseNpgsql(provider.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString));
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<ICredentialRepository, CredentialRepository>();
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IDatabaseReadinessProbe, DatabaseReadinessProbe>();
         return services;
     }
 }

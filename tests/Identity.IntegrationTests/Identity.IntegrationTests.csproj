@@ -2,5 +2,6 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Identity.Api/Identity.Api.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
   </ItemGroup>
 </Project>

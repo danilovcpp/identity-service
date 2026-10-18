@@ -13,3 +13,4 @@ secrets/
 *.pem
 *.pfx
 *.key
+migration.sql

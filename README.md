@@ -3,35 +3,61 @@
 Самостоятельный self-hosted сервис учётных записей и аутентификации на .NET 10.
 Источник требований — [Identity_Codex_Spec.md](Identity_Codex_Spec.md).
 
-Реализован **этап 0: solution и каркас архитектуры**. Сейчас API предоставляет
-только проверку живости. Регистрация, аутентификация, CQRS, хранение данных и отправка
-писем ещё не реализованы: они добавляются отдельными этапами по спецификации.
+Реализованы **этапы 0 и 1: каркас, Domain, EF Core и собственный CQRS**.
+Есть доменная модель, начальная миграция PostgreSQL, репозитории/UnitOfWork,
+типизированные диспетчеры и проверки живости/готовности. Регистрация, login,
+JWT/refresh и отправка писем добавляются следующими этапами по спецификации.
 
 ## Требования
 
 - .NET SDK 10.0 (stable; `global.json` допускает новые feature bands 10.0).
-- Docker Engine с Linux containers и Docker Compose v2 для локального окружения.
+- Docker Engine с Linux containers и Docker Compose v2 для локального окружения
+  и интеграционных тестов (Testcontainers запускает настоящий PostgreSQL 17).
 
-## Запуск API без Docker
+## Сборка и тесты
 
 ```sh
 dotnet restore Identity.slnx
+dotnet tool restore
 dotnet build Identity.slnx --no-restore --configuration Release
 dotnet test Identity.slnx --no-build --no-restore --configuration Release
+```
+
+Тесты запускают временный PostgreSQL, применяют миграцию и удаляют контейнер после
+проверок. БД из Compose и ConnectionString для `dotnet test` не требуются.
+Без доступного Docker integration tests завершаются ошибкой, а не пропускаются.
+
+## Запуск API с SDK
+
+Сначала запустите PostgreSQL из Compose (настройка `.env` описана ниже):
+
+```sh
+docker compose up --detach --wait postgres
+```
+
+Для API и EF CLI обязательна `Database__ConnectionString`. В PowerShell 7 задайте её
+через скрытый ввод, чтобы значение не попало в историю команд:
+
+```powershell
+$env:Database__ConnectionString = Read-Host 'PostgreSQL connection string' -MaskInput
+dotnet ef database update --project src/Identity.Infrastructure --configuration Release
 dotnet run --project src/Identity.Api --launch-profile Identity.Api
 ```
 
-API: `http://localhost:5080`. Проверка:
+Форма строки для локальной БД: `Host=localhost;Port=54320;Database=identity;Username=identity;Password=<ваш пароль из .env>`.
+Без корректной конфигурации API не стартует. API: `http://localhost:5080`. Проверка:
 
 ```sh
 curl --fail http://localhost:5080/health/live
+curl --fail http://localhost:5080/health/ready
 curl --fail http://localhost:5080/openapi/v1.json
 ```
 
 `/health/live` возвращает `200` и `{"status":"healthy"}`. OpenAPI доступен только
 в Development. Launch profile включает Development; без профиля среда по умолчанию
 Production, URL настраивается через `ASPNETCORE_URLS`/`ASPNETCORE_HTTP_PORTS`.
-На этапе 0 API не подключается к PostgreSQL и SMTP, поэтому для этого запуска они не нужны.
+`/health/ready` проверяет подключение к PostgreSQL (200/503), не состояние схемы.
+Миграции выполняются отдельной командой, никогда автоматически при старте API.
 
 ## Локальный запуск через Compose
 
@@ -51,6 +77,7 @@ Remove-Variable identityPassword
 docker compose config --quiet
 docker compose up --build --detach --wait
 curl --fail http://localhost:5080/health/live
+curl --fail http://localhost:5080/health/ready
 curl --fail http://localhost:5080/openapi/v1.json
 docker compose exec -T postgres pg_isready -U identity -d identity
 docker compose ps
@@ -69,19 +96,22 @@ docker compose ps
 PostgreSQL использует именованный volume; `docker compose down` останавливает окружение
 с сохранением данных. `docker compose down --volumes` также **удаляет локальные данные БД**.
 Изменение пароля в `.env` не меняет пароль уже инициализированного PostgreSQL volume.
-PostgreSQL и Mailpit поднимаются для следующих этапов; на этапе 0 API их не использует.
+API получает строку подключения к PostgreSQL через env в Compose. После запуска
+примените миграцию SDK-командой из предыдущего раздела, используя host `localhost`
+и порт 54320; внутри Compose API использует host `postgres` и порт 5432.
+Mailpit пока не используется приложением: отправка писем относится к этапу 2.
 Compose предназначен для разработки: Development и Mailpit без SMTP-аутентификации.
 
 ## Структура и проверки
 
 ```text
-src/Identity.Domain          независимое ядро (пока без сущностей)
-src/Identity.Application     слой use cases и AddApplication
-src/Identity.Infrastructure  инфраструктура и AddInfrastructure
-src/Identity.Api             composition root, MVC Controllers, HTTP
-tests/Identity.UnitTests         проверки project references и изоляции слоёв
-tests/Identity.IntegrationTests  запуск host, MVC discovery и OpenAPI dev/prod
-tests/Identity.ApiTests          HTTP smoke и ProblemDetails
+src/Identity.Domain          сущности, инварианты и переходы состояний
+src/Identity.Application     CQRS/validation/security/persistence контракты, readiness query
+src/Identity.Infrastructure  EF Core/Npgsql, конфигурации, миграции, репозитории, UnitOfWork
+src/Identity.Api             composition root, диспетчеры, MVC Controllers, ProblemDetails
+tests/Identity.UnitTests         Domain, CQRS, конфигурация и архитектура
+tests/Identity.IntegrationTests  PostgreSQL/Testcontainers, миграции, CRUD, транзакции, конкуренция
+tests/Identity.ApiTests          HTTP smoke, readiness 503 и ProblemDetails
 docs/                           архитектура, API, безопасность, запуск
 ```
 
@@ -89,6 +119,7 @@ CI-ready команды из корня репозитория:
 
 ```sh
 dotnet restore Identity.slnx
+dotnet tool restore
 dotnet build Identity.slnx --no-restore --configuration Release
 dotnet test Identity.slnx --no-build --no-restore --configuration Release
 dotnet format Identity.slnx --no-restore --verify-no-changes
@@ -96,9 +127,16 @@ docker build --tag identity:local .
 ```
 
 Настройки компилятора общие: nullable, warnings-as-errors, C# 14; версии NuGet
-фиксируются в `Directory.Packages.props`. EF Core и миграций на этапе 0 нет.
-IntegrationTests сейчас проверяют только композицию приложения; тесты хранения
-с реальным PostgreSQL/Testcontainers появятся с этапом 1. EF InMemory не используется.
+фиксируются в `Directory.Packages.props`. Локальный `dotnet-ef` фиксирован в tool manifest.
+Проверка snapshot (с заданной `Database__ConnectionString`):
+
+```sh
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release
+dotnet ef migrations script --idempotent --project src/Identity.Infrastructure --configuration Release --output migration.sql
+```
+
+`migration.sql` — локальный результат, его не нужно добавлять в репозиторий.
+EF InMemory и SQLite не используются вместо PostgreSQL.
 CI workflow и полная продуктовая поставка относятся к этапу 7.
 
 Подробности: [архитектура](docs/architecture.md), [HTTP API](docs/api.md),
