@@ -2,6 +2,7 @@ using Identity.Application.Abstractions.Persistence;
 using Identity.Application.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Npgsql;
 
 namespace Identity.Infrastructure.Persistence;
 
@@ -16,6 +17,11 @@ internal sealed class UnitOfWork(IdentityDbContext context) : IUnitOfWork
         catch (DbUpdateConcurrencyException)
         {
             throw new ConcurrencyConflictException();
+        }
+        catch (DbUpdateException exception) when (exception.InnerException is PostgresException
+        { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "ux_users_normalized_email" })
+        {
+            throw new DuplicateEmailException();
         }
     }
 

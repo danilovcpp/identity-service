@@ -12,6 +12,18 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsSer
         ProblemDetails problem;
         switch (exception)
         {
+            case BadHttpRequestException request:
+                problem = new ProblemDetails { Status = request.StatusCode, Title = "Invalid request" };
+                problem.Extensions["code"] = request.StatusCode == StatusCodes.Status413PayloadTooLarge ? "request_too_large" : "invalid_request";
+                break;
+            case InvalidVerificationTokenException:
+                problem = new ProblemDetails { Status = StatusCodes.Status400BadRequest, Title = "Invalid verification token" };
+                problem.Extensions["code"] = "invalid_verification_token";
+                break;
+            case RegistrationDisabledException:
+                problem = new ProblemDetails { Status = StatusCodes.Status503ServiceUnavailable, Title = "Registration is unavailable" };
+                problem.Extensions["code"] = "registration_disabled";
+                break;
             case RequestValidationException validation:
                 problem = new ValidationProblemDetails(validation.Errors.GroupBy(error => error.Field)
                     .ToDictionary(group => group.Key, group => group.Select(error => error.Message).Distinct().ToArray()))

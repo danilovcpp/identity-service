@@ -1,4 +1,5 @@
 using Identity.Application.Abstractions.Persistence;
+using Identity.Infrastructure.Email;
 using Identity.Infrastructure.Persistence;
 using Identity.Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<ICredentialRepository, CredentialRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IDatabaseReadinessProbe, DatabaseReadinessProbe>();
+        services.AddRegistrationAndEmail();
         return services;
     }
 }

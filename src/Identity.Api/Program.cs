@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Threading.RateLimiting;
+using Identity.Api.Configuration;
 using Identity.Api.Dispatching;
 using Identity.Api.Middleware;
 using Identity.Application;
@@ -19,6 +21,35 @@ builder.Services.AddInfrastructure();
 builder.Services.AddScoped<ICommandDispatcher, CommandDispatcher>();
 builder.Services.AddScoped<IQueryDispatcher, QueryDispatcher>();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.AddOptions<AuthRateLimitOptions>().BindConfiguration("AuthRateLimits")
+    .Validate(options => options.IpPermitLimit is >= 1 and <= 10000 && options.AccountPermitLimit is >= 1 and <= 1000
+        && options.WindowSeconds is >= 1 and <= 3600, "Public authentication rate limits are invalid.").ValidateOnStart();
+builder.Services.AddSingleton<AccountRateLimiter>();
+builder.Services.AddScoped<AccountRateLimitFilter>();
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("public-auth", context =>
+    {
+        var settings = context.RequestServices.GetRequiredService<Microsoft.Extensions.Options.IOptions<AuthRateLimitOptions>>().Value;
+        return RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = settings.IpPermitLimit,
+            Window = TimeSpan.FromSeconds(settings.WindowSeconds),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        var retry = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var duration) ? (int)Math.Ceiling(duration.TotalSeconds) : 60;
+        context.HttpContext.Response.Headers.RetryAfter = Math.Max(1, retry).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var problem = new ProblemDetails { Status = 429, Title = "Too many requests" };
+        problem.Extensions["code"] = "rate_limited";
+        await context.HttpContext.RequestServices.GetRequiredService<IProblemDetailsService>()
+            .WriteAsync(new ProblemDetailsContext { HttpContext = context.HttpContext, ProblemDetails = problem });
+    };
+});
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -53,6 +84,9 @@ var app = builder.Build();
 
 app.UseExceptionHandler(new ExceptionHandlerOptions { SuppressDiagnosticsCallback = _ => true });
 app.UseStatusCodePages();
+app.UseRouting();
+app.UseRateLimiter();
+app.UseMiddleware<RequestSizeLimitMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

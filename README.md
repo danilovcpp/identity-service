@@ -3,16 +3,15 @@
 Самостоятельный self-hosted сервис учётных записей и аутентификации на .NET 10.
 Источник требований — [Identity_Codex_Spec.md](Identity_Codex_Spec.md).
 
-Реализованы **этапы 0 и 1: каркас, Domain, EF Core и собственный CQRS**.
-Есть доменная модель, начальная миграция PostgreSQL, репозитории/UnitOfWork,
-типизированные диспетчеры и проверки живости/готовности. Регистрация, login,
-JWT/refresh и отправка писем добавляются следующими этапами по спецификации.
+Реализованы **этапы 0–2**: каркас, Domain, EF Core/CQRS, регистрация и подтверждение
+email через зашифрованный transactional outbox и SMTP. Login, JWT/refresh и профиль
+относятся к следующим этапам.
 
 ## Требования
 
 - .NET SDK 10.0 (stable; `global.json` допускает новые feature bands 10.0).
 - Docker Engine с Linux containers и Docker Compose v2 для локального окружения
-  и интеграционных тестов (Testcontainers запускает настоящий PostgreSQL 17).
+  и интеграционных тестов (Testcontainers запускает PostgreSQL 17 и Mailpit).
 
 ## Сборка и тесты
 
@@ -23,7 +22,7 @@ dotnet build Identity.slnx --no-restore --configuration Release
 dotnet test Identity.slnx --no-build --no-restore --configuration Release
 ```
 
-Тесты запускают временный PostgreSQL, применяют миграцию и удаляют контейнер после
+Тесты запускают временные PostgreSQL/Mailpit, создают временный ключ, применяют миграцию и удаляют ресурсы после
 проверок. БД из Compose и ConnectionString для `dotnet test` не требуются.
 Без доступного Docker integration tests завершаются ошибкой, а не пропускаются.
 
@@ -58,6 +57,8 @@ curl --fail http://localhost:5080/openapi/v1.json
 Production, URL настраивается через `ASPNETCORE_URLS`/`ASPNETCORE_HTTP_PORTS`.
 `/health/ready` проверяет подключение к PostgreSQL (200/503), не состояние схемы.
 Миграции выполняются отдельной командой, никогда автоматически при старте API.
+При запуске с SDK регистрация и worker по умолчанию выключены. Для включения
+см. [конфигурацию доставки](docs/deployment.md#регистрация-и-письма).
 
 ## Локальный запуск через Compose
 
@@ -69,13 +70,25 @@ Copy-Item .env.example .env
 $identityPassword = [Convert]::ToHexString([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
 (Get-Content .env) -replace '^POSTGRES_PASSWORD=.*$', "POSTGRES_PASSWORD=$identityPassword" | Set-Content .env
 Remove-Variable identityPassword
+New-Item -ItemType Directory -Path secrets -Force | Out-Null
+if (-not (Test-Path secrets/outbox-dev.key)) {
+    [System.IO.File]::WriteAllBytes((Join-Path (Get-Location) 'secrets/outbox-dev.key'), [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+}
 ```
 
-Не добавляйте `.env` в Git. Запуск и проверка:
+Это первоначальная настройка: при обычном запуске сохраняйте существующие `.env`
+и ключ. Не добавляйте их в Git. Сначала поднимите зависимости:
 
 ```sh
 docker compose config --quiet
-docker compose up --build --detach --wait
+docker compose up --detach --wait postgres mailpit
+```
+
+Примените миграцию SDK-командой из предыдущего раздела с host `localhost`, портом
+54320 и паролем из `.env`. Затем запустите API:
+
+```sh
+docker compose up --build --detach --wait api
 curl --fail http://localhost:5080/health/live
 curl --fail http://localhost:5080/health/ready
 curl --fail http://localhost:5080/openapi/v1.json
@@ -96,18 +109,21 @@ docker compose ps
 PostgreSQL использует именованный volume; `docker compose down` останавливает окружение
 с сохранением данных. `docker compose down --volumes` также **удаляет локальные данные БД**.
 Изменение пароля в `.env` не меняет пароль уже инициализированного PostgreSQL volume.
-API получает строку подключения к PostgreSQL через env в Compose. После запуска
-примените миграцию SDK-командой из предыдущего раздела, используя host `localhost`
-и порт 54320; внутри Compose API использует host `postgres` и порт 5432.
-Mailpit пока не используется приложением: отправка писем относится к этапу 2.
+API получает настройки БД/SMTP через env, ключ — через secret mount.
+Внутри Compose используются `postgres:5432` и `mailpit:1025`.
+Worker доставляет письма в Mailpit; успешная доставка очищает encrypted payload.
 Compose предназначен для разработки: Development и Mailpit без SMTP-аутентификации.
+
+Сценарий register → Mailpit → verify, resend и curl-команды описаны в [docs/api.md](docs/api.md).
+Страница `localhost:3000/verify` из dev-шаблона не входит в Identity: скопируйте токен
+из fragment ссылки в Mailpit и отправьте POST verify либо настройте собственную страницу/BFF.
 
 ## Структура и проверки
 
 ```text
 src/Identity.Domain          сущности, инварианты и переходы состояний
-src/Identity.Application     CQRS/validation/security/persistence контракты, readiness query
-src/Identity.Infrastructure  EF Core/Npgsql, конфигурации, миграции, репозитории, UnitOfWork
+src/Identity.Application     CQRS, Register/VerifyEmail/RequestEmailVerification handlers/validators
+src/Identity.Infrastructure  EF/Npgsql, PBKDF2, AES-GCM, SMTP, outbox worker
 src/Identity.Api             composition root, диспетчеры, MVC Controllers, ProblemDetails
 tests/Identity.UnitTests         Domain, CQRS, конфигурация и архитектура
 tests/Identity.IntegrationTests  PostgreSQL/Testcontainers, миграции, CRUD, транзакции, конкуренция

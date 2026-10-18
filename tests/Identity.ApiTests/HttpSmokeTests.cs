@@ -7,6 +7,7 @@ using Identity.Api.Controllers;
 using Identity.Application.Common;
 using Identity.Domain.Exceptions;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -80,6 +81,7 @@ public sealed class HttpSmokeTests : IAsyncLifetime
     [InlineData("validation", HttpStatusCode.BadRequest, "validation_failed")]
     [InlineData("domain", HttpStatusCode.BadRequest, "invalid_user_state")]
     [InlineData("concurrency", HttpStatusCode.Conflict, "concurrency_conflict")]
+    [InlineData("too-large", HttpStatusCode.RequestEntityTooLarge, "request_too_large")]
     public async Task KnownExceptionsReturnStableErrorCodes(string path, HttpStatusCode status, string code)
     {
         await using var factory = _factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
@@ -126,6 +128,18 @@ public sealed class HttpSmokeTests : IAsyncLifetime
         using var live = await client.GetAsync("/health/live");
         Assert.Equal(HttpStatusCode.OK, live.StatusCode);
     }
+
+    [Fact]
+    public async Task OversizedAuthBodyIsRejectedBeforeModelBindingWithProblemDetails()
+    {
+        using var client = _factory.CreateClient();
+        using var body = new StringContent(new string('x', 17000), System.Text.Encoding.UTF8, "application/json");
+        using var response = await client.PostAsync("/api/v1/auth/register", body);
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("request_too_large", json.RootElement.GetProperty("code").GetString());
+        Assert.True(json.RootElement.TryGetProperty("traceId", out _));
+    }
 }
 
 // Discovered only by the test host's ApplicationPart; never shipped with the API.
@@ -142,6 +156,9 @@ public sealed class FailureController : ApiController
 
     [HttpGet("concurrency")]
     public IActionResult Concurrency() => throw new ConcurrencyConflictException();
+
+    [HttpGet("too-large")]
+    public IActionResult TooLarge() => throw new BadHttpRequestException("internal-test-failure", 413);
 
     [HttpPost("model")]
     public IActionResult Model(ValidationRequest request) => Ok();

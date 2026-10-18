@@ -1,4 +1,4 @@
-# Архитектура Identity — этапы 0–1
+# Архитектура Identity — этапы 0–2
 
 Граф project references соответствует разделу 3 спецификации:
 
@@ -53,8 +53,8 @@ rotation/replay; блокировки семейства и отзыв всей 
 
 Конфигурация Database options проверяется ValidateOnStart; Domain/Application
 не получают IConfiguration. Миграции запускаются отдельно через design-time factory.
-Security-интерфейсы заданы без фиктивных реализаций: PBKDF2/outbox encryption и JWT
-появятся на этапах 2 и 3 соответственно.
+Security-интерфейсы реализованы для PBKDF2, случайных токенов и outbox encryption;
+JWT остаётся этапу 3.
 MediatR, generic repository, ASP.NET Core Identity user management не подключены.
 
 Тесты проверяют зависимости проектов и сборок, Domain, CQRS, cancellation,
@@ -63,3 +63,22 @@ HTTP errors/validation, bootstrap и options. Testcontainers PostgreSQL 17 пр�
 insert и optimistic concurrency. InMemory provider не используется.
 Ограничения 30/7 дней выражены в SQL как 720/168 часов: пределы не зависят от DST
 и часовой зоны соединения PostgreSQL. Это проверено отдельным regression test.
+
+Этап 2 добавляет AuthController и три отдельных command/handler/validator:
+Register, VerifyEmail, RequestEmailVerification. Контроллеры работают через существующий
+dispatcher. Application зависит только от конкретных persistence/security/notification
+интерфейсов. Password policy и NFKC общие для validation/hash/verify; криптографические
+примитивы Microsoft PasswordHasher и AesGcm, а также SMTP/MailKit находятся в Infrastructure.
+
+Регистрация выполняет hash/encrypt также для дубликата email и полагается на unique
+индекс БД; UnitOfWork переводит только его нарушение в DuplicateEmailException, которое
+handler скрывает за generic 202. Один SaveChanges и явный transaction объединяют
+user/credential/token/outbox/audit. Verify/resend блокируют строку user; это сериализует
+подтверждение разных токенов одного пользователя без вызовов handler из handler.
+
+EmailOutboxWorker получает scoped processor на запись. Processor держит транзакцию
+и строковый lock `FOR UPDATE SKIP LOCKED` на время ограниченной по timeout SMTP-отправки,
+затем фиксирует success/cleanup или failure/backoff. Это простой корректный claim для
+малого потока, без lease/schema changes; длинное SMTP-соединение удерживает один DB connection.
+При сбое после принятия письма SMTP и до DB commit возможен повтор — at-least-once.
+Stable Message-Id не является гарантией дедупликации принимающим сервером.
