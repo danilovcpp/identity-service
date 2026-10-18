@@ -9,6 +9,16 @@ services:
       ASPNETCORE_HTTP_PORTS: 8080
       Database__ConnectionString: Host=postgres;Port=5432;Database=identity;Username=identity;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       Registration__Enabled: "true"
+      Jwt__Enabled: "true"
+      Jwt__Issuer: "${JWT_ISSUER:-https://identity.localhost}"
+      Jwt__ActiveKeyId: dev-jwt
+      Jwt__PrivateKeyPath: /run/secrets/identity_jwt_key
+      Identity__Clients__0__ClientId: native
+      Identity__Clients__0__Audience: identity-native
+      Identity__Clients__0__Enabled: "true"
+      Identity__Clients__1__ClientId: backend
+      Identity__Clients__1__Audience: identity-backend
+      Identity__Clients__1__Enabled: "true"
       Outbox__Enabled: "true"
       OutboxEncryption__ActiveKeyId: dev-outbox
       OutboxEncryption__Keys__dev-outbox: /run/secrets/identity_outbox_key
@@ -19,6 +29,7 @@ services:
       Email__Smtp__Tls: None
     secrets:
       - identity_outbox_key
+      - identity_jwt_key
     ports:
       - "127.0.0.1:${API_PORT:-5080}:8080"
     depends_on:
@@ -58,3 +69,5 @@ volumes:
 secrets:
   identity_outbox_key:
     file: ${OUTBOX_KEY_FILE:-./secrets/outbox-dev.key}
+  identity_jwt_key:
+    file: ${JWT_KEY_FILE:-./secrets/jwt-dev.pem}

@@ -2,6 +2,7 @@ using Identity.Application.Abstractions.Persistence;
 using Identity.Infrastructure.Email;
 using Identity.Infrastructure.Persistence;
 using Identity.Infrastructure.Persistence.Repositories;
+using Identity.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -23,6 +24,8 @@ public static class DependencyInjection
         services.AddScoped<ICredentialRepository, CredentialRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IDatabaseReadinessProbe, DatabaseReadinessProbe>();
+        // Validate/load JWT and outbox key rings before starting the email worker.
+        services.AddLogin();
         services.AddRegistrationAndEmail();
         return services;
     }

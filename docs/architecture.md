@@ -1,4 +1,23 @@
-# Архитектура Identity — этапы 0–2
+# Архитектура Identity — этапы 0–3
+
+Этап 3 добавляет LoginCommand/validator/handler в Application. ILoginSettings,
+ILoginPasswordVerifier, ITokenService и ILoginRepository сохраняют независимость
+от IConfiguration/JWT/EF/HTTP. Handler использует существующие user/credential
+repositories и UoW; один row lock user сериализует counters, rehash и создание session.
+LoginRepository выполняет read-only проверку активного user/session через AsNoTracking.
+Миграции не менялись: все нужные таблицы/constraints созданы этапом 1.
+
+Infrastructure содержит options/clients, immutable RSA key ring, JwtTokenService
+на Microsoft.IdentityModel.JsonWebTokens и публичную JWK projection. Key ring загружается
+как IHostedService до запросов; ключи не генерируются API. Криптопровайдеры этих RSA
+не используют глобальный signature-provider cache: он может удерживать освобождённый
+RSA при повторном создании host в одном процессе. Подпись остаётся библиотечной.
+
+API конфигурирует JwtBearer и его OnTokenValidated (обязательные claims + scoped
+проверка активности по ILoginRepository), единые 401/403 ProblemDetails и default MVC
+AuthorizeFilter. Публичные auth actions явно AllowAnonymous, поэтому новые auth actions
+будут защищены по умолчанию. DiscoveryController публикует только public JWK Set.
+Тестовые protected/external API controllers находятся исключительно в test assembly.
 
 Граф project references соответствует разделу 3 спецификации:
 
@@ -54,7 +73,7 @@ rotation/replay; блокировки семейства и отзыв всей 
 Конфигурация Database options проверяется ValidateOnStart; Domain/Application
 не получают IConfiguration. Миграции запускаются отдельно через design-time factory.
 Security-интерфейсы реализованы для PBKDF2, случайных токенов и outbox encryption;
-JWT остаётся этапу 3.
+JWT реализован на этапе 3.
 MediatR, generic repository, ASP.NET Core Identity user management не подключены.
 
 Тесты проверяют зависимости проектов и сборок, Domain, CQRS, cancellation,

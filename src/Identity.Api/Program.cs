@@ -18,6 +18,7 @@ builder.Host.UseDefaultServiceProvider(options =>
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
+builder.Services.AddIdentityAuthentication();
 builder.Services.AddScoped<ICommandDispatcher, CommandDispatcher>();
 builder.Services.AddScoped<IQueryDispatcher, QueryDispatcher>();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
@@ -50,7 +51,8 @@ builder.Services.AddRateLimiter(options =>
             .WriteAsync(new ProblemDetailsContext { HttpContext = context.HttpContext, ProblemDetails = problem });
     };
 });
-builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
+builder.Services.AddControllers(options => options.Filters.Add(new Microsoft.AspNetCore.Mvc.Authorization.AuthorizeFilter()))
+    .ConfigureApiBehaviorOptions(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
     {
@@ -75,6 +77,8 @@ builder.Services.AddProblemDetails(options =>
         {
             StatusCodes.Status404NotFound => "not_found",
             StatusCodes.Status405MethodNotAllowed => "method_not_allowed",
+            StatusCodes.Status401Unauthorized => "unauthorized",
+            StatusCodes.Status403Forbidden => "forbidden",
             _ => "request_failed"
         });
     };
@@ -85,6 +89,8 @@ var app = builder.Build();
 app.UseExceptionHandler(new ExceptionHandlerOptions { SuppressDiagnosticsCallback = _ => true });
 app.UseStatusCodePages();
 app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseRateLimiter();
 app.UseMiddleware<RequestSizeLimitMiddleware>();
 

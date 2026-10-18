@@ -1,7 +1,39 @@
-# Безопасность Identity — этапы 0–2
+# Безопасность Identity — этапы 0–3
+
+Login сериализует попытки одного аккаунта через PostgreSQL FOR UPDATE. После 5 неверных
+паролей аккаунт закрыт на 15 минут; обращения во время блокировки её не продлевают.
+После истечения начинается новый счётчик; успешный login сбрасывает ошибки и выполняет
+rehash при необходимости. Unknown/неактивный/locked пользователь и неизвестный клиент
+получают одинаковую 401. Unknown account выполняет PBKDF2 на случайном dummy hash;
+неактивные/locked аккаунты проверяют реальный hash. Это уменьшает timing shortcuts,
+но не обещает идентичную сетевую латентность для разных DB/cache/старых hash parameters.
+IP/account rate limits общие с регистрацией/resend и локальны экземпляру; DB lockout
+согласован между replicas. Сырой email/IP не попадает в audit/metric labels.
+
+Session + refresh hash + login_success audit + rehash/counter reset фиксируются одной
+транзакцией. Отказ до commit откатывает всё; ответ с токенами возвращается только
+после commit. Refresh — RNG 32 bytes; в PostgreSQL только SHA-256. Отключённый клиент
+не получает токен; clientId не является секретом или аутентификацией клиента.
+
+Access JWT: Microsoft IdentityModel RS256, RSA >=2048, default lifetime 900 секунд,
+только обязательные claims без email/ролей. JWT private PEM из независимого mount;
+JWKS содержит только public n/e и kid/kty/use/alg. Строго проверяются подпись, kid,
+RS256, issuer, audience, exp/nbf, token_use и обязательные claims. Все MVC Controllers
+защищены глобальным AuthorizeFilter, исключения — явные AllowAnonymous actions.
+Identity дополнительно читает активность user/session из БД; внешние API проверяют
+JWT локально через JWKS и только свою audience. Ни OIDC discovery, ни Authority нет.
+При закрытии аккаунта/сессии ранее выданный JWT во внешнем API живёт до exp (+skew).
+Ротация ключей и предварительная публикация public key описаны в deployment docs.
+
+Тесты проверяют wrong issuer/audience/alg/kid/signature, unsigned/expired/future tokens,
+token_use, disabled/deactivated user, отсутствующую/отозванную/истёкшую session,
+restart/rotation и отсутствие raw password/access/refresh/PEM/email в собранных логах.
+Production отвергает test-/dev- key IDs при включённом JWT. Отсутствует готовый
+test/private key в исходниках; ключи тестов случайные и удаляются после завершения.
 
 Схема БД хранит credentials отдельно от профиля и только token_hash для токенов.
-Реализованы публичные registration/verification операции. Login/JWT/refresh ещё отсутствуют.
+Реализованы registration/verification/login, JWT/JWKS и начальный refresh token.
+Refresh rotation/replay/logout относятся к этапу 4.
 Секреты в репозиторий не включены; `.env` и файлы ключей исключены из Git, а Docker
 получает только исходники и файлы сборки через allowlist контекста.
 Локальный пароль PostgreSQL обязателен и задаётся пользователем вне исходников.
@@ -35,7 +67,7 @@ email/IP/password/token поля не принимаются. Retention worker �
 до нормализации/512 после; invalid Unicode отклоняется. Локальный denylist содержит
 распространённые пароли, включая длинные варианты и известные демонстрационные фразы;
 это начальный список, не полная база всех утечек. Rehash-needed корректно возвращается;
-обновление хеша при login будет реализовано на этапе 3.
+успешный login обновляет такой хеш, сохраняя дату фактической смены пароля.
 
 Registration всегда выполняет password hash и построение encrypted email, в том числе
 при дубле email. API возвращает одинаковый 202, уникальность гарантирует PostgreSQL.
@@ -53,8 +85,8 @@ Register и verify сохраняют свои состояния с audit event
 в таблице token hash, в outbox зашифрованы recipient/subject/body целиком.
 SMTP protocol logging отсутствует. Message-Id стабилен, но delivery остаётся at-least-once.
 
-Это ещё не готовый authentication service. HTTPS/reverse proxy, bearer authentication,
-полная защита business endpoints и security-hardening будут реализованы в соответствующих этапах.
+Полная версия продукта ещё не завершена. HTTPS/reverse proxy hardening, refresh lifecycle,
+profile/password lifecycle и дополнительные security checks относятся к последующим этапам.
 Не публикуйте текущее dev-окружение в Интернет.
 
 Будущие ограничения продукта по ТЗ:
@@ -65,4 +97,4 @@ SMTP protocol logging отсутствует. Message-Id стабилен, но 
   или JavaScript-accessible cookie.
 - Отзыв сессии не прекращает действие уже выданного JWT в стороннем API до `exp`.
 - SMTP требует transactional outbox с AES-256-GCM для чувствительной части payload;
-  ключи хранятся вне БД и репозитория. Этап 2 реализует sender/worker; JWT keys появятся отдельно.
+  ключи хранятся вне БД и репозитория. AES и RSA JWT keys независимы.

@@ -1,4 +1,61 @@
-# Запуск и конфигурация Identity — этапы 0–2
+# Запуск и конфигурация Identity — этапы 0–3
+
+## Login, clients и RSA keys
+
+SDK bootstrap по умолчанию оставляет `Jwt:Enabled=false`; login возвращает 503,
+JWKS — пустой набор. Compose явно включает login и монтирует отдельный RSA private PEM.
+Создание dev RSA 3072 описано в README; private key не выводится и не включается в образ.
+Не перезаписывайте его при обычном запуске: restart должен сохранять действующие токены.
+
+| Options/env | Значение/пределы |
+| --- | --- |
+| `Jwt__Enabled` | false; true включает login/загрузку ключей |
+| `Jwt__Issuer` | Обязательный фиксированный HTTPS URI, без userinfo/query/fragment |
+| `Jwt__ActiveKeyId` | 1–100 ASCII букв/цифр/`-`/`_`; production запрещает dev-/test- |
+| `Jwt__PrivateKeyPath` | Абсолютный путь к private RSA PEM, ключ >=2048 (рекомендуется 3072) |
+| `Jwt__PublicKeys__<kid>` | Абсолютные пути к retained/prepublished PUBLIC PEM, максимум 10, без активного kid |
+| `Jwt__AccessTokenLifetimeSeconds` | 900, пределы 60–900 |
+| `Jwt__ClockSkewSeconds` | 30, пределы 0–30 |
+| `Identity__Clients__0__ClientId`, `Audience`, `Enabled` | Уникальный ID <=100, audience <=300, хотя бы один включённый клиент |
+| `Login__FailureLimit`, `LockoutSeconds` | 5 / 900; пределы 2–20 / 60–3600 |
+| `Login__RefreshLifetimeSeconds`, `SessionLifetimeSeconds` | 604800 / 2592000; пределы 60–7 дней / 60–30 дней |
+| Compose `JWT_KEY_FILE`, `JWT_ISSUER` | `./secrets/jwt-dev.pem`, `https://identity.localhost` |
+
+Пример дополнительных env при SDK-запуске (остальные настройки БД/email — ниже):
+
+```powershell
+$env:Jwt__Enabled = 'true'
+$env:Jwt__Issuer = 'https://identity.localhost'
+$env:Jwt__ActiveKeyId = 'dev-jwt'
+$env:Jwt__PrivateKeyPath = Join-Path (Get-Location) 'secrets/jwt-dev.pem'
+$env:Identity__Clients__0__ClientId = 'native'
+$env:Identity__Clients__0__Audience = 'identity-native'
+$env:Identity__Clients__0__Enabled = 'true'
+```
+
+Options проверяются ValidateOnStart; key ring до начала приёма запросов читает файлы,
+проверяет private/public назначение и размер RSA. Ошибки не содержат PEM, путей или
+внутренних исключений. Public-key files не должны содержать private components.
+Файлы/настройки неизменны в течение жизни процесса, изменение требует restart.
+Все replicas должны получать одни и те же ключи и client configuration.
+Не переиспользуйте clientId с другой audience: для новой audience создайте новый ID.
+На этапе 4 привязка audience к refresh-семейству будет реализована вместе с refresh.
+
+Ротация RS256:
+
+1. Создайте новый RSA key вне приложения; храните private PEM в secret provider/mount
+   с минимальными правами. Новый kid обязателен. Для экспорта public PEM используйте
+   стандартный RSA.ExportSubjectPublicKeyInfoPem/OpenSSL; не копируйте private PEM потребителям.
+2. Добавьте новый PUBLIC PEM в Jwt:PublicKeys на всех replicas, оставив старый активным.
+   Перезапустите их и обновите JWKS-кэши потребителей (endpoint cache — 300 секунд).
+3. Переключите ActiveKeyId/PrivateKeyPath, а старый PUBLIC PEM оставьте в PublicKeys.
+   Не оставляйте новый активный kid одновременно в PublicKeys. Выполните restart.
+4. После последнего JWT старого ключа выждите его lifetime + clock skew и период
+   обновления кэшей потребителей, затем удалите старый public key из JWKS.
+
+Не используйте RSA key как AES outbox key; backups/доступ к этим секретам раздельные.
+JWT revocation в сторонних API ограничен exp. Emergency key compromise требует
+отдельного оперативного обновления JWKS-кэшей всех потребителей.
 
 Локальный bootstrap описан в README. Dockerfile собирает API в .NET 10 SDK image,
 публикует Release и запускает результат в ASP.NET runtime image от non-root пользователя.

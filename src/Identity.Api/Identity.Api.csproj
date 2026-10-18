@@ -3,5 +3,6 @@
     <ProjectReference Include="../Identity.Application/Identity.Application.csproj" />
     <ProjectReference Include="../Identity.Infrastructure/Identity.Infrastructure.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
   </ItemGroup>
 </Project>

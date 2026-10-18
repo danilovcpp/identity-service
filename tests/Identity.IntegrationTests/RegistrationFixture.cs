@@ -26,12 +26,21 @@ public sealed class RegistrationFixture : IAsyncLifetime
         .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(request => request.ForPort(8025).ForPath("/"))).Build();
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "identity-registration-tests-" + Guid.NewGuid().ToString("N"));
     private string KeyPath => Path.Combine(_directory, "outbox-key");
+    public string JwtKeyPath => Path.Combine(_directory, "jwt-key.pem");
+    public string OldPublicKeyPath => Path.Combine(_directory, "jwt-public.pem");
+    public string NextJwtKeyPath => Path.Combine(_directory, "jwt-next.pem");
     public HttpClient Mailpit { get; private set; } = null!;
 
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(_directory);
         await File.WriteAllBytesAsync(KeyPath, RandomNumberGenerator.GetBytes(32));
+        using (var rsa = RSA.Create(3072))
+        {
+            await File.WriteAllTextAsync(JwtKeyPath, rsa.ExportPkcs8PrivateKeyPem());
+            await File.WriteAllTextAsync(OldPublicKeyPath, rsa.ExportSubjectPublicKeyInfoPem());
+        }
+        using (var rsa = RSA.Create(3072)) { await File.WriteAllTextAsync(NextJwtKeyPath, rsa.ExportPkcs8PrivateKeyPem()); }
         await Task.WhenAll(_postgres.StartAsync(), _mailpit.StartAsync());
         Mailpit = new HttpClient { BaseAddress = new Uri($"http://{_mailpit.Hostname}:{_mailpit.GetMappedPublicPort(8025)}") };
         await using var context = CreateContext();
@@ -44,6 +53,9 @@ public sealed class RegistrationFixture : IAsyncLifetime
         await _mailpit.DisposeAsync();
         await _postgres.DisposeAsync();
         File.Delete(KeyPath);
+        File.Delete(JwtKeyPath);
+        File.Delete(OldPublicKeyPath);
+        File.Delete(NextJwtKeyPath);
         Directory.Delete(_directory);
     }
 
@@ -85,6 +97,32 @@ public sealed class RegistrationFixture : IAsyncLifetime
         await context.Database.ExecuteSqlRawAsync("TRUNCATE users, credentials, sessions, refresh_tokens, one_time_tokens, outbox_messages, security_audit_events CASCADE");
         using var response = await Mailpit.DeleteAsync("/api/v1/messages");
         response.EnsureSuccessStatusCode();
+    }
+
+    public WebApplicationFactory<Program> CreateLoginFactory(Dictionary<string, string?>? overrides = null, Action<IServiceCollection>? configure = null)
+    {
+        var settings = new Dictionary<string, string?>
+        {
+            ["Jwt:Enabled"] = "true",
+            ["Jwt:Issuer"] = "https://identity.example",
+            ["Jwt:ActiveKeyId"] = "test-jwt",
+            ["Jwt:PrivateKeyPath"] = JwtKeyPath,
+            ["Identity:Clients:0:ClientId"] = "native",
+            ["Identity:Clients:0:Audience"] = "identity-native",
+            ["Identity:Clients:0:Enabled"] = "true",
+            ["Identity:Clients:1:ClientId"] = "backend",
+            ["Identity:Clients:1:Audience"] = "identity-backend",
+            ["Identity:Clients:1:Enabled"] = "true",
+            ["Identity:Clients:2:ClientId"] = "disabled",
+            ["Identity:Clients:2:Audience"] = "identity-disabled",
+            ["Identity:Clients:2:Enabled"] = "false"
+        };
+        if (overrides is not null) { foreach (var pair in overrides) { settings[pair.Key] = pair.Value; } }
+        return CreateFactory(settings, services =>
+        {
+            services.AddControllers().AddApplicationPart(typeof(ProtectedProbeController).Assembly);
+            configure?.Invoke(services);
+        });
     }
 
     public async Task<bool> ProcessAsync(WebApplicationFactory<Program> factory)

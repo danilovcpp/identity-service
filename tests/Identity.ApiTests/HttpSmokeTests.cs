@@ -40,6 +40,18 @@ public sealed class HttpSmokeTests : IAsyncLifetime
         Assert.Equal("healthy", health?.Status);
     }
 
+    [Fact]
+    public async Task DisabledLoginReturns503AndPublishesNoKeys()
+    {
+        using var client = _factory.CreateClient();
+        using var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { email = "user@identity.example", password = "Existing password", clientId = "native" });
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, login.StatusCode);
+        using var error = JsonDocument.Parse(await login.Content.ReadAsStringAsync());
+        Assert.Equal("login_disabled", error.RootElement.GetProperty("code").GetString());
+        using var jwks = JsonDocument.Parse(await client.GetStringAsync("/.well-known/jwks.json"));
+        Assert.Empty(jwks.RootElement.GetProperty("keys").EnumerateArray());
+    }
+
     [Theory]
     [InlineData("GET", "/api/v1/not-found", HttpStatusCode.NotFound, "not_found")]
     [InlineData("POST", "/health/live", HttpStatusCode.MethodNotAllowed, "method_not_allowed")]
@@ -143,6 +155,7 @@ public sealed class HttpSmokeTests : IAsyncLifetime
 }
 
 // Discovered only by the test host's ApplicationPart; never shipped with the API.
+[Microsoft.AspNetCore.Authorization.AllowAnonymous]
 public sealed class FailureController : ApiController
 {
     [HttpGet]

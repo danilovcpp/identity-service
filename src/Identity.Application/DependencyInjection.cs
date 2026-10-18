@@ -1,6 +1,7 @@
 using Identity.Application.Abstractions.Cqrs;
 using Identity.Application.Abstractions.Security;
 using Identity.Application.Common;
+using Identity.Application.Features.Auth.Login;
 using Identity.Application.Features.Auth.Register;
 using Identity.Application.Features.Auth.RequestEmailVerification;
 using Identity.Application.Features.Auth.VerifyEmail;
@@ -18,6 +19,8 @@ public static class DependencyInjection
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<IPasswordPolicy, PasswordPolicy>();
         services.AddScoped<OperationContext>();
+        services.AddScoped<ICommandHandler<LoginCommand, LoginResult>, LoginHandler>();
+        services.AddScoped<ICommandValidator<LoginCommand>, LoginValidator>();
         services.AddScoped<ICommandHandler<RegisterCommand, Unit>, RegisterHandler>();
         services.AddScoped<ICommandValidator<RegisterCommand>, RegisterValidator>();
         services.AddScoped<ICommandHandler<RequestEmailVerificationCommand, Unit>, RequestEmailVerificationHandler>();

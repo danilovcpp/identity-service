@@ -12,6 +12,14 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsSer
         ProblemDetails problem;
         switch (exception)
         {
+            case InvalidCredentialsException:
+                problem = new ProblemDetails { Status = StatusCodes.Status401Unauthorized, Title = "Invalid credentials" };
+                problem.Extensions["code"] = "invalid_credentials";
+                break;
+            case LoginDisabledException:
+                problem = new ProblemDetails { Status = StatusCodes.Status503ServiceUnavailable, Title = "Login is unavailable" };
+                problem.Extensions["code"] = "login_disabled";
+                break;
             case BadHttpRequestException request:
                 problem = new ProblemDetails { Status = request.StatusCode, Title = "Invalid request" };
                 problem.Extensions["code"] = request.StatusCode == StatusCodes.Status413PayloadTooLarge ? "request_too_large" : "invalid_request";

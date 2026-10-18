@@ -3,8 +3,9 @@
 Самостоятельный self-hosted сервис учётных записей и аутентификации на .NET 10.
 Источник требований — [Identity_Codex_Spec.md](Identity_Codex_Spec.md).
 
-Реализованы **этапы 0–2**: каркас, Domain, EF Core/CQRS, регистрация и подтверждение
-email через зашифрованный transactional outbox и SMTP. Login, JWT/refresh и профиль
+Реализованы **этапы 0–3**: каркас, Domain, EF Core/CQRS, регистрация и подтверждение
+email через зашифрованный transactional outbox и SMTP, login с RS256 JWT/JWKS,
+сессией и начальным refresh token. Refresh rotation/logout/sessions API и профиль
 относятся к следующим этапам.
 
 ## Требования
@@ -74,6 +75,12 @@ New-Item -ItemType Directory -Path secrets -Force | Out-Null
 if (-not (Test-Path secrets/outbox-dev.key)) {
     [System.IO.File]::WriteAllBytes((Join-Path (Get-Location) 'secrets/outbox-dev.key'), [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
 }
+if (-not (Test-Path secrets/jwt-dev.pem)) {
+    $identityRsa = [System.Security.Cryptography.RSA]::Create(3072)
+    [System.IO.File]::WriteAllText((Join-Path (Get-Location) 'secrets/jwt-dev.pem'), $identityRsa.ExportPkcs8PrivateKeyPem())
+    $identityRsa.Dispose()
+    Remove-Variable identityRsa
+}
 ```
 
 Это первоначальная настройка: при обычном запуске сохраняйте существующие `.env`
@@ -114,7 +121,7 @@ API получает настройки БД/SMTP через env, ключ — �
 Worker доставляет письма в Mailpit; успешная доставка очищает encrypted payload.
 Compose предназначен для разработки: Development и Mailpit без SMTP-аутентификации.
 
-Сценарий register → Mailpit → verify, resend и curl-команды описаны в [docs/api.md](docs/api.md).
+Сценарий register → Mailpit → verify → login, resend и curl-команды описаны в [docs/api.md](docs/api.md).
 Страница `localhost:3000/verify` из dev-шаблона не входит в Identity: скопируйте токен
 из fragment ссылки в Mailpit и отправьте POST verify либо настройте собственную страницу/BFF.
 
@@ -122,8 +129,8 @@ Compose предназначен для разработки: Development и Mai
 
 ```text
 src/Identity.Domain          сущности, инварианты и переходы состояний
-src/Identity.Application     CQRS, Register/VerifyEmail/RequestEmailVerification handlers/validators
-src/Identity.Infrastructure  EF/Npgsql, PBKDF2, AES-GCM, SMTP, outbox worker
+src/Identity.Application     CQRS, Register/VerifyEmail/RequestEmailVerification/Login handlers/validators
+src/Identity.Infrastructure  EF/Npgsql, PBKDF2, AES-GCM, RS256/JWKS, SMTP, outbox worker
 src/Identity.Api             composition root, диспетчеры, MVC Controllers, ProblemDetails
 tests/Identity.UnitTests         Domain, CQRS, конфигурация и архитектура
 tests/Identity.IntegrationTests  PostgreSQL/Testcontainers, миграции, CRUD, транзакции, конкуренция
@@ -140,6 +147,8 @@ dotnet build Identity.slnx --no-restore --configuration Release
 dotnet test Identity.slnx --no-build --no-restore --configuration Release
 dotnet format Identity.slnx --no-restore --verify-no-changes
 docker build --tag identity:local .
+# PowerShell 7.4+: изолированный end-to-end smoke этапа 3 (временные ресурсы удаляются)
+pwsh -NoProfile -File scripts/Test-Stage3Smoke.ps1
 ```
 
 Настройки компилятора общие: nullable, warnings-as-errors, C# 14; версии NuGet
@@ -158,6 +167,6 @@ CI workflow и полная продуктовая поставка относя
 Подробности: [архитектура](docs/architecture.md), [HTTP API](docs/api.md),
 [безопасность](docs/security.md), [запуск и конфигурация](docs/deployment.md).
 
-Планируемый REST token protocol Identity **не является OAuth 2.0/OpenID Connect**
+REST token protocol Identity **не является OAuth 2.0/OpenID Connect**
 и не предоставляет стандартизованный SSO. Браузерным приложениям потребуется BFF;
 refresh tokens нельзя сохранять в localStorage/sessionStorage или доступных JavaScript cookie.

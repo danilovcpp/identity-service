@@ -26,4 +26,6 @@ public sealed class Credential
         PasswordHash = hash;
         PasswordChangedAt = timestamp;
     }
+
+    public void Rehash(string passwordHash) => PasswordHash = DomainRules.Text(passwordHash, 4096);
 }
