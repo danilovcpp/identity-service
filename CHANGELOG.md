@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10
+## Unreleased — v1.1, stages 8–10, 11.1
+
+- Identity Console bootstrap: React 19, strict TypeScript, Vite, Ant Design 6,
+  pinned npm dependencies, typed linting, formatting and Vitest/RTL smoke test.
+- Server-only development proxy settings, optional local HTTPS and frontend runbook.
+  API integration, authentication and administrative screens remain separate stages.
 
 - Administrative invite/resend/reset/disable/enable/session revocation, protected by
   cookie/CSRF and transactional actor revalidation. Last-administrator race protection.

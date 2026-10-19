@@ -4,11 +4,16 @@
 secure cookie/CSRF API. [Настройка и runbook](docs/admin-access.md). Admin access выключен
 по умолчанию; HTTPS и постоянный защищённый Data Protection directory обязательны.
 Существующие REST Bearer API сохраняются. **Этап 9** добавляет [read-only admin API](docs/admin-read-api.md):
-dashboard, users/details/sessions и audit с pagination/filters. Admin frontend пока отсутствует.
+dashboard, users/details/sessions и audit с pagination/filters.
 
 **Этап 10**: [приглашения, admin reset/disable/enable и session revoke](docs/admin-write-api.md),
 публичное принятие приглашения, transactional encrypted outbox и audit actor/target.
 Приглашения включаются отдельно через Invitations; web-страницы остаются этапом11.
+
+**Этап 11.1**: создан [frontend-каркас Identity Console](src/Identity.Admin.Web/README.md)
+на React/TypeScript/Vite с Ant Design, dev proxy и инструментами качества.
+Реализована только стартовая страница; подключение API и доменные экраны — следующие
+отдельные подэтапы [дополнения v1.2](Identity_Admin_Codex_Addendum_v1.2.md).
 
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):

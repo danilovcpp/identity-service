@@ -1,0 +1,9 @@
+body {
+  margin: 0;
+}
+
+.bootstrap-page {
+  max-width: 80rem;
+  margin-inline: auto;
+  padding: clamp(1.5rem, 5vw, 4rem);
+}

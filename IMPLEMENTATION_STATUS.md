@@ -1,4 +1,169 @@
-# Отчёт по этапу 10
+# Текущий статус: этап 11.1 завершён
+
+**Completed: 11.1**
+
+**Next: 11.2 — только по отдельному запросу пользователя.**
+
+## 1. Этап
+
+**11.1 — Bootstrap проекта и инструменты разработки**, 2026-10-19.
+Источник требований: AGENTS.md, Identity_Codex_Spec.md и
+Identity_Admin_Codex_Addendum_v1.2.md (§2, §8/11.1, §9).
+Изучены существующие Controllers/DTO, конфигурация запуска, документы API и Git.
+На старте дерево чистое. Backend 0–10 завершён: stage10 — **c87306d**,
+stage9 — **9cff58b**, stage8 — **0b8536a**; v1.2 addendum — **c1ebb15**.
+
+## 2. Реализовано
+
+- Новый самостоятельный npm-проект `src/Identity.Admin.Web`, private package,
+  без .NET project references и изменений solution/backend.
+- React/React DOM 19.3.1, Ant Design 6.6.6, icons 6.3.4, Vite 8.3.4.
+  React Router 7.18.4 и TanStack Query 5.104.4 установлены согласно стеку,
+  но providers/routing/API integration не реализованы раньше своих подэтапов.
+- TypeScript 6.0.3: strict/noUncheckedIndexedAccess, app/tests и Node config
+  проверяются отдельными tsconfig references. Alias `@/` согласован с Vite/Vitest.
+- ESLint 10 flat config, type-aware TypeScript rules, React hooks/Fast Refresh,
+  Prettier, Vitest 5 + RTL + jsdom 29; Playwright установлен для будущих сценариев.
+  Версии зависимостей exact, `package-lock.json` включён; `npm ci` проверен.
+- Минимальные каталоги `src/{app,api,components,features,pages,test}`, `public`;
+  пустые будущие каталоги сохранены через .gitkeep. Никаких фиктивных реализаций.
+- `src/main.tsx`: React StrictMode/createRoot, Ant Design reset и базовые стили.
+  `src/app/App.tsx`: настоящий рендер `Identity Console` с Ant Design Typography,
+  semantic main/h1; один RTL smoke-test, автоматическая очистка DOM в test/setup.
+- Скрипты dev/build/preview/typecheck/lint/format/format:check/test/test:run.
+- `vite.config.ts`: только loopback IPv4 `127.0.0.1:5173`, strictPort,
+  dev proxy `/api` без rewrite к текущему local API `http://localhost:5080`.
+  Target и optional HTTPS cert/key paths задаются server-only env; проверка TLS
+  backend не отключена. `envPrefix: []` исключает env из browser bundle.
+- `.env.example`, frontend `.gitignore`/Prettier config, frontend README с
+  requirements, запуском, командами, alias/feature boundaries, proxy/HTTPS/security.
+  Root README/CHANGELOG и scoped EditorConfig indent2 обновлены.
+
+Ключевые файлы: `src/Identity.Admin.Web/{package.json,package-lock.json,
+vite.config.ts,eslint.config.js,tsconfig*.json,index.html,README.md,.env.example}`,
+`src/{main.tsx,app/App.tsx,app/App.test.tsx,app/styles.css,test/setup.ts}` внутри frontend.
+**API, CQRS, DI, БД и миграции не менялись.** Product release 1.0.0 не повышен;
+0.0.0 — внутренняя версия нового private npm package, не отдельный опубликованный релиз.
+
+## 3. Решения
+
+Только bootstrap, без API-клиента, auth/session context, query-key factories,
+protected routes, Dashboard, sidebar, бизнес-форм или публичного token flow.
+Тема Ant Design пока стандартная: centralized tokens и App Shell относятся к 11.3.
+Компоненты/абстракции будущих сценариев не созданы без необходимости.
+
+Node 22.16.0/npm 10.9.2 доступны в окружении. jsdom 30 требует более новый Node,
+поэтому выбран совместимый jsdom 29.1.1; TypeScript 6 совместим с typescript-eslint 8.
+Engine проекта — Node ^22.13 || ^24 || >=26; исходный backend toolchain сохранён.
+Проверены официальные руководства Vite/Ant Design/Vitest и npm engine/peer metadata.
+
+HTTP подходит для bootstrap. Admin cookie flow в дальнейшем требует HTTPS на
+браузерном origin и backend HTTPS либо явной доверенной proxy-конфигурации.
+Предусмотрены optional trusted PEM cert/key paths; private key не публикуется Vite.
+Нет CORS bypass, `secure:false`, отключения CSRF или изменения backend policy.
+
+## 4. Проверки
+
+### Commands run
+
+Из `src/Identity.Admin.Web`:
+
+```powershell
+npm ci
+npm run typecheck
+npm run lint
+npm run format
+npm run format:check
+npm run test -- --run
+npm run test:run
+npm run build
+$env:IDENTITY_API_PROXY_TARGET = 'http://localhost:5085'
+npm run dev
+npm exec playwright install chromium
+```
+
+Из корня:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage11-1'
+dotnet format Identity.slnx --no-restore --verify-no-changes
+dotnet tool restore
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+$env:ASPNETCORE_ENVIRONMENT = 'Development'
+dotnet run --project src/Identity.Api --no-build --configuration Release --no-launch-profile --urls http://localhost:5085
+node TestResults/stage11-1-browser-smoke.mjs
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+Дополнительно Invoke-WebRequest/Invoke-RestMethod: Vite HTML, реальный
+`http://localhost:5085/openapi/v1.json`, direct/proxied `/api/v1/admin/auth/csrf`.
+`rg` проверил dist на proxy target/certificate env names, local backend URLs,
+Database connection marker и private-key marker: совпадений нет.
+
+### Observed results
+
+- npm ci exit0: 309 packages, audit310, известных уязвимостей не обнаружено.
+- typecheck/lint/format:check/test/build exit0; один smoke-test passed, без skips.
+  `test -- --run` и `test:run` проверены отдельно. Production dist создан:
+  JS452.99kB (gzip148.78kB), CSS3.06kB; предупреждений build нет.
+- .NET restore/build/format exit0; **0 warnings / 0 errors**.
+  **470 backend tests passed, 0 failed, 0 skipped**:
+  Unit147 + API45 + Integration278, реальные PostgreSQL/Mailpit в Docker.
+- EF model check exit0: pending model changes отсутствуют; новых миграций нет.
+  Up/Down/reapply/constraints проверены существующим integration suite.
+- Live OpenAPI3.1.1 доступен, содержит16 admin paths; контракт не подменён.
+  Vite HTML200, proxy сохраняет API JSON Content-Type и503 от выключенного
+  AdminAccess, не заменяет его SPA HTML. Это транспортный smoke, не auth E2E.
+- Ad hoc Playwright Chromium smoke: 360/768/1280px, main/h1 видны,
+  горизонтального переполнения/JS page errors нет, browser storage пуст.
+  Скриншот просмотрен. Script/screenshot в ignored TestResults; постоянная E2E suite
+  будущих пользовательских сценариев не добавлена раньше соответствующего этапа.
+- Secret guard self-tests + tracked/untracked tree, diff --check проходят.
+  Временные API/Vite остановлены, тестовые containers удалены fixture cleanup.
+
+Первый npm metadata request ограничен offline-cache sandbox; повтор разрешён.
+Первый dotnet restore не запустился в sandbox; повтор разрешён и успешен.
+Первый Vitest — spawn EPERM из sandbox; с разрешёнными child processes проходит.
+Первый Chromium launch не нашёл browser binary; после `playwright install chromium`
+smoke прошёл. Первый временный API port53680 запрещён ОС; порт5085 работает.
+Vite default localhost привязался к IPv6, недоступному HTTP-клиенту этого окружения;
+явный IPv4 loopback исправил запуск/HTTP-проверки. Финальные проверки выполнены
+после изменения config. Эти промежуточные сбои не являются прошедшими проверками.
+
+## 5. Безопасность
+
+Frontend не получает backend secrets, не обращается к БД/SMTP, не делает fetch,
+не хранит auth/one-time tokens или пароли и не показывает моковые бизнес-данные.
+Server-only env не включены в bundle; `public/` предназначен только для публичных
+ресурсов. Env/local/dependency/build/browser-test artifacts исключены из Git.
+Dev server доступен только на loopback; никакого внешнего deployment не было.
+Backend HTTPS/cookie/CSRF/role/session validation не менялись и прошли регрессию.
+
+## 6. Ограничения / Known issues
+
+Блокеров 11.1 нет. HTTPS с пользовательскими cert files и production TLS не проверялись;
+cookie-auth, CSRF API-клиент и бизнес-сценарии frontend ещё не реализованы по scope.
+`preview` не имеет dev API proxy и не является production сервером.
+Frontend Dockerfile/Compose/reverse proxy/CSP/CI — этап12, не добавлены; отдельный
+Docker image build/smoke не повторялся, существующие backend images/config не менялись.
+Docker использован всеми реальными integration tests; удалённый CI/production
+VPN/SMTP/load/axe/Lighthouse не запускались. React Query/Router пока только dependencies.
+
+Новых backend требований или несовместимостей API, блокирующих bootstrap, не выявлено.
+Рабочие изменения не закоммичены; tag/publish/deploy не выполнялись.
+
+## 7. Следующий этап
+
+**Next: 11.2 — типизированный HTTP-клиент, OpenAPI, CSRF.**
+Не начат. Реализация только после отдельного запроса пользователя.
+
+---
+
+# Исторический отчёт: этап 10 (до текущего frontend-подэтапа)
 
 ## 1. Этап
 

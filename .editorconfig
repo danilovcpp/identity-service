@@ -19,5 +19,8 @@ csharp_prefer_braces = true:warning
 [*.md]
 trim_trailing_whitespace = false
 
+[src/Identity.Admin.Web/**]
+indent_size = 2
+
 [**/Migrations/*.cs]
 generated_code = true
