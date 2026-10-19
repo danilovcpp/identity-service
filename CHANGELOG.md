@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10, 11.1–11.11
+## Unreleased — v1.1, stages 8–10, 11.1–11.12
+
+- Protected read-only audit log for both administrative roles, with server pagination
+  and actor, target/related-user, event and period filters preserved in the URL.
+- Local timestamps with UTC tooltips, known event labels, safe user links and plain
+  correlation IDs; unexpected metadata is excluded from the query cache and UI.
+- Isolate projected user activity from paginated audit cache entries while preserving
+  shared audit invalidation after administrative commands.
+- Validated filter form, history/login restoration, empty/error/manual retry states,
+  real-backend response-order checks and responsive keyboard coverage.
 
 - Per-user refresh sessions with server pagination/state filters, local timestamps
   and UTC tooltips, safe DTO projection, read-only access and horizontal table scrolling.

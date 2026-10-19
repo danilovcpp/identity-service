@@ -20,9 +20,7 @@ const items: MenuProps['items'] = [
   {
     key: 'audit',
     icon: <AuditOutlined aria-hidden="true" />,
-    label: 'Audit log',
-    disabled: true,
-    title: 'Not available yet',
+    label: <Link to="/admin/audit">Audit log</Link>,
   },
 ];
 
@@ -38,7 +36,9 @@ export function Navigation({ onNavigate }: { onNavigate?: () => void }) {
             ? ['console']
             : /^\/admin\/users(?:\/|$)/.test(pathname)
               ? ['users']
-              : []
+              : pathname === '/admin/audit'
+                ? ['audit']
+                : []
         }
         onClick={onNavigate}
       />

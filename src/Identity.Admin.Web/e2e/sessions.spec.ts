@@ -300,11 +300,12 @@ for (const width of [360, 768, 1280]) {
     await expect(table).toBeVisible();
     await table.focus();
     await page.keyboard.press('ArrowRight');
-    if (width < 1280)
-      await expect
-        .poll(() => table.evaluate((element) => element.scrollLeft))
-        .toBeGreaterThan(0);
-    await page.keyboard.press('ArrowLeft');
+    await expect
+      .poll(() => table.evaluate((element) => element.scrollLeft))
+      .toBeGreaterThan(0);
+    // Native smooth scrolling can advance more than one step after key release.
+    // Use repeated keyboard steps to reach the left edge, without fixed sleeps.
+    for (let step = 0; step < 5; step++) await page.keyboard.press('ArrowLeft');
     await expect
       .poll(() => table.evaluate((element) => element.scrollLeft))
       .toBe(0);

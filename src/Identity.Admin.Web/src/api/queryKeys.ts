@@ -21,6 +21,8 @@ export const queryKeys = {
   },
   audit: {
     all: ['admin', 'audit'] as const,
+    userActivity: (userId: string) =>
+      ['admin', 'audit', 'user-activity', userId] as const,
     list: (query: AuditQuery = {}) =>
       ['admin', 'audit', 'list', { ...query }] as const,
   },

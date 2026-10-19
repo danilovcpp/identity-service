@@ -61,7 +61,12 @@ dashboard либо detail/audit; UI сообщает принятие в обр�
 **Этап 11.11**: [сессии пользователя](src/Identity.Admin.Web/docs/sessions.md) в карточке:
 серверные фильтрация/пагинация, локальные даты с UTC tooltip и отдельные подтверждения
 Revoke session / Revoke all sessions. ReadOnly только читает; отзыв всех также завершает
-административные cookie-сессии этого пользователя. Следующий этап —11.12 по запросу.
+административные cookie-сессии этого пользователя.
+
+**Этап 11.12**: [журнал аудита](src/Identity.Admin.Web/docs/audit.md) на `/admin/audit`:
+серверные pagination/actor/target-related/event/time filters с сохранением в URL,
+локальные даты с UTC tooltip, ссылки на карточки и безопасные labels/correlation ID.
+Доступен обеим ролям только для чтения. Следующий этап —11.13 по отдельному запросу.
 
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):

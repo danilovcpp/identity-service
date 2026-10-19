@@ -54,9 +54,9 @@ describe('console shell and routes', () => {
       screen.getByRole('navigation', { name: 'Primary navigation' }),
     ).toBeVisible();
     expect(screen.getByRole('link', { name: 'Users' })).toBeVisible();
-    expect(screen.getByRole('menuitem', { name: 'Audit log' })).toHaveAttribute(
-      'aria-disabled',
-      'true',
+    expect(screen.getByRole('link', { name: 'Audit log' })).toHaveAttribute(
+      'href',
+      '/admin/audit',
     );
     fireEvent.click(
       screen.getByRole('button', { name: 'Collapse navigation' }),
@@ -91,12 +91,7 @@ describe('console shell and routes', () => {
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 
-  it.each([
-    '/missing',
-    '/account/activate',
-    '/admin/users/missing/unknown',
-    '/admin/audit',
-  ])(
+  it.each(['/missing', '/account/activate', '/admin/users/missing/unknown'])(
     'shows a real not-found state for the unimplemented route %s',
     async (path) => {
       renderApp(path);

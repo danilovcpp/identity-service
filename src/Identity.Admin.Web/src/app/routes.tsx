@@ -24,6 +24,11 @@ const UserDetailsPage = lazy(() =>
     default: module.UserDetailsPage,
   })),
 );
+const AuditPage = lazy(() =>
+  import('@/features/audit/AuditPage').then((module) => ({
+    default: module.AuditPage,
+  })),
+);
 
 export function AppRoutes() {
   return (
@@ -57,6 +62,16 @@ export function AppRoutes() {
               element={
                 <Suspense fallback={<LoadingState title="Loading user…" />}>
                   <UserDetailsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="audit"
+              element={
+                <Suspense
+                  fallback={<LoadingState title="Loading audit events…" />}
+                >
+                  <AuditPage />
                 </Suspense>
               }
             />

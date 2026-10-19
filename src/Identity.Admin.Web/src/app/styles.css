@@ -193,6 +193,9 @@ body {
 .session-table {
   overflow-wrap: anywhere;
 }
+.audit-table {
+  overflow-wrap: anywhere;
+}
 .account-status-confirm {
   display: grid;
   gap: var(--ant-margin-md);

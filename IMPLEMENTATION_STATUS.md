@@ -1,4 +1,169 @@
-# Текущий статус: этап 11.11 — управление пользовательскими сессиями
+# Текущий статус: этап 11.12 — журнал аудита
+
+**Completed: 11.12**
+
+**Next: 11.13 — только по отдельному запросу пользователя.**
+
+## 1. Этап
+
+11.12 из Identity_Admin_Codex_Addendum_v1.2.md, 20.10.2026. Изучены AGENTS.md,
+основной Spec, дополнение, status, Git, generated OpenAPI, audit validators/projections
+и React architecture. Дерево чистое, предыдущий commit **53091e9**. Сохранены
+backend0–10, frontend11.1–11.11 и стандартный Ant Design. Этапы11.13+ не начаты.
+
+## 2. Реализовано
+
+- `features/audit/api.ts` / `useAuditEvents.ts`: existing typed GET, AbortSignal,
+  page/count normalization, validation DTO/dates/IDs/duplicates, explicit projection.
+  Query key содержит все server params, staleTime30s/retry=false; нет client-side
+  фильтрации/сортировки/пагинации или fake production data.
+- `parameters.ts`: canonical URL page/pageSize/actorUserId/userId/eventType/from/to,
+  backend int32 offset limit, nonempty UUID, lowercase/underscore event code<=80,
+  ISO timestamps с explicit offset и calendar/range validation. Дробные секунды
+  до7 знаков из existing URL сохраняются, включая sub-millisecond range bounds.
+- `AuditFilters.tsx` / `localTime.ts`: Ant Form + Row/Col/Input, Apply/Reset,
+  local datetime inputs с миллисекундами → ISO UTC; From inclusive, To exclusive.
+  Invalid draft не меняет URL/не запускает запрос. URL history/reload восстанавливает
+  форму; применение/reset/page size сбрасывают page1. Unknown/invalid URL values
+  канонизируются по прежнему принципу каталога; inverted URL period очищается.
+- `AuditPage.tsx` / `AuditTable.tsx` / `eventLabels.ts`: read-only таблица OccurredAt,
+  Event, Actor, Target/related user, Correlation ID; UTC tooltip, backend order,
+  known label + raw event code, unknown event как escaped text, явные null values.
+  Valid user IDs → User Details; target предпочитает targetUserId, fallback legacy
+  userId явно подписан. Loading/empty/error/GET retry/refresh, first-page recovery,
+  external Ant Pagination/page size и keyboard horizontal scroll без page overflow.
+- Protected lazy `/admin/audit` в `app/routes.tsx`, активный Menu item/selected state
+  в Navigation; обе роли через существующий AuthGate. Safe login return path сохраняет
+  только валидированные audit filters. Бывший unimplemented-route test актуализирован.
+- `api/queryKeys.ts` / `useUserActivity.ts`: scoped activity array отделён ключом
+  audit.userActivity(userId) от paginated audit.list. Иначе одинаковые HTTP query params
+  могли смешивать разные формы данных в кеше. Общий audit prefix сохраняет существующую
+  инвалидацию. Добавлены component regression и SPA details→filtered audit E2E.
+- `parameters.test.ts` / `audit.test.tsx`:33 новых cases, URLs/API casing/time bounds,
+  форма/права/pagination/history/loading/zero/error/order/nulls/links/escaping/cache/
+  malformed DTO/cancellation. Удалён один устаревший not-found case для /admin/audit.
+- `e2e/audit.spec.ts`:8 реальных HTTPS/API/PostgreSQL scenarios: обе роли, сравнение
+  row ID order/оригинальных timestamps с response, links, все server filters,
+  reload/history/login return, pagination/unknown event zero, injected network/403,
+  keyboard scroll/screenshots360/768/1280. После sessions, перед visual, retries0.
+- `docs/audit.md`, frontend/root README и CHANGELOG обновлены.
+
+## 3. Решения / фактический контракт / миграции / конфигурация
+
+В backend нет отдельного TargetUserId query: UserId означает target_user_id ИЛИ
+legacy user_id. UI явно использует Target / related user, без выдуманного strict-target
+filter. DTO AdminAuditEvent не содержит metadata; показывается только Correlation ID
+как plain text. Metadata/clientId/extra fields не копируются в новый query cache.
+Это уточнения в рамках требования «согласно фактическому API», без расширения API.
+
+Нативный datetime-local через Ant Input не требует новой date library. Пользователь
+редактирует local time с миллисекундами; неизменённые ISO URL dates сохраняют все7
+fractional digits. Calendar rollover/DST gaps отвергаются; при DST overlap offset
+выбирает браузер, а итоговый UTC instant явно хранится в URL. URL defaults/unknown/
+invalid filters очищаются, form errors остаются видимыми до исправления.
+
+Domain/Application/Infrastructure/API/DTO/security/DB/migrations/packages/lockfile/
+env/config/smoke fixture не менялись. Нового экспорта, редактора JSON и mutations нет.
+
+## 4. Проверки
+
+### Commands run
+
+Из frontend:
+
+```powershell
+npx prettier --write src/features/audit src/app/routes.tsx src/app/routes.test.tsx src/components/layout/Navigation.tsx src/features/auth/returnPath.ts src/app/styles.css
+npx prettier --write src/features/audit e2e/audit.spec.ts playwright.config.ts
+npx prettier --write docs/audit.md README.md
+npx prettier --write src/features/audit src/api/queryKeys.ts src/features/users/useUserActivity.ts src/features/users/userDetails.test.tsx e2e/audit.spec.ts docs/audit.md docs/user-details.md
+npx prettier --write e2e/sessions.spec.ts e2e/audit.spec.ts
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test:run
+npm run api:check
+npm run test:e2e
+```
+
+Последние две команды выполняет smoke harness; test:e2e вызывает npm run build.
+Из корня:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet tool restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage-11-12'
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet format Identity.slnx --no-restore --verify-no-changes
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+### Observed results
+
+- TypeScript/ESLint/Prettier exit0; **294 frontend tests passed**,17files,0failed/skipped,
+  19.20s. Первый lint выявил date helpers exports в component file и лишний async в
+  синхронном тесте; исправлены переносом helpers в localTime.ts и удалением async.
+  Предыдущие полные Vitest runs также зелёные (293tests,18.97s/22.92s); после cache
+  regression294passed. Assertions/timeouts не ослаблялись.
+- .NET restore/build exit0,0warnings/0errors; **470 tests passed**,0failed/skipped:
+  147Unit/45API/278Integration, реальные PostgreSQL/Mailpit, integration1m25s.
+- EF: No changes have been made to the model since the last migration; format exit0.
+  OpenAPI types match Identity.Api. Production build exit0: AuditPage8.83kB,
+  CSS4.13kB, максимальный chunk357.43kB; warning500kB неизменён.
+- Итоговый HTTPS smoke exit0: **72 Chromium scenarios passed**,0failed/skipped,
+  retries0/workers4,3.0m:64 прежних+8 новых. Реальные API/PostgreSQL, обе роли,
+  исходные timestamps и row order, переходы User Details↔filtered audit без cache
+  collision, все filters/history/reload/login return, pagination/zero events,
+  manual retry/403 и keyboard/scroll360/768/1280. Три итоговых audit PNG просмотрены
+  вручную: form controls/pagination доступны, overflow ограничен таблицей, default
+  Ant Design theme сохранена. Все6 миграций применены на новой БД, OpenAPI и dist
+  secret checks прошли; harness очистил API/Vite/Compose volumes/temporary secrets.
+- Repository secret guard с self-test/untracked и Git whitespace check exit0.
+
+Первый smoke63passed/1failed/8not run: Playwright fill отклонял datetime-local с
+нулевыми секундами после нормализации Chromium. Тестовый fill изменён на native
+minute format; приложение уже принимает оба формата. Второй smoke60passed/1failed/
+11not run остановился в прежнем Sessions keyboard test на1280px: ArrowLeft мог
+выполняться до окончания правого scroll. Теперь для всех размеров ожидается движение
+вправо, затем несколько клавиатурных шагов влево до0. Проверки scroll/overflow
+сохранены, fixed sleep/timeout increase/retries не добавлены. Третий smoke61passed/
+1failed/10not run: SPA cache regression начинал ввод до commit pageSize navigation,
+и восстановление формы из URL очищало ранний draft. Тест ожидает новый URL и10 rows
+перед вводом. Четвёртый smoke65passed/1failed/6not run: network test считал все GET при
+первом development mount и получил2 попытки. Lifecycle cancellation/restart в React
+StrictMode — вероятное объяснение, точная причина не инструментирована; это не
+доказательство automatic query retry. Тест переведён
+на Refresh уже загруженной страницы: один failed GET, затем явный manual retry и403.
+Полный smoke повторён с новым fixture и актуальными cache keys; итог72passed.
+
+## 5. Безопасность
+
+Новых write controls/unsafe requests нет у обеих ролей. Авторизация остаётся на
+backend через существующие cookies/CSRF/role policies; global401/403 очищает protected
+view/cache. ID links строятся только из nonempty UUID; raw HTML не используется.
+Ни metadata, ни passwords/tokens/unknown response fields не отображаются/не кешируются.
+Нет browser storage/console/analytics с credentials. URL whitelist очищает неизвестные
+поля и не допускает external login return; period/UUID/event code валидируются.
+
+## 6. Ограничения / Known issues
+
+Metadata и strict-target-only filter отсутствуют в текущем API; UI честно показывает
+поддерживаемую семантику. История ограничена retention. Local date editing — browser
+millisecond precision, с описанным DST behavior; URL сохраняет higher precision.
+Только Chromium; Firefox/WebKit/axe/Lighthouse/production image/deployment не проверялись.
+npm ci не повторяется, зависимости не менялись. MFA/network ограничения прежние.
+
+## 7. Следующий этап
+
+**11.13 — Публичные страницы активации и смены пароля**, только по отдельному запросу.
+Не начат. Git summary/commit на английском, push/deploy не выполняются.
+
+---
+
+# История: этап 11.11 — управление пользовательскими сессиями
 
 **Completed: 11.11**
 

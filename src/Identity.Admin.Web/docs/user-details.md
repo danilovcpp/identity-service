@@ -25,9 +25,11 @@ audit rows. В cache попадают только перечисленные п
 Поля password/hash/token/outbox отсутствуют в UI. Server authorization остаётся источником
 доступа, UI читает данные исключительно через same-origin GET с AbortSignal.
 
-Query hooks `useUserDetails`/`useUserActivity` используют прежние factories:
-users.detail(userId), audit.list({Page:1,PageSize:10,UserId}). staleTime30s, retry=false,
-networkMode=always. Audit монтируется после успешного detail GET. Account404/invalid UUID
+Query hooks `useUserDetails`/`useUserActivity` используют общие factories:
+users.detail(userId), audit.userActivity(userId). staleTime30s, retry=false,
+networkMode=always. С11.12 ключ scoped activity отделён от paginated audit.list,
+поскольку формы данных различаются; общий audit prefix сохраняет инвалидацию.
+Audit монтируется после успешного detail GET. Account404/invalid UUID
 не запускают audit. Невалидный или нулевой UUID даёт отдельное состояние до HTTP запроса;
 неизвестный валидный ID — User not found. Ошибка активности не скрывает профиль; GET retry
 повторяет только соответствующий запрос. Неудачный refresh скрывает устаревшие данные

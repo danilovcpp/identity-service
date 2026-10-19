@@ -13,11 +13,7 @@ import {
   testUserEvent as event,
 } from '@/test/userDetails';
 import { UserDetailsPage } from './UserDetailsPage';
-import {
-  getUserDetails,
-  getUserActivity,
-  userActivityQuery,
-} from './detailsApi';
+import { getUserDetails, getUserActivity } from './detailsApi';
 
 const id = account.id;
 const json = (data: unknown, status = 200) =>
@@ -288,9 +284,7 @@ describe('read-only user details', () => {
       JSON.stringify(client.getQueryData(queryKeys.users.detail(id))),
     ).not.toContain(marker);
     expect(
-      JSON.stringify(
-        client.getQueryData(queryKeys.audit.list(userActivityQuery(id))),
-      ),
+      JSON.stringify(client.getQueryData(queryKeys.audit.userActivity(id))),
     ).not.toContain(marker);
   });
   it('copies only the user ID and handles clipboard denial without a raw error', async () => {

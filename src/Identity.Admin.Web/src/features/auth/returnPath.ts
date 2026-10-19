@@ -3,6 +3,10 @@ import {
   usersSearchParameters,
 } from '@/features/users/parameters';
 import { isUserId } from '@/features/users/userId';
+import {
+  auditSearchParameters,
+  parseAuditParameters,
+} from '@/features/audit/parameters';
 
 // Catalog and details accept only validated catalog filters, including after login.
 export function safeReturnPath(value: unknown): string {
@@ -14,6 +18,12 @@ export function safeReturnPath(value: unknown): string {
   ) {
     const index = value.indexOf('?');
     const pathname = value.slice(0, index);
+    if (pathname === '/admin/audit') {
+      const query = auditSearchParameters(
+        parseAuditParameters(new URLSearchParams(value.slice(index + 1))),
+      ).toString();
+      return pathname + (query ? `?${query}` : '');
+    }
     if (
       pathname !== '/admin/users' &&
       !(
