@@ -60,6 +60,7 @@ View details — React Router link на `/admin/users/:id` с каноничес
 Back to users; router state для возврата не требуется. Карточка читает detail/activity
 через существующие API. С11.8 Administrator может [пригласить пользователя](invitations.md)
 из каталога и повторно отправить приглашение из карточки Invited; ReadOnly только читает.
+С11.9 Disable/Enable находятся [только в карточке](account-status.md), без массовых действий.
 Сервер остаётся источником авторизации; прежние cookie/CSRF и обработка 401/403 сохранены.
 
 ## Проверки

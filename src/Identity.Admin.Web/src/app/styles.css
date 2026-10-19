@@ -285,6 +285,11 @@ body {
 .user-activity {
   margin-top: var(--ant-margin-lg);
 }
+.account-status-confirm {
+  display: grid;
+  gap: var(--ant-margin-md);
+  overflow-wrap: anywhere;
+}
 .user-actions,
 .invitation-dialog-actions {
   display: flex;

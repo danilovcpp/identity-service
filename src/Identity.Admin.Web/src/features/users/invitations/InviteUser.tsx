@@ -6,15 +6,9 @@ import { containTabFocus } from '@/components/containTabFocus';
 import { useAuth } from '@/features/auth/authContext';
 import { InvitationError } from './InvitationError';
 import { useInvitationCommand } from './useInvitationCommand';
+import { hasControlCharacters } from '../validation';
 
 type Values = { email: string; displayName?: string };
-// Match backend char.IsControl ranges; do not silently strip invalid input.
-function hasControls(value: string) {
-  return Array.from(value).some((character) => {
-    const code = character.charCodeAt(0);
-    return code <= 31 || (code >= 127 && code <= 159);
-  });
-}
 
 function InviteDialog({
   open,
@@ -108,7 +102,7 @@ function InviteDialog({
             { max: 320, message: 'Use at most 320 characters.' },
             {
               validator: (_, value: string | undefined) =>
-                value && hasControls(value)
+                value && hasControlCharacters(value)
                   ? Promise.reject(new Error('Remove control characters.'))
                   : Promise.resolve(),
             },
@@ -130,7 +124,7 @@ function InviteDialog({
             { max: 120, message: 'Use at most 120 characters.' },
             {
               validator: (_, value: string | undefined) =>
-                value && hasControls(value)
+                value && hasControlCharacters(value)
                   ? Promise.reject(new Error('Remove control characters.'))
                   : Promise.resolve(),
             },

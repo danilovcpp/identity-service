@@ -26,7 +26,13 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: '**/invitations.spec.ts',
+      testIgnore: ['**/invitations.spec.ts', '**/accountStatus.spec.ts'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'chromium-account-status',
+      testMatch: '**/accountStatus.spec.ts',
+      dependencies: ['chromium-invitations'],
       use: { ...devices['Desktop Chrome'] },
     },
     // These scenarios create users in the shared disposable database. Run them

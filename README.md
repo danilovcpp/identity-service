@@ -45,6 +45,10 @@ Playwright smoke с настоящими PostgreSQL/Mailpit и CLI bootstrap. Б
 dashboard либо detail/audit; UI сообщает принятие в обработку. ReadOnly только читает.
 Публичная страница активации остаётся этапом11.13.
 
+**Этап 11.9**: [блокировка и разблокировка](src/Identity.Admin.Web/docs/account-status.md)
+в карточке: подтверждение, обязательная причина, обработка last-admin/state409 и обновление
+данных после204. ReadOnly не видит действий; восстановленный статус определяет backend.
+
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):
 registration/verification, RS256 JWT/JWKS, refresh rotation/replay, собственные sessions/

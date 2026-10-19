@@ -52,7 +52,8 @@ Absolute return URLs не принимаются. Поиск по email/name о�
 На360px Descriptions в одну колонку, ID/тексты переносятся. Заголовок активности и Refresh
 не конкурируют за ширину одной строки. Проверяются360/768/1280px и keyboard copy.
 С11.8 для Administrator в статусе Invited доступна [повторная отправка приглашения](invitations.md)
-с подтверждением. Для ReadOnly это действие отсутствует. Password reset, enable/disable,
+с подтверждением. С11.9 Administrator может [блокировать/разблокировать аккаунт](account-status.md)
+с отдельным подтверждением. Для ReadOnly все write controls отсутствуют. Password reset,
 редактирование и session revoke не подключены; сессии — этап11.11.
 
 ## Проверки

@@ -12,6 +12,7 @@ import { useUserDetails } from './useUserDetails';
 import { UserProfile } from './UserProfile';
 import { UserActivity } from './UserActivity';
 import { ResendInvitation } from './invitations/ResendInvitation';
+import { AccountStatusAction } from './accountStatus/AccountStatusAction';
 
 function Details({ userId }: { userId: string }) {
   const query = useUserDetails(userId);
@@ -34,6 +35,11 @@ function Details({ userId }: { userId: string }) {
   return (
     <div aria-busy={query.isFetching}>
       <div className="user-details-refresh">
+        <AccountStatusAction
+          userId={userId}
+          email={query.data.email}
+          status={query.data.status}
+        />
         <ResendInvitation userId={userId} status={query.data.status} />
         <Button
           icon={<ReloadOutlined aria-hidden="true" />}

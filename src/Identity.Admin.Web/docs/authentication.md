@@ -83,6 +83,6 @@ profile projection, 401/403, unknown role/readOnly, cache cleanup, logout failur
 safe return paths и late aborted responses. `npm run test -- --run`, typecheck/lint/
 format:check/build остаются самостоятельными командами. Нет production fixtures.
 
-Dashboard реализован в [11.5](dashboard.md), каталог Users — в [11.6](users.md), карточка — в [11.7](user-details.md), invite/resend — в [11.8](invitations.md); audit/остальные actions/account pages — последующие11.x; production hosting,
+Dashboard реализован в [11.5](dashboard.md), каталог Users — в [11.6](users.md), карточка — в [11.7](user-details.md), invite/resend — в [11.8](invitations.md), Disable/Enable — в [11.9](account-status.md); audit/остальные actions/account pages — последующие11.x; production hosting,
 Docker image frontend, proxy/CSP/CI и unrestricted internet access — отдельный этап12.
 До MFA требуется ограниченный сетевой контур. Никаких новых backend API/миграций.

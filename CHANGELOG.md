@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10, 11.1–11.8
+## Unreleased — v1.1, stages 8–10, 11.1–11.9
+
+- Administrator Disable/Enable confirmations in user details, required disable reason,
+  state/role gating and explicit session/link revocation consequences.
+- Existing CSRF-protected commands with204-only feedback, last-administrator/state
+  conflicts, no optimistic status or automatic replay; refreshed account reads.
+- Real-backend verification of blocked sign-in, revoked admin cookie and restored
+  Invited state, with responsive keyboard confirmation checks.
 
 - Administrator invitation form and confirmed resend for Invited accounts, using
   existing cookie/CSRF API, typed mutations and targeted query invalidation.

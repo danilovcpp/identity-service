@@ -52,6 +52,12 @@ try {
             [IO.File]::WriteAllText($key, $rsa.ExportPkcs8PrivateKeyPem())
         } finally { $certificate.Dispose() }
     } finally { $rsa.Dispose() }
+    # Independent disposable signing key: status tests exercise native sign-in
+    # as well as admin cookies. Never reuse the HTTPS key for JWT signing.
+    $jwtKey = Join-Path $directory 'jwt.pem'
+    $jwtRsa = [Security.Cryptography.RSA]::Create(3072)
+    try { [IO.File]::WriteAllText($jwtKey, $jwtRsa.ExportRSAPrivateKeyPem()) }
+    finally { $jwtRsa.Dispose() }
     $pgPort = Get-TestPort
     $smtpPort = Get-TestPort
     $mailPort = Get-TestPort
@@ -72,6 +78,7 @@ try {
         ASPNETCORE_ENVIRONMENT='Development'; ASPNETCORE_URLS=$api
         ASPNETCORE_Kestrel__Certificates__Default__Path=$pfx; ASPNETCORE_Kestrel__Certificates__Default__Password=$pfxPassword
         AdminAccess__Enabled='true'; AdminAccess__DataProtectionKeyPath=$keyDirectory
+        Jwt__Enabled='true'; Jwt__Issuer='https://identity.example'; Jwt__ActiveKeyId='smoke-jwt'; Jwt__PrivateKeyPath=$jwtKey
         Registration__Enabled='true'; Outbox__Enabled='true'; Outbox__PollSeconds='0.1'
         Invitations__Enabled='true'; Email__InvitationUrlTemplate='https://localhost/account/activate#token={token}'
         IDENTITY_E2E_MAILPIT_URL="http://127.0.0.1:$mailPort"

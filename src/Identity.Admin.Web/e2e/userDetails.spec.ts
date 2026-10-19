@@ -71,9 +71,12 @@ for (const readOnly of [false, true]) {
     );
     await expect(
       page.getByRole('button', {
-        name: /invite|resend|disable|enable|password|revoke|edit/i,
+        name: /invite|resend|enable|password|revoke|edit/i,
       }),
     ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Disable account', exact: true }),
+    ).toHaveCount(readOnly ? 0 : 1);
     expect(commands).toEqual([]);
     expect(navigations).toEqual([]);
     page.removeAllListeners('request');

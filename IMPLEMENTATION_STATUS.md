@@ -1,4 +1,182 @@
-# Текущий статус: этап 11.8 завершён
+# Текущий статус: этап 11.9 завершён
+
+**Completed: 11.9**
+
+**Next: 11.10 — только по отдельному запросу пользователя.**
+
+## 1. Этап
+
+**11.9 — Блокировка и разблокировка пользователя**, 2026-10-19.
+Изучены AGENTS.md, основной Spec, дополнение v1.2, текущий status, Git и реальные
+OpenAPI/Controllers/validators/domain transitions. Начальное дерево чистое;
+11.8 зафиксирован commit **1d0626a**. Backend0–10 и frontend11.1–11.8 сохранены.
+
+## 2. Реализовано
+
+- `features/users/accountStatus/api.ts`: existing typed POST disable с generated
+  DisableUserRequest.reason и enable без body; общий same-origin cookie/CSRF client,
+  AbortSignal, пустой204. Нет новых API/DTO и произвольной смены status.
+- `useAccountStatusCommand.ts`: две конкретные TanStack-команды, immediate ref guard,
+  timeout30s, AbortController до mutation scheduling/unmount cancellation; прежние
+  retry=false/networkMode=always/gcTime=0. Success только после HTTP, без optimistic status.
+- `AccountStatusAction.tsx`: действия только в User Details для Administrator.
+  Disable для Active/PendingVerification/Invited, Enable только Disabled; Deactivated/
+  unknown status и ReadOnly без controls. Последнего администратора определяет backend.
+- Отдельные ConfirmAction для Disable/Enable, target email, Cancel initial focus,
+  подтверждение/keyboard/Escape/focus restoration. Disable объясняет отзыв refresh/admin
+  sessions, запрет sign-in/refresh, invalidation одноразовых ссылок и внешний JWT expiry lag.
+  Enable поясняет, что восстановленный status задаёт Identity; старые сессии/ссылки
+  не восстанавливаются. Нет HTTP при открытии/Cancel.
+- Reason required, max500, trim при submit, control characters/line breaks отклоняются
+  как backend validator; Ant Form/TextArea. Закрытие очищает форму; Cancel во время
+  async validation предотвращает ещё не начатую команду. Pending блокирует fields/
+  confirm/cancel/close, повторный confirm защищён до React render.
+- `StatusCommandError.tsx`: last_administrator409, state409, validation400/reason,
+  CSRF/403/404/429/network/timeout. Только безопасные сообщения, raw ProblemDetails
+  detail/field text и произвольные exception messages не выводятся. Network outcome
+  неизвестен: refresh перед осознанным повтором, автоматического POST replay нет.
+- После204 toast, закрытие confirmation и invalidate users.all (catalog/detail/все
+  cached session pages, включая inactive), dashboard/audit. Auth cache не инвалидируется;
+  новые GET определяют status. Existing global401/403 cleanup/login/Forbidden сохранены.
+- `UserDetailsPage.tsx`: подключение action рядом с существующими resend/refresh.
+  `styles.css`: только geometry формы с theme tokens. Read-only profile DTO projection
+  не расширяется reason/прочими неиспользуемыми полями.
+- `features/users/validation.ts`: существующая char.IsControl-проверка приглашения
+  вынесена для повторного использования reason form; поведение Invite не меняется.
+- `accountStatus.test.tsx`:31 новых component/hook cases. Тестовый ResizeObserver только
+  для jsdom textarea layout; production/browser implementation не подменяется.
+- `e2e/accountStatus.spec.ts`:8 новых serial scenarios. Настоящие disable/enable204,
+  native sign-in200→401→200, revocation отдельной reader admin-cookie, Invited→Disabled→
+  Invited, реальный last-admin409, ReadOnly и injected403/Forbidden, network failure,
+  validation/Tab/Escape/Cancel/focus/screenshots360/768/1280. Прежний detail E2E обновлён
+  для появления Disable у Administrator; ReadOnly без actions.
+- Playwright status project зависит от invitation project, после dashboard baseline
+  checks; workers4/retries0 сохранены. Временные reader/invited accounts из fixture,
+  reader восстанавливается в успешном lifecycle scenario; DB полностью disposable.
+- `scripts/Test-AdminWebSmoke.ps1`: только fixture включает existing Jwt feature с
+  отдельным ephemeral RSA3072 PEM (HTTPS key не переиспользуется). Нативный вход
+  проверяется без чтения/печати response tokens. Ключ удаляется existing finally cleanup,
+  environment восстанавливается. Product defaults не меняются.
+- Root/frontend README, CHANGELOG, docs/authentication/shell/users/user-details и новый
+  docs/account-status.md обновлены. IMPLEMENTATION_STATUS обновлён.
+- Backend/CQRS/API/OpenAPI schema/DB/миграции/solution/security policies, dependencies,
+  lockfile, env samples, Docker images/CI не менялись. Новых product settings нет.
+
+## 3. Решения
+
+ТЗ11.9 разрешает actions в карточке и/или каталоге: выбрана карточка, где видны актуальные
+status/email. Используются существующие Ant theme/ConfirmAction и transport/query keys.
+Небольшой feature hook содержит только disable/enable; универсальный CRUD не создавался.
+Единый users prefix инвалидирует также inactive session keys без внедрения sessions UI
+раньше11.11. UI не знает admin count и не подменяет серверный last-admin guard.
+
+Enable не назначает Active: fresh GET может вернуть Invited/PendingVerification. Backend
+idempotency сохраняется; frontend показывает только допустимую команду для текущего
+DTO. Причина проверяется по реальному более строгому контракту (без control characters).
+Это уточнение отображено в helper text, серверные требования не изменены.
+Расхождений/блокеров API нет. Новых стадий не реализовано.
+
+## 4. Проверки
+
+### Commands run
+
+Frontend:
+
+```powershell
+npm run format
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test:run -- src/features/users/accountStatus/accountStatus.test.tsx
+npm run test:run
+npm run api:check
+npm run build
+npm run test:e2e
+```
+
+Последние три команды — внутри HTTPS smoke (test:e2e включает build/typecheck).
+Из корня:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage11-9'
+dotnet tool restore
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet format Identity.slnx --no-restore --verify-no-changes
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+### Observed results
+
+- Итоговые frontend typecheck/lint/Prettier exit0. **215 tests passed**,0failed/skipped,
+  13files (184 прежних +31 новых), финальный suite9.27s. Проверены status/role gating,
+  reason limits/control/whitespace, async validation Cancel, confirmation,204/403/409,
+  CSRF/404/429/network, double-submit, safe errors, no optimistic data, cached inactive
+  sessions invalidation и abort до/во время HTTP.
+- Итоговый HTTPS smoke exit0: **43 Chromium scenarios passed**,0retry,4workers,1.2m;
+  35 прежних +8 новых. Предыдущий успешный прогон также43passed; после visual fix на360px
+  повторены frontend suite и весь smoke. Реальные PostgreSQL17/Mailpit/API/Vite TLS,
+  оба administrative roles, native login блокируется после Disable, reader cookie
+  отвергается при следующем refresh. Все6 существующих миграций применены. Own processes,
+  Compose volumes, ephemeral JWT/HTTPS/outbox keys очищены; тестовых секретов в dist нет.
+- OpenAPI types match. Production build exit0, без500kB warning: details11.65kB
+  (gzip4.31), users10.69kB(gzip4.46), max chunk357.34kB. Dev browser smoke не подтверждает
+  production hosting. Снимки360/768/1280 просмотрены; после removal счётчика валидатор
+  не теснится с ним на mobile, форма/кнопки читаемы, page overflow отсутствует.
+- .NET restore/build exit0, **0warnings/0errors**. **470 tests passed**,0failed/skipped:
+  Unit147/API45/Integration278 с real PostgreSQL/Mailpit; Integration1m32s. TRX stage11-9
+  находятся в ignored TestResults. Backend после прогона не менялся.
+- EF: No changes have been made to the model since the last migration. .NET format exit0.
+  Secret guard с SelfTest/IncludeUntracked и whitespace check exit0.
+- npm ci/API Docker image build не повторялись (зависимости/backend без изменений).
+  Production frontend Docker image, release deployment и CI hardening — этап12.
+
+Первичный component run обнаружил отсутствие ResizeObserver в jsdom для AutoSize TextArea;
+добавлен test-only stub, затем весь suite успешно выполнен. Первый smoke остановился на
+native login503: прежний fixture выключал Jwt. Existing feature включён только в disposable
+среде с отдельным временным ключом. Следующие два smoke выявили неверное ожидание Dashboard
+после смены роли в новом тесте: реальный login сохранял account return path, включая reload
+того же URL/history.state. Тест теперь явно выбирает protected Dashboard до нового входа;
+существующий auth flow не менялся. После исправления все43passed. Visual review нашёл
+тесное соседство TextArea counter и validation на360px; optional counter убран, лимит/
+helper сохранены, все43passed повторно. NO_COLOR/FORCE_COLOR warnings косметические;
+первичный SELECT migration history на пустой DB ожидаем, все миграции применяются.
+
+## 5. Безопасность
+
+Cookie/CSRF и серверная роль/статус/session authorization сохраняются; ReadOnly controls
+отсутствуют. Последнего администратора защищает существующая атомарная backend проверка,
+проверенная настоящим409. Нет роли-management API, произвольного редактирования status,
+паролей/tokens/links в UI/cache/storage/logs. Mutation variables — только userId/reason;
+reason нужен только форме/команде, не добавляется в profile projection или URL. Не следует
+вводить credentials/лишнюю PII в reason. Confirmation/ref guard/timeout/abort/retry=false
+ограничивают случайные и скрытые повторы. При неопределённой сети UI не обещает результат.
+Сессии/одноразовые ссылки отзывает backend, downstream JWT expiry lag явно поясняется.
+Secret guard проверяет current tree, не полную Git history/все виды секретов.
+
+## 6. Ограничения / Known issues
+
+- После Enable статус определяется свежим GET; прежние сессии и ссылки не возобновляются.
+  Если был Invited, для нового приглашения нужен явный resend через уже готовый11.8.
+- Новый account-status browser suite зависит от invitation fixture; общий harness
+  запускает проекты в нужном порядке и очищает все данные.403 UI scenario инжектирован;
+  реальный запрет ReadOnly mutations остаётся в backend integration suite.
+- Password reset11.10, sessions UI11.11, полный audit11.12 и public account pages11.13
+  не реализованы. Prod image/reverse proxy/CSP/release CI —12. До MFA restricted network.
+- Firefox/WebKit/axe/Lighthouse/production deployment не выполнялись. Известных блокеров
+  11.9 нет. Commit/push/deploy не выполнялись. Env samples не требуют изменений.
+
+## 7. Следующий этап
+
+**11.10 — Запрос сброса пароля администратором**, только по отдельному запросу. Не начат.
+
+---
+
+# История: этап 11.8 завершён
 
 **Completed: 11.8**
 
