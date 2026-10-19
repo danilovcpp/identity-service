@@ -36,8 +36,8 @@ for (const width of [360, 768, 1280]) {
       const dialog = page.getByRole('dialog');
       await expect(dialog).toBeVisible();
       await expect(
-        dialog.getByRole('menuitem', { name: 'Users' }),
-      ).toHaveAttribute('aria-disabled', 'true');
+        dialog.getByRole('link', { name: 'Users', exact: true }),
+      ).toBeVisible();
       await dialog
         .getByRole('link', { name: 'Dashboard', exact: true })
         .click();
@@ -64,7 +64,7 @@ for (const width of [360, 768, 1280]) {
     }
     await expect(
       page.getByRole('link', { name: 'Users', exact: true }),
-    ).toHaveCount(0);
+    ).toHaveCount(width < 768 ? 0 : 1);
     expect(
       await page.evaluate(() => localStorage.length + sessionStorage.length),
     ).toBe(0);
@@ -119,7 +119,11 @@ test('keyboard skip link, drawer trap, Escape and focus restoration', async ({
 test('admin/public unknown paths return safely to the console without a document reload', async ({
   page,
 }) => {
-  for (const route of ['/admin/users', '/account/activate', '/missing']) {
+  for (const route of [
+    '/admin/users/missing',
+    '/account/activate',
+    '/missing',
+  ]) {
     await page.goto(route);
     await expect(
       page.getByRole('heading', { level: 1, name: 'Page not found' }),

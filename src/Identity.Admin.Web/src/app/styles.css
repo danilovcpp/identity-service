@@ -228,6 +228,55 @@ body {
   color: var(--ant-color-text-secondary);
   padding-block: var(--ant-padding-sm);
 }
+.users-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--ant-margin-md);
+  margin-bottom: var(--ant-margin-lg);
+}
+.users-filters > div {
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+.users-filters > .users-search {
+  flex: 2 1 16rem;
+}
+.users-filters label {
+  display: block;
+  margin-bottom: var(--ant-margin-xs);
+}
+.users-filters .ant-select {
+  width: 100%;
+}
+.users-table-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+.user-text {
+  overflow-wrap: anywhere;
+}
+.users-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ant-margin-md);
+  margin-top: var(--ant-margin-lg);
+}
+.users-page-size {
+  display: flex;
+  align-items: center;
+  gap: var(--ant-margin-sm);
+}
+.users-page-size .ant-select {
+  min-width: 7rem;
+}
+.users-pagination .ant-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: var(--ant-margin-sm);
+}
 @media (min-width: 1200px) {
   .dashboard-metrics {
     grid-template-columns: repeat(4, minmax(0, 1fr));

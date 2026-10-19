@@ -58,6 +58,11 @@ export default defineConfig(({ mode }) => {
                 priority: 20,
               },
               {
+                name: 'antd-table',
+                priority: 15,
+                test: /node_modules[\\/]antd[\\/](es|lib)[\\/]table[\\/]/,
+              },
+              {
                 name: 'antd',
                 test: /node_modules[\\/]antd[\\/]/,
                 priority: 10,

@@ -47,23 +47,17 @@ describe('console shell and routes', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('only enables the console link and supports desktop collapse/expand', async () => {
+  it('enables Dashboard and Users and supports desktop collapse/expand', async () => {
     renderApp();
     await screen.findByRole('heading', { name: 'Dashboard' });
     expect(
       screen.getByRole('navigation', { name: 'Primary navigation' }),
     ).toBeVisible();
-    expect(screen.getByRole('menuitem', { name: 'Users' })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
+    expect(screen.getByRole('link', { name: 'Users' })).toBeVisible();
     expect(screen.getByRole('menuitem', { name: 'Audit log' })).toHaveAttribute(
       'aria-disabled',
       'true',
     );
-    expect(
-      screen.queryByRole('link', { name: 'Users' }),
-    ).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole('button', { name: 'Collapse navigation' }),
     );
@@ -97,7 +91,12 @@ describe('console shell and routes', () => {
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 
-  it.each(['/missing', '/account/activate', '/admin/users', '/admin/audit'])(
+  it.each([
+    '/missing',
+    '/account/activate',
+    '/admin/users/missing',
+    '/admin/audit',
+  ])(
     'shows a real not-found state for the unimplemented route %s',
     async (path) => {
       renderApp(path);

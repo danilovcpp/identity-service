@@ -1,4 +1,161 @@
-# Текущий статус: этап 11.5 завершён
+# Текущий статус: этап 11.6 завершён
+
+**Completed: 11.6**
+
+**Next: 11.7 — только по отдельному запросу пользователя.**
+
+## 1. Этап
+
+**11.6 — Пользователи: таблица и поиск**, 2026-10-19.
+Изучены AGENTS.md, основной Spec, дополнение v1.2, текущий status, Git и реальные
+OpenAPI/DTO/validator. В начале дерево чистое; 11.5 зафиксирован commit **f0bec7a**.
+Реализован только каталог; backend-этапы0–10 и frontend11.1–11.5 сохранены.
+
+## 2. Реализовано
+
+- `src/Identity.Admin.Web/src/features/users/parameters.ts`: типизированная модель URL,
+  канонические query params, defaults/whitelist, search200/control chars, pageSize1–100,
+  int32 Page и offset. Transport использует фактические PascalCase параметры OpenAPI.
+- `useUsersParameters.ts`: debounce400ms, browser back/forward, сброс page1 при поиске/
+  фильтрации/сортировке/page-size; reset всех параметров. Незавершённый ввод не теряется
+  при быстром выборе другого фильтра, но отменяется при переходе по history.
+- `api.ts`, `useUsers.ts`: единственный существующий typed client, generated DTO,
+  AbortSignal, query key со всеми параметрами, staleTime30s, retry=false. Числа/числовые
+  строки нормализуются без округления; в cache только документированные поля.
+- `UsersPage.tsx`, `UsersTable.tsx`: Ant Design Table Email/Display name/Status/
+  Email verified/Created/local time/Details; серверные sort/page, total, filters и
+  Refresh. Loading, настоящий empty/0, safe error/manual GET retry; stale таблица
+  скрывается после failed refresh. Пустая страница>1 предлагает Go to first page.
+- `components/LocalDateTime.tsx`: локальное en-US время и UTC ISO title. StatusTag и
+  остальные общие состояния/тема переиспользованы; HTML выводится как текст.
+- Узкие экраны: focusable horizontal scroll region, flex filters/footer, page size
+  доступен и на360px. Empty state вне широкой таблицы. Короткие Select virtual=false;
+  клавиатура и все опции доступны. На1280px все колонки помещаются.
+- `routes.tsx`, Navigation: защищённый lazy `/admin/users`, активный пункт Users;
+  Audit остаётся disabled. View details — обычный SPA Link, state.usersSearch
+  сохраняет фильтры. Сам details screen относится к11.7 и сейчас не реализован.
+- AuthGate/returnPath: только allowlisted параметры `/admin/users` сохраняются после
+  login; прежние запреты absolute URL/login/fragment/backslash сохранены.
+- `parameters.test.ts`, `users.test.tsx`:26 новых unit/component tests. Старые shell/
+  auth tests адаптированы к включённому Users; expired-session fake fetch создаёт
+  новый Response при каждом вызове, исключая повторное чтение одного body.
+- `e2e/users.spec.ts`:8 реальных browser scenarios для обеих ролей, pagination/search/
+  filters/history/empty, keyboard scroll/select, manual GET retry, safe login return
+  и360/768/1280 snapshots. Shell spec проверяет актуальное меню и будущий details404.
+- Vite vendor groups дополнены Ant Design Table без повышения500kB warning limit.
+  Playwright workers=4, retries=0 для ограничения локальной browser/socket нагрузки.
+- Root/frontend README, CHANGELOG, docs/authentication/shell и новый docs/users.md.
+  Backend/API/OpenAPI schema/DB/миграции/solution/security policies/CI/Docker/env samples
+  не менялись. Новых dependencies и конфигурационных переменных нет.
+
+## 3. Решения
+
+URL — источник committed состояния; отдельно только поисковый черновик. Нет нового
+global state, client-side сортировки/пагинации, загрузки всех users для поиска или
+fixtures в production. Запросы проецируют существующий контракт. Обе роли читают
+одинаковый каталог; авторизация остаётся на сервере. Изменения поиска/фильтров дают
+новую запись history, исправление невалидного URL — replace. Query cancellation и
+очистка данных при завершении admin session сохранены.
+
+Граница ТЗ:11.6 требует ссылку на details, а экран задан11.7. Поэтому ссылка ведёт
+на будущий `/admin/users/:id` и существующий protected NotFound, без detail API или
+заглушки карточки. Это явно описано в runbook; сам11.7 не начинался.
+Vendor split задаёт cache boundaries, не обещает уменьшение всего initial download:
+общие vendor chunks могут загружаться вместе с shell.
+
+## 4. Проверки
+
+### Commands run
+
+Из `src/Identity.Admin.Web`:
+
+```powershell
+npm run format
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test:run
+npm run test:run -- src/features/users
+npm run build
+npm run api:check
+npm run test:e2e
+```
+
+Последние три команды выполнены внутри HTTPS smoke script (build также запускает
+typecheck). Из корня:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage11-6'
+dotnet tool restore
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet format Identity.slnx --no-restore --verify-no-changes
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+### Observed results
+
+- Итоговые typecheck/lint/Prettier exit0. **138 frontend tests passed**,0failed/skipped,
+  10files (112 прежних+26 новых). Проверены все query parameters, границы int32/offset,
+  debounce/focus/history, быстрый выбор фильтра при pending search, page-size reset,
+  пустой ответ, failure/retry/refresh, cancellation, null/date и sensitive projection.
+- Итоговый HTTPS smoke exit0: **21 Playwright Chromium scenarios passed**,0retry,
+  4workers,17.8s. Реальные PostgreSQL17/Mailpit/API/CLI и Vite proxy с TLS validation;
+  все6 существующих миграций применены, OpenAPI types match, тестовых секретов в dist нет.
+  Fixture processes/Compose/volumes/keys очищены скриптом. Снимки360/768/1280 просмотрены.
+- Production build exit0, без предупреждения о500kB chunk. UsersPage7.30kB(gzip2.87),
+  app104.01kB(gzip34.44), Antd207.82,Table328.48,UI primitives310.81,React218.76,
+  Dashboard357.34kB; max357.34kB. CSS5.46+2.98kB. Общие vendor chunks могут preload.
+- Backend restore/build exit0, **0warnings/0errors**. **470 backend tests passed**,
+  0failed/skipped: Unit147/API45/Integration278, настоящие PostgreSQL/Mailpit в Docker.
+  TRX stage11-6 сохранены в ignored TestResults; integration1m30s.
+- EF: No changes have been made to the model since the last migration. .NET format,
+  secret guard и diff whitespace check exit0. Установка npm не требовалась: dependencies
+  и lockfile не менялись. API Docker image заново не собирался (backend не менялся).
+
+Промежуточные сбои не засчитаны как успешные проверки: sandbox spawn EPERM исправлен
+запуском Vitest с разрешением; устранены неверные RTL options/селекторы, отсутствие
+ResizeObserver в jsdom (локальный test stub), race ожидания новой страницы и reuse
+Response в старом auth test. History test выявил и помог исправить возврат старого
+черновика. Browser negative test теперь удерживает network abort до ручного retry
+(StrictMode повторно монтирует GET); status filter проверяется настоящей клавиатурой,
+вместо нестабильного click-selector для popup. Один прогон16workers завершился
+ERR_NO_BUFFER_SPACE на открытии login: parallelism ограничен4 без добавления retries.
+После правок выполнен успешный полный прогон. NO_COLOR/FORCE_COLOR warnings runner
+косметические. Первое чтение __EFMigrationsHistory на пустой DB ожидаемо предшествует
+созданию таблицы; все миграции затем применены успешно.
+
+## 5. Безопасность
+
+Read-only UI не отправляет user commands. Cookie/CSRF/401/403 и server authorization
+сохранены. Нет credential persistence, raw backend details, HTML injection или
+неизвестных response fields в cache. Page/filter/sort allowlist, safe redirect и
+AbortSignal ограничивают некорректные запросы и поздние ответы. Поиск по email/name
+присутствует в URL/history по требованиям ТЗ; никаких analytics/browser storage.
+Секреты browser smoke только disposable fixture, не репозиторий/bundle/screenshots.
+
+## 6. Ограничения / Known issues
+
+- Карточка11.7, invite/actions/audit/account pages и production release остаются
+  последующими подэтапами. Links details до11.7 показывают protected NotFound.
+- total ограничен Number.MAX_SAFE_INTEGER для точного отображения, переходы —
+  поддерживаемым backend int32 Page/offset; вне допустимого числового DTO — явная ошибка.
+- Firefox/WebKit, axe/Lighthouse и production deployment не проверялись. Нет новой
+  frontend Docker/CI/proxy/CSP инфраструктуры (этап12), сетевые ограничения до MFA прежние.
+- Известных блокеров11.6 нет. Обновлённые env samples не нужны: новых настроек нет.
+
+## 7. Следующий этап
+
+**11.7 — Карточка пользователя: только чтение**, только после отдельного запроса.
+Не начат. Commit/push/deploy не выполнялись.
+
+---
+
+# История: этап 11.5 завершён
 
 **Completed: 11.5**
 

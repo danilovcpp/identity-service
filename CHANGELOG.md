@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10, 11.1–11.5
+## Unreleased — v1.1, stages 8–10, 11.1–11.6
+
+- Read-only users catalog with server pagination/sort/filter/search, 400ms debounce,
+  validated canonical URL state and browser history restoration for both admin roles.
+- Responsive Ant Design table, local timestamps with UTC tooltips, explicit empty/error/
+  retry states and page-size control on mobile; safe links to the future details route.
+- Typed existing API integration with cancellation/cache isolation, no backend changes.
 
 - Live administrative dashboard with seven server counters, snapshot time and UTC
   30-day registration chart, keyboard tooltip and accessible daily-value table.

@@ -31,6 +31,10 @@ Playwright smoke с настоящими PostgreSQL/Mailpit и CLI bootstrap. Б
 счётчиков, Recharts-график регистраций за30 UTC дней, loading/empty/error/refresh,
 одинаковый read доступ для Administrator/ReadOnly. Users/Audit ещё не подключены.
 
+**Этап 11.6**: [каталог пользователей](src/Identity.Admin.Web/docs/users.md) на `/admin/users`:
+серверные поиск, фильтры, сортировка и пагинация с восстановлением состояния из URL.
+Таблица доступна обеим ролям; карточка пользователя и действия остаются следующими подэтапами.
+
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):
 registration/verification, RS256 JWT/JWKS, refresh rotation/replay, собственные sessions/

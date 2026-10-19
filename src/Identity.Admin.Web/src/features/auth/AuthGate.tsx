@@ -37,7 +37,9 @@ export function AuthGate() {
       <Navigate
         to="/admin/login"
         replace
-        state={{ returnTo: safeReturnPath(location.pathname) }}
+        state={{
+          returnTo: safeReturnPath(location.pathname + location.search),
+        }}
       />
     );
   return (

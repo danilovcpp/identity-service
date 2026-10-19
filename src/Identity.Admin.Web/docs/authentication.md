@@ -20,9 +20,10 @@ Network/503 дают безопасную ошибку с ручным GET retry
 - После POST login выполняется GET me, подтверждающий cookie. Старые reads отменяются,
   кеш предыдущей личности и CSRF очищаются, безопасный профиль записывается в Query.
 - Return destination хранится в router state: только `/admin` и простые внутренние
-  сегменты, без login, absolute URL, query, fragment, backslash и percent encoding.
+  сегменты, без login, absolute URL, fragment, backslash и percent encoding в path.
   Обычно вход ведёт на `/admin`; после guard redirect — на сохранённый внутренний путь.
-  Query фильтры появятся с явным allowlist в соответствующем этапе.
+  С11.6 только `/admin/users` принимает нормализованные query-фильтры из [allowlist каталога](users.md);
+  остальные query-параметры отбрасываются. Browser storage для return path не используется.
 - Logout ждёт серверный 204 (401 также означает завершённую сессию), затем отменяет
   queries, очищает Query/Mutation cache и CSRF. Network/CSRF ошибка не объявляется
   успешным выходом: сессия остаётся, показана ошибка для ручного повтора.
@@ -82,6 +83,6 @@ profile projection, 401/403, unknown role/readOnly, cache cleanup, logout failur
 safe return paths и late aborted responses. `npm run test -- --run`, typecheck/lint/
 format:check/build остаются самостоятельными командами. Нет production fixtures.
 
-Dashboard реализован в [11.5](dashboard.md); users/audit/actions/account pages — последующие11.x; production hosting,
+Dashboard реализован в [11.5](dashboard.md), каталог Users — в [11.6](users.md); details/audit/actions/account pages — последующие11.x; production hosting,
 Docker image frontend, proxy/CSP/CI и unrestricted internet access — отдельный этап12.
 До MFA требуется ограниченный сетевой контур. Никаких новых backend API/миграций.

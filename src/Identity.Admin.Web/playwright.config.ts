@@ -11,6 +11,8 @@ if (!baseURL || !port || !process.env.IDENTITY_E2E_PASSWORD) {
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  // Bound local browser/socket pressure as the real-backend suite grows.
+  workers: 4,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
   reporter: 'list',

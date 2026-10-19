@@ -15,9 +15,7 @@ const items: MenuProps['items'] = [
   {
     key: 'users',
     icon: <TeamOutlined aria-hidden="true" />,
-    label: 'Users',
-    disabled: true,
-    title: 'Not available yet',
+    label: <Link to="/admin/users">Users</Link>,
   },
   {
     key: 'audit',
@@ -35,7 +33,13 @@ export function Navigation({ onNavigate }: { onNavigate?: () => void }) {
       <Menu
         mode="inline"
         items={items}
-        selectedKeys={pathname === '/admin' ? ['console'] : []}
+        selectedKeys={
+          pathname === '/admin'
+            ? ['console']
+            : /^\/admin\/users(?:\/|$)/.test(pathname)
+              ? ['users']
+              : []
+        }
         onClick={onNavigate}
       />
     </nav>

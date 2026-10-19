@@ -243,13 +243,13 @@ describe('administrative authentication', () => {
   it('an expired session on any admin request hides content and clears cached data', async () => {
     const fetch = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(json(testProfile));
-    const client = mount('/admin/users');
+      .mockImplementation(() => Promise.resolve(json(testProfile)));
+    const client = mount('/admin/missing');
     await screen.findByRole('heading', { name: 'Page not found' });
     act(() => {
       client.setQueryData(queryKeys.dashboard(), { private: 'old' });
     });
-    fetch.mockResolvedValue(json({}, 401));
+    fetch.mockImplementation(() => Promise.resolve(json({}, 401)));
     await act(async () => {
       await apiClient
         .request('get', '/api/v1/admin/dashboard', {})

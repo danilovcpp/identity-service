@@ -14,6 +14,11 @@ const DashboardPage = lazy(() =>
     default: module.DashboardPage,
   })),
 );
+const UsersPage = lazy(() =>
+  import('@/features/users/UsersPage').then((module) => ({
+    default: module.UsersPage,
+  })),
+);
 
 export function AppRoutes() {
   return (
@@ -31,6 +36,14 @@ export function AppRoutes() {
                   fallback={<LoadingState title="Loading dashboard…" />}
                 >
                   <DashboardPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="users"
+              element={
+                <Suspense fallback={<LoadingState title="Loading users…" />}>
+                  <UsersPage />
                 </Suspense>
               }
             />

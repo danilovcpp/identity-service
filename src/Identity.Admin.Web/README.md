@@ -2,12 +2,13 @@
 
 Frontend самостоятельного продукта Identity. Выполнены **11.1 — bootstrap** и
 **11.2 — HTTP-клиент, OpenAPI, CSRF**, **11.3 — тема и App Shell**,
-**11.4 — Login / Logout / Route Guards**, **11.5 — Dashboard** из
+**11.4 — Login / Logout / Route Guards**, **11.5 — Dashboard**, **11.6 — Users catalog** из
 [дополнения v1.2](../../Identity_Admin_Codex_Addendum_v1.2.md).
 Вход, выход, профиль и защита маршрутов работают через реальные cookie/CSRF API.
-`/admin` показывает реальные метрики и график регистраций; Users/Audit — следующие подэтапы.
+`/admin` показывает реальные метрики и график регистраций; `/admin/users` — серверный каталог с поиском, фильтрами и пагинацией. Audit пока не подключён.
 Подробности: [authentication](docs/authentication.md), [UI foundation](docs/shell.md).
 Контракт, обновление и проверки статистики: [Dashboard](docs/dashboard.md).
+Параметры URL, границы страниц и проверки каталога: [Users](docs/users.md).
 
 ## Требования и запуск
 

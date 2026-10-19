@@ -16,17 +16,19 @@ AdminLayout: sticky sidebar240px, автоматическое сворачив�
 slots для account/logout/breadcrumb, PageHeader с optional breadcrumbs/
 description/actions и h1 страницы. С11.4 topbar показывает серверный профиль и выход.
 
-| Route      | Текущее поведение                         |
-| ---------- | ----------------------------------------- |
-| `/`        | Replace redirect на `/admin`              |
-| `/admin`   | Dashboard с серверной статистикой (11.5)  |
-| `/admin/*` | NotFound внутри admin shell               |
-| Прочие URL | NotFound в PublicLayout с тем же branding |
+| Route          | Текущее поведение                                  |
+| -------------- | -------------------------------------------------- |
+| `/`            | Replace redirect на `/admin`                       |
+| `/admin`       | Dashboard с серверной статистикой (11.5)           |
+| `/admin/users` | Каталог с серверными фильтрами и страницами (11.6) |
+| `/admin/*`     | NotFound внутри admin shell                        |
+| Прочие URL     | NotFound в PublicLayout с тем же branding          |
 
-Dashboard — единственный активный пункт. Users/Audit disabled и не имеют ссылок.
+Dashboard и Users активны. Audit disabled и не имеет ссылки.
 С11.4 `/admin/login` доступен публично; остальные admin paths закрыты AuthGate.
 Login/logout/profile/Forbidden/cache cleanup: [authentication](authentication.md).
 Метрики/UTC chart/refresh: [Dashboard](dashboard.md).
+Каталог/URL filters/server pagination: [Users](users.md).
 User details и `/account/*` ещё не реализованы. Нет фиктивных метрик/сессий.
 
 ## Общие компоненты
@@ -71,7 +73,7 @@ npm run test:e2e
 С11.4 browser smoke требует настоящий backend и cookie session. Из корня запустите
 `pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1`: disposable PostgreSQL/Mailpit,
 CLI bootstrap, HTTPS Vite/API, OpenAPI check, production build и Chromium.
-Проверяются360/768/1280px, collapse/drawer, overflow/storage/no business requests,
+Проверяются360/768/1280px, collapse/drawer, overflow/storage и только auth/dashboard reads в shell checks,
 skip link, trap/Escape/return focus, resize,404 и SPA возврат. Login/logout/roles/
 refresh/revocation входят в тот же прогон. Trace/video выключены, login screenshots
 только до ввода credentials. Подробности и ограничения — [authentication](authentication.md).
@@ -82,6 +84,9 @@ refresh/revocation входят в тот же прогон. Trace/video вык�
 После появления shell Vite сообщил о bundle816kB. React, Ant Design и UI primitives
 выделены в библиотечные chunks (максимальный336kB); warning limit500kB не повышался.
 Это cache boundaries, а не сокращение общего объёма загрузки. Новых dependencies нет.
+С11.6 добавлена группа Ant Design Table; текущий максимальный chunk около357kB,
+warning limit500kB сохранён. Каталог — отдельный lazy route, общие vendor chunks
+могут загружаться вместе с оболочкой.
 TypeScript/ESLint проверяют также Playwright config и e2e sources.
 
 Настройки dev proxy, HTTPS, OpenAPI и безопасности описаны в [README](../README.md).
