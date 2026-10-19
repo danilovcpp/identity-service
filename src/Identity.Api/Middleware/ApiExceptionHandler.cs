@@ -12,6 +12,10 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsSer
         ProblemDetails problem;
         switch (exception)
         {
+            case AdminUserNotFoundException:
+                problem = new ProblemDetails { Status = StatusCodes.Status404NotFound, Title = "User not found" };
+                problem.Extensions["code"] = "user_not_found";
+                break;
             case AdminForbiddenException:
                 problem = new ProblemDetails { Status = StatusCodes.Status403Forbidden, Title = "Forbidden" };
                 problem.Extensions["code"] = "forbidden";

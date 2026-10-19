@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased — v1.1, stage 8
+## Unreleased — v1.1, stages 8–9
+
+- Read-only admin dashboard/users/details/sessions/audit API for both system roles,
+  server pagination, fixed sort whitelist, bounded literal ILIKE search and UTC filters.
+- DTO-only SQL projections, repeatable-read snapshots, explicit30-day UTC trend window,
+  AdminReadIndexes migration and PostgreSQL/query-count tests.
 
 - Identity system administrator/read-only roles, protected local grant/revoke CLI.
 - Separate server-side admin sessions, Secure HttpOnly cookies, CSRF and JSON auth API.
@@ -8,7 +13,7 @@
 - Atomic last-administrator protection including existing self-deactivation; password
   change/reset/logout-all revoke admin sessions alongside existing refresh sessions.
 - Additive AdminSecureAccess migration, Invited/Invitation schema preparation. Existing
-  Bearer REST protocol preserved; no admin UI/user-management endpoints yet.
+  Bearer REST protocol preserved; no admin UI or administrative write endpoints yet.
 
 ## 1.0.0 — 2026-10-19
 

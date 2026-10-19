@@ -1,5 +1,11 @@
 # Архитектура Identity 1.0.0
 
+Этап9: пять admin query slices с typed validators/DTO и явным DI. Отдельный
+IAdminReadRepository реализован Infrastructure через AsNoTracking Select/GroupBy;
+никаких EF/ASP.NET типов в Application и DbContext в Controllers. Count/page и dashboard
+согласованы RepeatableRead snapshot. Все сортировки фиксированы; ID — tie-breaker.
+AdminReadIndexes добавляет только индексы. [Контракт, SQL и ограничения](admin-read-api.md).
+
 Дополнение v1.1, этап 8: `Identity.AdminCli` — локальный composition root Application +
 Infrastructure без HTTP/worker startup. Системные роли и admin sessions — отдельные Domain
 entities, Application/Admin use cases зарегистрированы явно. Infrastructure содержит

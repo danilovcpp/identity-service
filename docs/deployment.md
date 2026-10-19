@@ -1,5 +1,9 @@
 # Запуск и конфигурация Identity 1.0.0
 
+Этап9 добавляет [read-only admin API](admin-read-api.md) с теми же AdminAccess settings,
+без новых secrets/services. Примените пятую миграцию AdminReadIndexes отдельно; обычное
+создание индексов может блокировать writers, для больших таблиц запланируйте окно.
+
 Для дополнения v1.1, этап 8, см. [admin access](admin-access.md): explicit feature flag,
 durable Data Protection, CLI grant/revoke и HTTPS даже локально. Admin UI пока отсутствует.
 

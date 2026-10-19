@@ -3,7 +3,9 @@
 Дополнение v1.1, этап 8: [административный auth API](admin-access.md#http--cookie--csrf-contract).
 `GET /api/v1/admin/auth/csrf`, `POST /login`, `GET /me`, `POST /logout` (последние три
 под тем же `/api/v1/admin/auth`). Отдельная Secure HttpOnly cookie-схема и CSRF на login/logout;
-пользовательский Bearer не предоставляет admin-доступ. Остальные admin routes ещё не реализованы.
+пользовательский Bearer не предоставляет admin-доступ. Этап9 добавляет пять
+[read-only admin GET endpoints](admin-read-api.md) для dashboard, users/details/sessions и audit.
+Изменяющие административные операции и frontend пока не реализованы.
 
 ## Первый end-to-end сценарий
 

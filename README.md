@@ -3,7 +3,8 @@
 Развитие v1.1: **этап 8** добавляет системные административные роли, CLI bootstrap и
 secure cookie/CSRF API. [Настройка и runbook](docs/admin-access.md). Admin access выключен
 по умолчанию; HTTPS и постоянный защищённый Data Protection directory обязательны.
-Существующие REST Bearer API сохраняются. Admin frontend и dashboard пока не реализованы.
+Существующие REST Bearer API сохраняются. **Этап 9** добавляет [read-only admin API](docs/admin-read-api.md):
+dashboard, users/details/sessions и audit с pagination/filters. Admin frontend пока отсутствует.
 
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):

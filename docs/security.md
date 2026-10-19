@@ -1,5 +1,11 @@
 # Безопасность Identity 1.0.0
 
+Этап9 [read-only admin API](admin-read-api.md) использует прежнюю cookie-политику обеих
+системных ролей. GET queries не меняют business state; auth validation отдельно обновляет
+last_seen_at. DTO projections не выбирают credentials/token hashes/outbox/произвольную
+metadata. Page size ограничен100, search200; ILIKE wildcards экранированы, SQL values
+параметризованы, sort whitelist фиксирован. UTC offsets обязательны для audit range.
+
 Дополнение v1.1, этап 8: [admin access и recovery](admin-access.md). Системные роли
 Identity хранятся отдельно, не входят в JWT. На каждом admin-запросе — DB validation,
 CSRF на всех unsafe методах, Secure/HttpOnly/Strict cookies, HTTPS даже в dev. До MFA

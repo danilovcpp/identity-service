@@ -1,8 +1,9 @@
 # Identity: administrative access — stage 8
 
 The v1.1 addendum extends v1.0. Stage 8 provides domain/schema, bootstrap CLI and
-browser authentication. Dashboard/user/audit queries, invitation flows, administrative
-user commands and React UI belong to stages 9–12 and are not exposed yet.
+browser authentication. Stage9 adds [read-only administrative API](admin-read-api.md).
+Invitation flows, administrative write commands and React UI belong to stages10–12
+and are not exposed yet.
 
 ## Configuration and boundary
 

@@ -28,6 +28,8 @@ internal sealed class SecurityAuditEventConfiguration : IEntityTypeConfiguration
         builder.HasOne<User>().WithMany().HasForeignKey(audit => audit.TargetUserId).OnDelete(DeleteBehavior.SetNull);
         builder.HasIndex(audit => new { audit.ActorUserId, audit.OccurredAt }).HasDatabaseName("ix_audit_actor_time");
         builder.HasIndex(audit => new { audit.TargetUserId, audit.OccurredAt }).HasDatabaseName("ix_audit_target_time");
-        builder.HasIndex(audit => audit.OccurredAt).HasDatabaseName("ix_audit_occurred_at");
+        builder.HasIndex(audit => new { audit.OccurredAt, audit.Id }).HasDatabaseName("ix_audit_time_id");
+        builder.HasIndex(audit => new { audit.UserId, audit.OccurredAt, audit.Id }).HasDatabaseName("ix_audit_user_time_id");
+        builder.HasIndex(audit => new { audit.EventType, audit.OccurredAt, audit.Id }).HasDatabaseName("ix_audit_event_time_id");
     }
 }

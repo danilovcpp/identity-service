@@ -25,5 +25,6 @@ internal sealed class SessionConfiguration : IEntityTypeConfiguration<Session>
         builder.HasOne<User>().WithMany().HasForeignKey(session => session.UserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(session => new { session.UserId, session.RevokedAt }).HasDatabaseName("ix_sessions_user_revocation");
         builder.HasIndex(session => session.AbsoluteExpiresAt).HasDatabaseName("ix_sessions_expiry");
+        builder.HasIndex(session => new { session.UserId, session.CreatedAt, session.Id }).HasDatabaseName("ix_sessions_user_created_id");
     }
 }

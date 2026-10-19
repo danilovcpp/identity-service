@@ -1,230 +1,191 @@
-# Отчёт по этапу 8
+# Отчёт по этапу 9
 
 ## 1. Этап
 
-**8 — Admin domain & secure access**, завершён 2026-10-19.
-Прочитаны AGENTS.md, Identity_Codex_Spec.md, Identity_Admin_Codex_Addendum.md,
-предыдущий IMPLEMENTATION_STATUS.md; изучены код и Git history. Этапы 0–7 подтверждены
-commits d7c4f94, 8d901d7, 647ae4c, 4f64b57, 6e793da, 32fa225, 7e9fb07, c5f230d.
-Изначально единственным untracked файлом был предоставленный пользователем addendum;
-он не изменялся. Реализован только этап 8 дополнения, этапы 9–12 не начинались.
-
-Дополнение явно расширяет прежний scope v1.0: собственные системные администраторы
-Identity допустимы по §0/§3 addendum, роли внешних приложений по-прежнему запрещены.
-AGENTS.md уточнён для этапов 8–12. Версия выпуска 1.0.0 не переобъявлена релизом v1.1:
-новая функциональность описана в CHANGELOG как Unreleased.
+**9 — Read-only Admin API**, завершён 2026-10-19.
+Прочитаны AGENTS.md, основной Identity_Codex_Spec.md, Identity_Admin_Codex_Addendum.md,
+предыдущий IMPLEMENTATION_STATUS.md; изучены код и Git history. Рабочее дерево было
+чистым. Этап8 подтверждён commit **0b8536a**, этап7 — c5f230d и прежними commits/tests.
+Выполнен только этап9 дополнения (§5.2, §8). Этапы10–12 не начинались.
 
 ## 2. Реализовано
 
-### Domain и PostgreSQL
+Пять GET endpoints внутри Identity.Api, с существующей политикой IdentityAdminRead:
 
-- IdentityAdministrator: user_id PK/FK, IdentityAdministrator/IdentityReadOnly, granted_at,
-  granted_by. Grant только Active + email-verified. Роли не добавляются в пользовательские JWT.
-- AdminSession: отдельные id/user_id/created_at/last_seen_at/expires_at/revoked_at,
-  доменные проверки сроков, xmin, индексы user/revocation и expiry.
-- Invited=4 и Invitation=2 без перенумерации прежних значений; Invitation maximum TTL 72 часа,
-  hash-only/single-use через существующий OneTimeToken. Domain factory для Invited.
-  Схема допускает отсутствие credentials; оба login безопасно отклоняют такой аккаунт.
-- users: nullable disabled_at/disabled_by/disable_reason(500); доменное заполнение metadata,
-  FK/check constraints. Legacy metadata не выдумывается и остаётся null.
-- security_audit_events: nullable actor_user_id/target_user_id, FK и индексы с occurred_at;
-  расширена фиксированная таксономия admin events. Реально создаются admin_login,
-  admin_login_failed, admin_logout, admin_role_granted, admin_role_revoked. Имена событий
-  приглашений/блокировок подготовлены схемой, их use cases/HTTP endpoints пока отсутствуют.
-- Новая additive migration: **20261019020843_AdminSecureAccess** + Designer/snapshot.
-  Существующие таблицы/строки не заменяются; миграции не запускаются автоматически API.
+| Endpoint | Результат |
+|---|---|
+| /api/v1/admin/dashboard | Все status counts, active sessions, zero-filled UTC trend30 дней |
+| /api/v1/admin/users | Page/items/total, search/status/emailVerified, whitelist sort |
+| /api/v1/admin/users/{userId} | Safe user details, включая Invited/Disabled/Deactivated |
+| /api/v1/admin/users/{userId}/sessions | Страница удерживаемых native/BFF sessions, optional state |
+| /api/v1/admin/audit-events | Страница security audit с user/actor/event/time filters |
 
-### Application / Infrastructure / API
+- Application: GetDashboardQuery, ListUsersQuery, GetUserDetailsQuery, GetUserSessionsQuery,
+  ListAuditEventsQuery; отдельные handlers, typed validators и DTO, явная регистрация DI.
+  IAdminReadRepository — конкретная read-проекция для admin use cases, без generic repository.
+- Pagination: page1+, pageSize25 по умолчанию, максимум100; проверка int offset overflow.
+  Beyond-last page -> empty items + фактический total. Count/page — один RepeatableRead
+  snapshot; отдельный тест вставляет строку с другого соединения между двумя SELECT.
+- Users: search <=200, без control chars, literal substring ILIKE email/displayName;
+  %, _ и backslash экранируются. Status только имена enum, emailVerified optionalbool.
+  Sort только createdAt/email/status и asc/desc, с UUID tie-breaker. SQL values — параметры.
+- Dashboard: взаимоисключающие user counts, active sessions = unrevoked + created<=now +
+  absoluteExpiry>now из sessions, без admin cookie sessions. Trend включает сегодня и
+  предыдущие29 UTC-дней, нулевые дни дополнены, группировка явно AT TIME ZONE UTC.
+  Добавлены asOf/registrationTrendFrom/registrationTrendTo для явного периода измерения.
+- Details: профиль/status/timestamps/disable metadata/lockout counters; без credentials,
+  normalizedEmail, passwords/hashes, refresh/one-time tokens, outbox, entity graphs.
+- Sessions: только указанный userId, существующий retention, createdAt DESC/id DESC;
+  optional state active/revoked/expired, DTO без token/hash. Absent user ->404 user_not_found,
+  существующий user без sessions ->empty200. Отзыв сессий не реализован в этапе9.
+- Audit: userId соответствует legacy user_id OR target_user_id; actorUserId отдельно,
+  eventType как ограниченное snake_case имя, from inclusive/to exclusive с обязательным
+  explicit UTC offset и нормализацией UTC. Все filters AND, порядок occurredAt DESC/id DESC.
+  Arbitrary metadata не выдаётся; CLI actor может быть null, как в этапе8.
+- Infrastructure: AsNoTracking Select/GroupBy, асинхронные SQL, CancellationToken,
+  DTO-only materialization, без SaveChanges/загрузки коллекций/N+1. ReadOnly и full admin
+  используют одну cookie-policy, отдельные public Bearer API не менялись.
+- OpenAPI содержит все5 routes, query parameters, safe DTO/page schemas.
+- Новая миграция **20261019022952_AdminReadIndexes**:7 composite B-tree indexes, два прежних
+  single-column audit indexes заменены prefix-compatible composites. Таблицы, данные,
+  enum values и FK не изменены. Startup migrations не добавлены.
 
-- Вертикальные срезы AdminLogin, AdminLogout, ValidateAdminSession, GetAdminMe,
-  CLI-only GrantAdministrator/RevokeAdministrator. Typed handlers/validators,
-  явная DI-регистрация, TimeProvider, CancellationToken, явные транзакции.
-- Отдельная CookieAuthentication схема IdentityAdminCookie, policies IdentityAdminRead
-  (обе роли), IdentityAdmin (только full administrator). Default Bearer scheme сохранена.
-- HttpOnly + Secure + SameSite=Strict + Path=/, без Domain, cookie names с __Host- prefix.
-  Auth cookie непостоянная, содержит защищённый ticket с user/session IDs и system role,
-  без JWT/refresh/password/email. Framework Data Protection с постоянным key ring и
-  application name Identity.Admin. Каждый admin request сверяет status/email/role,
-  владельца session, revocation, idle/absolute expiry. Роль берётся из БД.
-- Срок бездействия по умолчанию 30 минут; абсолютный максимум 8 часов. Sliding ticket
-  отключён; DB touch не продлевает абсолютный срок. Validation выполняется в отдельном
-  scope/транзакции, чтобы MVC use cases не получили устаревшие tracked entities.
-- MVC Controllers/Admin/AdminAuthController, JSON/ProblemDetails без redirect:
+Ключевые файлы относительно корня:
 
-| Метод | Endpoint | Результат |
-|---|---|---|
-| GET | /api/v1/admin/auth/csrf | 200 {token} + защищённая antiforgery cookie |
-| POST | /api/v1/admin/auth/login | email/password + CSRF -> 200 safe profile + auth cookie |
-| GET | /api/v1/admin/auth/me | 200 {id,email,displayName,role} |
-| POST | /api/v1/admin/auth/logout | CSRF + cookie -> server revoke/delete cookie, 204 |
-
-- Общий AdminSecurityFilter: HTTPS даже в Development, opt-in flag, ASP.NET antiforgery
-  для всех unsafe admin методов, включая login/logout. Request token только X-CSRF-TOKEN,
-  без form/query fallback. После login нужно заново запросить identity-bound CSRF token.
-- Login использует существующие IP/account limits, password verification/rehash и общий
-  конкурентно защищённый account lockout. Неверные credentials/inactive/locked -> generic401;
-  правильный пароль без роли ->403/no cookie; нет/недействительна cookie ->401; ReadOnly
-  write-policy ->403; CSRF ->400 csrf_invalid. CSP/no-referrer/nosniff/no-store/trace сохранены.
-- SessionRevoker расширен: password change/reset/logout-all/deactivation отзывают также
-  admin sessions в той же транзакции. CLI revoke/смена роли отзывают admin cookies через DB.
-- PostgreSQL advisory transaction lock -> user row -> sessions. Guard последнего Active
-  verified full administrator применяется к revoke/downgrade и существующей self-deactivation.
-  Последняя возвращает409 last_administrator; ReadOnly не считается резервным full admin.
-- Audit retention worker работает и при включённом только admin auth.
-
-### CLI / конфигурация / документация
-
-- Новый локальный executable **src/Identity.AdminCli** в solution: grant/revoke по точному
-  UUID либо normalized exact email, optional role. Нет HTTP/hosted worker startup, паролей
-  по умолчанию и credentials в аргументах. Database__ConnectionString через protected env.
-  Идемпотентность, безопасные exit codes, атомарный audit; actor/granted_by null для OS operator.
-- AdminAccess: Enabled=false по умолчанию, DataProtectionKeyPath, IdleTimeoutSeconds=1800,
-  AbsoluteLifetimeSeconds=28800. ValidateOnStart: существующий абсолютный directory, limits.
-  Примеры в appsettings.json/.env.example/deploy/production.env.example. Никаких production
-  ключей/секретов не создано; пользовательские env/keys не изменялись.
-- docs/admin-access.md: bootstrap/revoke, protocol, HTTPS/VPN, shared key ring/rotation,
-  backup/restore, ограничения и recovery. README, api/architecture/security/deployment/
-  production docs и CHANGELOG обновлены. Production Compose не включает admin автоматически.
-- Secret guard дополнен Data Protection key paths/conventional XML key filenames/raw
-  master-key payloads; .gitignore закрывает data-protection-keys.
-
-Ключевые файлы: Domain/{Entities,Enums}; Application/Features/Admin,
-Application/Abstractions/{Persistence/IAdminRepository,Security/IAdminAccessSettings},
-Common/AdministratorGuard, SessionRevoker и DeactivateAccountHandler;
-Infrastructure/Persistence/{Configurations,Repositories/AdminRepository,Migrations},
-Security/AdminAccessOptions, Security/AdminSession/AdminCookieAuthentication;
-Api/Controllers/Admin, Contracts/AdminAuthContracts, Configuration/AdminSecurityFilter,
-Program и существующие security middleware; Identity.AdminCli/{Program,csproj};
-tests/Identity.UnitTests/AdminDomainTests, IntegrationTests/AdminAccessTests,
-PersistenceTests/RegistrationFixture; docs/admin-access.md и перечисленные docs/configs.
+- src/Identity.Application/Features/Admin/{Dashboard,Users,Audit,Common};
+  Abstractions/Persistence/IAdminReadRepository.cs, Common/AdminUserNotFoundException.cs,
+  DependencyInjection.cs.
+- src/Identity.Infrastructure/Persistence/Repositories/AdminReadRepository.cs,
+  Configurations/{User,Session,SecurityAuditEvent}Configuration.cs,
+  Migrations/20261019022952_AdminReadIndexes{,.Designer}.cs и snapshot; DependencyInjection.cs.
+- src/Identity.Api/Controllers/Admin/{AdminDashboard,AdminUsers,AdminAudit}Controller.cs,
+  Middleware/ApiExceptionHandler.cs (404 user_not_found).
+- tests/Identity.UnitTests/AdminReadValidationTests.cs;
+  tests/Identity.IntegrationTests/AdminReadTests.cs, PersistenceTests.cs.
+- docs/admin-read-api.md — полный контракт, filters/UTC/pagination/DTO, curl, SQL limits;
+  README, CHANGELOG, docs/{admin-access,api,architecture,security,deployment}.md обновлены.
+  .env.example содержит ссылку; новых options/secrets/services нет, AdminAccess settings прежние.
 
 ## 3. Решения
 
-Clean Architecture и существующие API сохранены. Domain standalone; Application -> Domain;
-Infrastructure -> Application + Domain; API и CLI -> Application + Infrastructure. ASP.NET
-Cookie/Data Protection детали находятся в Infrastructure (shared Microsoft.AspNetCore.App
-FrameworkReference); четыре избыточных PackageReference удалены после NU1510, их типы
-предоставляет shared framework. Новых NuGet libraries, mediator или Identity user management
-не добавлено. Контроллеры не получают DbContext/repositories, CQRS остаётся собственным.
+Clean Architecture/Controllers/собственный CQRS сохранены. Domain не изменён;
+Application не получил EF/ASP.NET/Npgsql зависимости, контроллеры не получают DbContext/
+репозитории. Новых NuGet dependencies и frontend code нет. Не добавлены stage10 commands,
+приглашения или UI. Версия release1.0.0 сохранена; CHANGELOG описывает Unreleased v1.1.
 
-Global administrators lock нужен из-за write-skew между двумя разными user rows. Он общий
-у CLI и self-deactivation и всегда берётся перед user lock. Login/session validation не
-берут global lock: они сериализуются на user row. Все проверки/изменения eligibility
-должны сохранять этот порядок в будущем этапе 10; ad-hoc SQL не защищён Application guard.
+RepeatableRead удерживает один MVCC snapshot только на время составного запроса и не
+берёт FOR UPDATE locks. Страницы разных HTTP requests не являются единым snapshot:
+при concurrent writes возможен сдвиг OFFSET, что явно описано. Запросы не меняют business
+state; cookie validation отдельно обновляет last_seen_at в существующем scope/transaction.
 
-Cookie и antiforgery отделены от пользовательского JWT protocol. Успешный login создаёт
-новый session ID; native/BFF sessions не переиспользуются. CLI revoke роли не означает
-блокировку обычного аккаунта. Admin flag не требует включённого Jwt/SMTP; CLI не загружает
-эти keys и не запускает workers. Data Protection persistence не обещает encryption at rest:
-OS ACL/encrypted storage/операторский supported protector обязательны по runbook.
+Dashboard дополнен периодом/asOf согласно §1 addendum: To — следующая UTC midnight,
+сегодняшний bucket частичный до inclusive asOf. TotalUsers — все сохранённые rows;
+future-created test rows исключены из trend, но не из total. Native/BFF session metrics
+не смешаны с admin transport sessions. UTC grouping не зависит от DB session timezone.
 
-Приглашения/disable metadata на этапе 8 — только требуемая Domain/schema подготовка,
-без flow приглашений, писем, dashboard/read API, administrative user commands и frontend.
-Политики проверены test-only controller, который не входит в production API.
+Контракты audit/sessions, не детализированные в §5.2, уточнены в docs/admin-read-api.md:
+пагинация всех списков, half-open time range, legacy user/target matching, фиксированные
+sorts, retained sessions вместо обещания архива. Пользовательские API не переопределены.
+
+Миграция индексов использует обычное транзакционное создание: возможна блокировка writers
+на больших таблицах, нужен операторский migration window. No pg_trgm/extension privilege
+зависимости; arbitrary substring ILIKE и deep OFFSET могут сканировать большие таблицы.
+Дополнительный search engine/keyset API не введены вне scope. DTO materialization и
+bounded pages не выдаются за гарантию индексного поиска для произвольной подстроки.
 
 ## 4. Проверки
 
-Команды выполнялись из корня, .NET SDK 10.0.402, PowerShell 7.6.5, Docker Linux:
+Выполнены из корня, .NET SDK10.0.402, PowerShell7.6.5, Docker Linux:
 
 ```powershell
 dotnet restore Identity.slnx
-dotnet tool restore
 dotnet build Identity.slnx --configuration Release --no-restore
-dotnet test tests/Identity.IntegrationTests --configuration Release --no-build --no-restore --filter 'FullyQualifiedName~AdminAccessTests|FullyQualifiedName~PersistenceTests' --logger 'trx;LogFilePrefix=stage8-admin'
-dotnet test tests/Identity.IntegrationTests --configuration Release --no-build --no-restore --filter FullyQualifiedName~AdminAccessTests --logger 'trx;LogFilePrefix=stage8-admin-expanded'
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations add AdminReadIndexes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --filter 'FullyQualifiedName~AdminReadTests|FullyQualifiedName~AdminReadValidationTests|FullyQualifiedName~PersistenceTests' --logger 'trx;LogFilePrefix=stage9-targeted'
 dotnet format Identity.slnx --no-restore
 dotnet build Identity.slnx --configuration Release --no-restore
-dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage8-full'
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage9-full'
 dotnet format Identity.slnx --no-restore --verify-no-changes
+dotnet tool restore
 $env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
 dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
 dotnet ef migrations script --idempotent --project src/Identity.Infrastructure --configuration Release --no-build --output migration.sql
 dotnet list Identity.slnx package --vulnerable --include-transitive
 pwsh -NoProfile -File scripts/Test-Stage7Smoke.ps1
 pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
-dotnet publish src/Identity.AdminCli --configuration Release --no-build --no-restore --output TestResults/admin-cli-publish
-dotnet TestResults/admin-cli-publish/Identity.AdminCli.dll --help
 git -c core.safecrlf=false diff --check
 ```
 
-Migration generation: `dotnet ef migrations add AdminSecureAccess --project
-src/Identity.Infrastructure --configuration Release --no-build` с design-only env.
-Последние restore/build/format/EF/publish проверки exit0, сборка **0 warnings / 0 errors**.
+- Restore/build/format/EF checks exit0. Итоговая сборка **0 warnings, 0 errors**.
+- **410 passed, 0 failed, 0 skipped**: Unit **133**, API **45**, Integration **232**.
+  Прежние366 +44 новых:19 validator/UTC unit cases и25 PostgreSQL/API/query cases.
+  Целевой прогон:19 unit +60 integration (admin reads + существующие persistence tests);
+  отдельный ApiTests project не имел совпадений target filter, но все45 выполнены полным run.
+- Реальный PostgreSQL17/Mailpit через Testcontainers; без EF InMemory/SQLite.
+  Новые tests: empty DB, все5 statuses,30 days/zero buckets/UTC boundary при PostgreSQL
+  America/New_York, strict session expiry/revocation, filters AND, literal ILIKE wildcard
+  escaping/injection text, все6 combinations sort/direction, ties/page boundaries/empty
+  beyond-last, legacy audit subject/admin actor+target, offset normalization и half-open
+  ranges; malformed queries ->ProblemDetails, absent user404, отсутствие секретных полей,
+  обе роли читают все5 routes, public Bearer/anonymous/revoked cookie denied, OpenAPI paths.
+- AsNoTracking проверяется пустым ChangeTracker после query. Фиксированы SELECT counts:
+  users2, details1, sessions3, audit2, dashboard3. Count/page consistency при concurrent
+  insert проверена отдельным connection/interceptor. DTO SQL не обращается к credentials.
+  На5000 пользователях все5 query calls суммарно **104.4ms** в финальном локальном run
+  (целевой sample68.1ms), включая DB/DI; это не production SLA и не стабильный benchmark.
+- Все5 migrations Up/Down/reapply прошли на PostgreSQL, indexes проверены. Существующие
+  legacy upgrade/data preservation tests зелёные. EF pending model changes нет;
+  idempotent migration.sql сформирован (ignored). Миграция только indexes, не новые rows.
+- NuGet audit8 проектов: известных уязвимых packages по текущим sources не найдено.
+- Docker compatibility smoke exit0: API image build, применение5 migrations, register ->
+  Mailpit -> verify -> login -> refresh -> me -> logout -> failed refresh; также replay,
+  restart, own sessions, password reset/change/deactivation, headers/error contract.
+  Non-root/healthcheck healthy. Admin flag в этом smoke выключен; новые admin HTTP routes
+  проверены WebApplicationFactory с PostgreSQL, не называются browser/container admin E2E.
+  Временные Compose containers/network/volume/env/keys удалены.
+- Secret guard self-tests/current tracked+untracked tree и git diff --check проходят.
+  Remote CI, production TLS/VPN/SMTP и frontend browser E2E не запускались. Frontend
+  lint/test неприменимы: frontend ещё не реализован, относится к этапу11.
 
-- **366 passed, 0 failed, 0 skipped**: Unit **114**, API **45**, Integration **207**.
-  Это прежние339 +27 новых проверок. Реальные PostgreSQL17/Mailpit/Testcontainers, без EF
-  InMemory/SQLite. TRX stage8-full в TestResults тестовых проектов, общий log
-  TestResults/stage8-full-tests.log (ignored).
-- Admin suite18: actual CLI grant/login/me; Secure cookie attributes; CSRF missing/wrong
-  browser/old anonymous token at logout; cookies на новом API host с тем же ring; logout replay;
-  non-admin403; disabled/deactivated/missing credentials; revoked role; ReadOnly403;
-  admin cookie/Bearer isolation; idle and absolute expiry via fake TimeProvider; parallel
-  real CLI revoke processes retain one administrator; downgrade refusal; concurrent
-  CLI revoke vs self-deactivation; password change/all-session revoke; cookie tamper/
-  foreign session binding; role-change revocation/idempotence/audit; Invited without
-  credentials rejected by both login paths and CLI; opt-in/key-path/HTTPS validation;
-  brute-force/account limits and no secrets in captured logs/CLI output.
-- Все4 migrations Up/Down/reapply/model drift на PostgreSQL проходят. Новая проверка
-  upgrade с предыдущей схемы сохраняет user/status/hash/audit IDs и nullable legacy
-  metadata. Старый legacy-audience migration test вставляет прежнюю SQL shape, не новые
-  поля текущей EF model. EF pending changes нет; idempotent migration.sql сформирован.
-- Промежуточный baseline --no-build до компиляции новой migration получил
-  PendingModelChangesWarning, а первая сборка тестов выявила отсутствующий test DTO.
-  DTO добавлен, миграция пересобрана, последующие целевые и полный прогоны зелёные.
-  Начальный NU1510 устранён удалением redundant PackageReference после FrameworkReference.
-- NuGet audit8 проектов: известных уязвимых packages по текущим sources не обнаружено.
-- Docker smoke exit0: новый API image build, применение4 migrations, register -> Mailpit
-  -> verify -> login -> refresh -> me -> logout -> failed refresh, плюс replay/restart/
-  sessions/password/deactivation и headers/errors. Non-root и Docker health healthy.
-  Admin flag в этом compatibility smoke выключен; новые admin HTTP сценарии проверены
-  WebApplicationFactory с PostgreSQL и отдельными реальными CLI процессами. Лог:
-  TestResults/stage8-docker-smoke.log. Все временные Compose containers/network/volume/
-  env/keys удалены. Shared user environment не менялся.
-- Secret guard self-tests проходят; реальный temporary untracked XML master-key sentinel
-  отклонён с ненулевым exit без отражения значения в output, затем удалён. Повторный
-  guard проходит. Публикация CLI в ignored TestResults и запуск --help успешны.
-- git diff --check проходит. CI workflow не запускался удалённо; существующий CI включает
-  новые projects/tests через solution. Frontend lint/test неприменимы: frontend — этап11.
-  Production TLS/SMTP/VPN и browser E2E с frontend не запускались и не заявляются как passed.
+Локальные ignored artifacts: TestResults/stage9-targeted.log, stage9-full-tests.log,
+stage9-docker-smoke.log, stage9-nuget-audit.log; TRX stage9-full в TestResults тестовых
+проектов. Секреты, generated SQL/logs/TRX не добавлены в Git.
 
 ## 5. Безопасность
 
-Системная роль не может назначаться self-register/profile/API. Admin транспорт отделён
-от Bearer, с DB validation на каждом запросе, немедленным отказом после role/session
-revocation и status change. CSRF обязателен включая login/logout; Secure/HttpOnly/Strict,
-HTTPS, no-store/no-referrer/CSP и лимиты не ослабляются в dev. Shared account lockout,
-production password hashing и безопасный audit/logging повторно использованы.
-Последний активный full administrator защищён атомарно, включая cross-flow race с
-существующей self-deactivation. Смена/сброс пароля не оставляют admin cookies действующими.
+Все read routes используют IdentityAdminRead с cookie scheme и текущей DB role/session
+validation. ReadOnly разрешено чтение, новых mutations нет; существующий write-policy
+тест этапа8 продолжает отклонять ReadOnly. Сохранены HTTPS, Secure/HttpOnly/Strict cookies,
+CSRF для unsafe методов, no-store/CSP/no-referrer и audit/trace secrecy.
 
-Постоянные Data Protection keys отделены от JWT/AES, не выводятся и не добавляются в Git;
-guard имеет positive/negative проверку. Raw passwords, auth/CSRF cookies и tokens не
-логируются. Клиенту возвращается только безопасный admin profile и необходимый CSRF token.
+Размеры запросов/страниц ограничены; literal search экранирован, SQL values параметризованы,
+sort identifiers не принимаются. Наивные datetime/неподдерживаемые enum/sort/overflowing
+pagination отклоняются с константными field errors. Entity graphs, password/token hashes,
+refresh/one-time tokens, SMTP/outbox payload и произвольная metadata не выбираются/не выдаются.
+Логи используют прежние route templates, а не search/query/PII; negative input не отражается
+в ProblemDetails. Данные списка/аудита доступны только валидной admin cookie.
 
 ## 6. Ограничения / блокеры
 
-Блокеров этапа8 нет. Этапы9–12 не реализованы. Приглашения/disable/enable/admin session
-management/dashboard/list/audit API и React UI пока отсутствуют. Без MFA admin API
-допустим только за VPN/эквивалентным trusted perimeter. Этот perimeter, HTTPS ingress,
-защищённый writable shared Data Protection volume и его encryption/backup задаёт оператор;
-текущие Compose samples не открывают/не включают admin автоматически.
+Блокеров этапа9 нет, обнаруженных build/test ошибок не осталось. Новых конфигурационных
+ключей, зависимостей от внешних приложений и требований к секретам нет. AdminAccess остаётся
+opt-in; постоянный key ring и VPN/эквивалентный trusted perimeter до MFA обязательны.
 
-Admin session rows пока сохраняются после expiry/revoke; validation их отклоняет,
-автоматический purge оставлен later hardening. CLI OS operator не имеет выдуманного
-Identity actor ID: actor/granted_by null, target и trace сохраняются. Requests,
-авторизованные до отзыва, могут завершиться; автономные downstream JWT имеют exp/skew lag.
-Rate limits локальные для процесса, SMTP at-least-once и остальные v1 ограничения сохранены.
-Downgrade при новых enum/audit данных требует явного data compatibility plan; миграция
-не удаляет такие строки молча. После restore нужно отозвать также admin_sessions и
-сверить восстановленные admin роли/статусы с security timeline.
+Этап10 mutations/invitation flow, этап11 frontend и этап12 integrated hardening/release
+не реализованы. Read queries не меняют существующую retention: expired sessions/audit
+показаны только пока они сохраняются. Admin-cookie session purge остаётся ограничением
+этапа8. Глубокая offset pagination/substring search и exact totals могут быть дороги при
+большом объёме; отдельные страницы не обещают общую согласованность во времени. Создание
+индексов обычным DDL планируется оператором, миграция не запускается при API startup.
 
-Внешние deployment/accounts, registry/tag/commit, удалённый CI не выполнялись. На этом
-этапе не обещаются frontend/browser E2E, production VPN/MFA или автоматическая encryption
-at rest Data Protection ring. Спецификационных расхождений этапа8 не выявлено; единственное
-расширение scope базового v1.0 прямо разрешено addendum и текущим запросом пользователя.
+Production load/TLS/VPN/SMTP, удалённый CI и browser E2E не выполнялись; публикации, deployment,
+Git commit/tag и внешних действий не было. Противоречий требованиям этапа9 не выявлено;
+уточнения недетализированных DTO/filters/period приведены выше и в API documentation.
 
 ## 7. Следующий этап
 
-Рекомендация: **9 — Read-only Admin API** (dashboard, users/details/sessions/audit,
-server-side pagination/filter/sort, DTO projections, tests). Не начат; только после
-отдельного подтверждения пользователя.
+Рекомендация: **10 — Administrative write commands**, приглашения/acceptance, reset,
+disable/enable и session revoke с audit/transactional outbox/last-admin protection.
+Не начат; выполнение только после отдельного запроса пользователя.

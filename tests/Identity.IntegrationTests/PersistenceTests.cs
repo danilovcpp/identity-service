@@ -38,11 +38,12 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
         await using var context = database.CreateContext();
         var migrator = context.GetService<IMigrator>();
         var applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(4, applied.Length);
+        Assert.Equal(5, applied.Length);
         Assert.EndsWith("_InitialIdentity", applied[0]);
         Assert.EndsWith("_SessionAudienceBinding", applied[1]);
         Assert.EndsWith("_SecurityMaintenanceIndex", applied[2]);
         Assert.EndsWith("_AdminSecureAccess", applied[3]);
+        Assert.EndsWith("_AdminReadIndexes", applied[4]);
         Assert.False(context.Database.HasPendingModelChanges());
         Assert.Contains("IF NOT EXISTS", migrator.GenerateScript(options: MigrationsSqlGenerationOptions.Idempotent));
         await migrator.MigrateAsync("0");
@@ -50,7 +51,7 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
         var tables = await context.Database.SqlQueryRaw<string>("SELECT tablename AS \"Value\" FROM pg_tables WHERE schemaname = 'public' AND tablename <> '__EFMigrationsHistory'").ToListAsync();
         Assert.Empty(tables);
         await migrator.MigrateAsync();
-        Assert.Equal(4, (await context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(5, (await context.Database.GetAppliedMigrationsAsync()).Count());
         Assert.False(context.Database.HasPendingModelChanges());
     }
 
@@ -91,7 +92,9 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
         Assert.Equal(new[] { "admin_sessions", "credentials", "identity_administrators", "one_time_tokens", "outbox_messages", "refresh_tokens", "security_audit_events", "sessions", "users" }, tables.Order(StringComparer.Ordinal));
         var indexes = await context.Database.SqlQueryRaw<string>("SELECT indexname AS \"Value\" FROM pg_indexes WHERE schemaname = 'public'").ToListAsync();
         foreach (var index in new[] { "ux_users_normalized_email", "ux_refresh_tokens_hash", "ux_one_time_tokens_hash",
-            "ix_sessions_user_revocation", "ix_sessions_expiry", "ix_refresh_tokens_session", "ix_refresh_tokens_expiry", "ix_outbox_pending" })
+            "ix_sessions_user_revocation", "ix_sessions_expiry", "ix_refresh_tokens_session", "ix_refresh_tokens_expiry", "ix_outbox_pending",
+            "ix_users_created_id", "ix_users_email_id", "ix_users_status_id", "ix_sessions_user_created_id",
+            "ix_audit_time_id", "ix_audit_user_time_id", "ix_audit_event_time_id" })
         {
             Assert.Contains(index, indexes);
         }

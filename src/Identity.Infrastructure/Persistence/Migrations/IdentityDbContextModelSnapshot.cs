@@ -369,16 +369,20 @@ namespace Identity.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OccurredAt")
-                        .HasDatabaseName("ix_audit_occurred_at");
-
-                    b.HasIndex("UserId");
-
                     b.HasIndex("ActorUserId", "OccurredAt")
                         .HasDatabaseName("ix_audit_actor_time");
 
+                    b.HasIndex("OccurredAt", "Id")
+                        .HasDatabaseName("ix_audit_time_id");
+
                     b.HasIndex("TargetUserId", "OccurredAt")
                         .HasDatabaseName("ix_audit_target_time");
+
+                    b.HasIndex("EventType", "OccurredAt", "Id")
+                        .HasDatabaseName("ix_audit_event_time_id");
+
+                    b.HasIndex("UserId", "OccurredAt", "Id")
+                        .HasDatabaseName("ix_audit_user_time_id");
 
                     b.ToTable("security_audit_events", null, t =>
                         {
@@ -447,6 +451,9 @@ namespace Identity.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("UserId", "RevokedAt")
                         .HasDatabaseName("ix_sessions_user_revocation");
+
+                    b.HasIndex("UserId", "CreatedAt", "Id")
+                        .HasDatabaseName("ix_sessions_user_created_id");
 
                     b.ToTable("sessions", null, t =>
                         {
@@ -537,6 +544,15 @@ namespace Identity.Infrastructure.Persistence.Migrations
                     b.HasIndex("NormalizedEmail")
                         .IsUnique()
                         .HasDatabaseName("ux_users_normalized_email");
+
+                    b.HasIndex("CreatedAt", "Id")
+                        .HasDatabaseName("ix_users_created_id");
+
+                    b.HasIndex("Email", "Id")
+                        .HasDatabaseName("ix_users_email_id");
+
+                    b.HasIndex("Status", "Id")
+                        .HasDatabaseName("ix_users_status_id");
 
                     b.ToTable("users", null, t =>
                         {

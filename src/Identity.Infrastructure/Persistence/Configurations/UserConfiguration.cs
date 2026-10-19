@@ -28,5 +28,8 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(user => user.Status).HasConversion<short>();
         builder.Property<uint>("Version").IsRowVersion();
         builder.HasIndex(user => user.NormalizedEmail).IsUnique().HasDatabaseName("ux_users_normalized_email");
+        builder.HasIndex(user => new { user.CreatedAt, user.Id }).HasDatabaseName("ix_users_created_id");
+        builder.HasIndex(user => new { user.Email, user.Id }).HasDatabaseName("ix_users_email_id");
+        builder.HasIndex(user => new { user.Status, user.Id }).HasDatabaseName("ix_users_status_id");
     }
 }
