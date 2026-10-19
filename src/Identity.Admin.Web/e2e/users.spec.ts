@@ -27,7 +27,7 @@ for (const readOnly of [false, true]) {
     });
     await expect(link).toHaveAttribute(
       'href',
-      /^\/admin\/users\/[0-9a-f-]{36}$/,
+      /^\/admin\/users\/[0-9a-f-]{36}\?search=admin%40identity.example&status=Active&emailVerified=true$/,
     );
     await expect(
       page.getByRole('button', {

@@ -120,7 +120,7 @@ test('admin/public unknown paths return safely to the console without a document
   page,
 }) => {
   for (const route of [
-    '/admin/users/missing',
+    '/admin/users/missing/unknown',
     '/account/activate',
     '/missing',
   ]) {

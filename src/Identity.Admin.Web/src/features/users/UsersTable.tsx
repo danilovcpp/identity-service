@@ -70,8 +70,10 @@ export function UsersTable({
       width: 90,
       render: (_, item) => (
         <Link
-          to={`/admin/users/${item.id}`}
-          state={{ usersSearch: usersSearchParameters(parameters).toString() }}
+          to={{
+            pathname: `/admin/users/${item.id}`,
+            search: usersSearchParameters(parameters).toString(),
+          }}
           aria-label={`View details for ${item.email}`}
         >
           View details

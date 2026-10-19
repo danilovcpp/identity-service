@@ -94,7 +94,7 @@ describe('console shell and routes', () => {
   it.each([
     '/missing',
     '/account/activate',
-    '/admin/users/missing',
+    '/admin/users/missing/unknown',
     '/admin/audit',
   ])(
     'shows a real not-found state for the unimplemented route %s',

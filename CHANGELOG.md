@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10, 11.1–11.6
+## Unreleased — v1.1, stages 8–10, 11.1–11.7
+
+- Read-only account details with status, verification and lifecycle timestamps,
+  accessible ID copy feedback and explicit invalid-ID/not-found/error states.
+- Latest ten retained account security events via existing server-side audit filter;
+  independent loading/error/retry and cache projection without metadata or secrets.
+- Catalog filters remain in detail URLs across reload/login and Back to users.
 
 - Read-only users catalog with server pagination/sort/filter/search, 400ms debounce,
   validated canonical URL state and browser history restoration for both admin roles.

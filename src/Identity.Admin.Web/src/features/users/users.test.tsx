@@ -171,9 +171,7 @@ describe('users catalog', () => {
     expect(screen.getByLabelText('Location')).toHaveTextContent(
       '/admin/users/' + item.id,
     );
-    expect(screen.getByLabelText('List return state')).toHaveTextContent(
-      'search=alice',
-    );
+    expect(screen.getByLabelText('Location')).toHaveTextContent('search=alice');
   });
   it('debounces typing 400ms, resets the page and keeps input focus', async () => {
     const fetch = responses();

@@ -1,4 +1,161 @@
-# Текущий статус: этап 11.6 завершён
+# Текущий статус: этап 11.7 завершён
+
+**Completed: 11.7**
+
+**Next: 11.8 — только по отдельному запросу пользователя.**
+
+## 1. Этап
+
+**11.7 — Карточка пользователя: только чтение**, 2026-10-19.
+Изучены AGENTS.md, основной Spec, дополнение v1.2, текущий status, Git, реальные
+detail/audit DTO и semantics серверных фильтров. Начальное дерево чистое;
+11.6 зафиксирован commit **7c46690**. Backend0–10 и frontend11.1–11.6 сохранены.
+
+## 2. Реализовано
+
+- `src/Identity.Admin.Web/src/features/users/detailsApi.ts`: typed existing GET
+  details и audit, DTO из generated OpenAPI, runtime validation и явная проекция
+  только полей экрана. Проверяются соответствие user ID, даты и принадлежность events.
+- `useUserDetails.ts`, `useUserActivity.ts`: существующие keys users.detail и
+  audit.list({Page:1,PageSize:10,UserId}); AbortSignal, staleTime30s/networkMode always,
+  прежний retry=false. Audit загружается только после успешного detail GET.
+- `UserDetailsPage.tsx`, `UserProfile.tsx`: защищённая lazy карточка `/admin/users/:userId`.
+  Email, nullable display name, status, email verification, created/updated/verified/
+  disabled/deactivated timestamps; общий StatusTag/LocalDateTime и Ant Descriptions.
+  Явные null labels, локальное en-US время и UTC title. Отдельные invalid/zero UUID,
+  loading, user404, safe error/manual GET retry и refresh. Нет изменяющих действий.
+- `CopyUserId.tsx`: keyboard-accessible Clipboard API только по нажатию, pending,
+  live success/failure; при отказе можно выделить видимый ID. Без DOM fallback,
+  clipboard errors/logs и копирования остального профиля.
+- `UserActivity.tsx`: последние10 retained событий пользователя через серверный
+  UserId filter, порядок backend. Отображаются только eventType/occurredAt; independent
+  loading/empty/error/retry/refresh. Ошибка activity не скрывает профиль, failed refresh
+  скрывает stale данные своей секции. Нет arbitrary metadata или полного audit feed.
+- `userId.ts`: nonempty UUID guard до HTTP. Details route/запросы нормализуют UUID case.
+- UsersTable links переносят allowlisted catalog filters в query карточки вместо
+  router state. Breadcrumb Users/Back to users строят явный URL каталога; reload/direct
+  load сохраняет фильтры. returnPath принимает их также для валидного detail UUID,
+  сохраняя запреты open redirects/fragment/arbitrary query. Невалидные query canonicalize
+  replace как в11.6. Users navigation остаётся выбранным.
+- Общая CSS geometry: Descriptions1/2/3 колонки, перенос ID/текстов, адаптивный список
+  событий, Refresh отдельно от mobile heading. Никаких новых цветов/UI kit.
+- `userDetails.test.tsx`/`test/userDetails.ts`:24 новых unit/component cases; прежние
+  catalog/navigation tests адаптированы к рабочему details route и query links.
+- `e2e/userDetails.spec.ts`:7 новых real-backend scenarios — обе роли, SPA переход,
+  clipboard по Enter, actual profile/activity, reload/back filters, invalid ID/404,
+  independent activity network failure/retry,360/768/1280 screenshots/overflow/storage.
+- Root/frontend README, CHANGELOG, docs/users/authentication/shell и новый
+  docs/user-details.md. IMPLEMENTATION_STATUS обновлён.
+- Backend/CQRS/API/OpenAPI schema/DB/миграции/solution/security policies/env samples/
+  Docker/CI, dependencies и lockfile не менялись. Новых настроек/библиотек нет.
+
+## 3. Решения
+
+ТЗ11.7 допускает activity только при наличии серверного фильтра: фактический UserId
+матчит legacy user_id OR target_user_id. Используется один ограниченный GET на10 events,
+без client-side поиска по полному аудиту. Это события об аккаунте, не все действия
+аккаунта как actor; существующая retention policy применяется. В cache не сохраняются
+неиспользуемые поля detail/audit, включая reason/actors/correlation/clientId/metadata.
+
+Фильтры остаются в URL карточки: возврат работает без sessionStorage/router state
+после reload и login. Query hooks отделены от UI, общие factories/error states/theme
+переиспользованы. Обе роли читают одинаковый экран; backend решает authorization.
+Не добавлены заглушки write controls, sessions section или глобальный audit screen.
+Расхождений, требующих изменения API, нет.
+
+## 4. Проверки
+
+### Commands run
+
+Из frontend:
+
+```powershell
+npm run format
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test:run
+npm run build
+npm run api:check
+npm run test:e2e
+```
+
+Последние три команды выполнены внутри HTTPS smoke script (build включает typecheck).
+Из корня:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage11-7'
+dotnet tool restore
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet format Identity.slnx --no-restore --verify-no-changes
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+### Observed results
+
+- Итоговые typecheck/lint/Prettier exit0. **162 frontend tests passed**,0failed/skipped,
+  11files (138 прежних+24 новых). Проверены null/status variants/404, URI filters/back,
+  безопасный transport/projection/escaping, отсутствие sensitive fields в DOM/cache,
+  loading/empty/manual retry, clipboard success/denial, abort detail/activity, malformed
+  DTO/неверный user ID/посторонний audit event и скрытие stale account после error.
+- Итоговый HTTPS smoke exit0: **28 Chromium scenarios passed**,0retry,4workers,23.2s;
+  семь новых и21 прежний. Реальные PostgreSQL17/Mailpit/API/CLI/Vite TLS proxy. OpenAPI
+  types match; все6 существующих миграций применены. Browser проверяет actual clipboard,
+  обе роли и сохранение фильтров после reload. Снимки360/768/1280 просмотрены; mobile
+  heading не обрезается, page overflow отсутствует. Disposable processes/Compose/
+  volumes/keys очищены скриптом, тестовых секретов в dist нет.
+- Production build exit0, без500kB warning: UserDetailsPage6.23kB(gzip2.30),
+  UsersPage6.76kB(gzip2.69), app104.74kB(gzip34.64); max chunk357.34kB.
+  Общие vendor chunks остаются прежними cache boundaries, могут preload с shell.
+- Backend restore/build exit0, **0warnings/0errors**. **470 tests passed**,
+  0failed/skipped: Unit147/API45/Integration278 с настоящими PostgreSQL/Mailpit.
+  Integration1m30s; TRX stage11-7 — в ignored TestResults.
+- EF: No changes have been made to the model since the last migration. .NET format,
+  secret guard и whitespace check exit0. npm ci/API Docker image build не повторялись:
+  зависимости/backend не менялись. Production frontend image не создавался (этап12).
+
+Первичный typecheck выявил unsupported Ant Result status400 и два unused test imports;
+исправлены warning presentation/импорты. Первый smoke также прошёл все28 тестов, но
+визуальная проверка нашла обрезание activity heading на360px: Refresh перенесён в тело
+карточки, затем успешно повторены applicable frontend checks и весь smoke.
+NO_COLOR/FORCE_COLOR warnings runner косметические. SELECT __EFMigrationsHistory на
+пустой DB ожидаемо предшествует её созданию; все миграции затем успешно применены.
+
+## 5. Безопасность
+
+Никаких административных мутаций, password/token/hash/raw metadata в DOM/cache,
+credentials persistence или browser storage. API validation/DTO projection и React text
+escaping ограничивают обработку неожиданного ответа. UUID guard, scoped audit filter,
+bounded page и AbortSignal сохранены; late responses не подменяют текущую карточку.
+Copy касается только несекретного UUID. Cookie/CSRF/global401/403/server policies прежние.
+Поисковые фильтры email/name видны в URL/history согласно ТЗ; analytics отсутствует.
+Secret guard проверяет текущее дерево, а не всю Git history/все форматы секретов.
+
+## 6. Ограничения / Known issues
+
+- Активность ограничена последними10 retained событиями про пользователя/target;
+  не обещается полный архив или actor history. Полный журнал —11.12.
+- Clipboard может быть запрещён browser policy: показан fallback для ручного выделения
+  ID. Даты локальные en-US; UTC доступен через title.
+- Invite/resend11.8, disable/enable11.9, reset11.10, sessions11.11 и остальные следующие
+  подэтапы не реализованы. Public account pages/production hardening остаются далее.
+- Firefox/WebKit/axe/Lighthouse/production deployment не проверялись. Restricted network
+  requirement до MFA сохраняется. Новых env samples не требуется: настроек не добавлено.
+- Известных блокеров11.7 нет. Commit/push/deploy не выполнялись.
+
+## 7. Следующий этап
+
+**11.8 — Приглашение и повторная отправка приглашения**, только по отдельному запросу.
+Не начат.
+
+---
+
+# История: этап 11.6 завершён
 
 **Completed: 11.6**
 

@@ -277,6 +277,51 @@ body {
   flex-wrap: wrap;
   row-gap: var(--ant-margin-sm);
 }
+.user-details-refresh {
+  display: flex;
+  justify-content: end;
+  margin-bottom: var(--ant-margin-md);
+}
+.user-activity {
+  margin-top: var(--ant-margin-lg);
+}
+.user-profile {
+  overflow-wrap: anywhere;
+}
+.user-id {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ant-margin-xs);
+}
+.user-id > [role='status'] {
+  flex-basis: 100%;
+  color: var(--ant-color-text-secondary);
+}
+.user-id code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.user-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.user-events li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ant-margin-sm);
+  padding-block: var(--ant-padding-md);
+  border-bottom: 1px solid var(--ant-color-border-secondary);
+}
+.user-events code {
+  overflow-wrap: anywhere;
+}
+.user-events time {
+  color: var(--ant-color-text-secondary);
+}
 @media (min-width: 1200px) {
   .dashboard-metrics {
     grid-template-columns: repeat(4, minmax(0, 1fr));
