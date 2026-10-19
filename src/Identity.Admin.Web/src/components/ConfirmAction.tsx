@@ -11,6 +11,7 @@ type ConfirmActionProps = {
   pending?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  afterClose?: () => void;
   children?: ReactNode;
 };
 
@@ -24,6 +25,7 @@ export function ConfirmAction({
   pending = false,
   onConfirm,
   onCancel,
+  afterClose,
   children,
 }: ConfirmActionProps) {
   return (
@@ -32,6 +34,7 @@ export function ConfirmAction({
       title={title}
       onOk={pending ? undefined : onConfirm}
       onCancel={pending ? undefined : onCancel}
+      afterClose={afterClose}
       okText={confirmText}
       cancelText="Cancel"
       confirmLoading={pending}

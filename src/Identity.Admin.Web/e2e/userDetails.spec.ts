@@ -71,9 +71,14 @@ for (const readOnly of [false, true]) {
     );
     await expect(
       page.getByRole('button', {
-        name: /invite|resend|enable|revoke|edit/i,
+        name: /invite|resend|enable|edit/i,
       }),
     ).toHaveCount(0);
+    await expect(
+      page
+        .getByRole('region', { name: 'User sessions', exact: true })
+        .getByRole('button', { name: 'Revoke all sessions', exact: true }),
+    ).toHaveCount(readOnly ? 0 : 1);
     await expect(
       page.getByRole('button', {
         name: 'Send password reset link',

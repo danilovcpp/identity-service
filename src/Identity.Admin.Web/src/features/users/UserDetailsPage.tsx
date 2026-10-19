@@ -14,6 +14,7 @@ import { UserActivity } from './UserActivity';
 import { ResendInvitation } from './invitations/ResendInvitation';
 import { AccountStatusAction } from './accountStatus/AccountStatusAction';
 import { RequestPasswordReset } from './passwordReset/RequestPasswordReset';
+import { UserSessions } from './sessions/UserSessions';
 
 function Details({ userId }: { userId: string }) {
   const query = useUserDetails(userId);
@@ -61,6 +62,7 @@ function Details({ userId }: { userId: string }) {
         </Button>
       </div>
       <UserProfile data={query.data} />
+      <UserSessions userId={userId} email={query.data.email} />
       <UserActivity userId={userId} />
     </div>
   );

@@ -187,6 +187,12 @@ body {
 .user-activity {
   margin-top: var(--ant-margin-lg);
 }
+.user-sessions-toolbar {
+  margin-bottom: var(--ant-margin-md);
+}
+.session-table {
+  overflow-wrap: anywhere;
+}
 .account-status-confirm {
   display: grid;
   gap: var(--ant-margin-md);

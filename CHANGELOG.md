@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10, 11.1–11.10
+## Unreleased — v1.1, stages 8–10, 11.1–11.11
+
+- Per-user refresh sessions with server pagination/state filters, local timestamps
+  and UTC tooltips, safe DTO projection, read-only access and horizontal table scrolling.
+- Separate confirmed single/all revocation through existing cookie/CSRF APIs, with
+  pending guards, safe error feedback and detail/sessions/dashboard/audit refresh.
+- Explicit administrator-cookie effects for revoke all; real backend verification
+  of rejected refreshes after revocation and responsive keyboard/focus coverage.
 
 - Confirmed administrator password reset requests from eligible user details via
   the existing cookie/CSRF API; pending/double-submit guards and202 processing feedback.

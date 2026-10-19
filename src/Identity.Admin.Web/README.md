@@ -2,7 +2,7 @@
 
 Frontend самостоятельного продукта Identity. Выполнены **11.1 — bootstrap** и
 **11.2 — HTTP-клиент, OpenAPI, CSRF**, **11.3 — тема и App Shell**,
-**11.4 — Login / Logout / Route Guards**, **11.5 — Dashboard**, **11.6 — Users catalog**, **11.7 — User details**, **11.8 — Invite/resend**, **11.9 — Disable/enable**, **11.10 — Password reset request** из
+**11.4 — Login / Logout / Route Guards**, **11.5 — Dashboard**, **11.6 — Users catalog**, **11.7 — User details**, **11.8 — Invite/resend**, **11.9 — Disable/enable**, **11.10 — Password reset request**, **11.11 — User sessions** из
 [дополнения v1.2](../../Identity_Admin_Codex_Addendum_v1.2.md).
 Вход, выход, профиль и защита маршрутов работают через реальные cookie/CSRF API.
 `/admin` показывает реальные метрики и график регистраций; `/admin/users` — серверный каталог с поиском, фильтрами и пагинацией. Audit пока не подключён.
@@ -13,10 +13,11 @@ Frontend самостоятельного продукта Identity. Выпол�
 Приглашение пользователя и повторная отправка для Administrator: [Invitations](docs/invitations.md).
 Блокировка/разблокировка с подтверждением, последствия и проверки: [Account status](docs/account-status.md).
 Запрос письма для сброса пароля с подтверждением: [Password reset request](docs/password-reset.md).
+Серверный список сессий и подтверждаемый отзыв одной/всех: [Sessions](docs/sessions.md).
 
 По отдельному запросу20.10 UI приведён к стандартному Ant Design6.6.6 light:
 без overrides палитры/контролов/теней; штатные Form/Grid/Modal/Table patterns.
-[Аудит и визуальная проверка](docs/ant-design-alignment.md). Функциональный scope — до11.10.
+[Аудит и визуальная проверка](docs/ant-design-alignment.md). Функциональный scope — до11.11.
 
 ## Требования и запуск
 
@@ -75,7 +76,7 @@ src/
   components/   layouts, PageHeader, states, confirmation, StatusTag
   features/auth/ session API, auth context/provider, login, guards, session controls
   features/dashboard/ read API, Query hook, metrics, registrations chart
-  features/users/ catalog, details, scoped activity, invitation/status/reset API and mutations
+  features/users/ catalog, details, activity, sessions, invitation/status/reset API and mutations
   pages/        NotFoundPage
   test/         общий setup Vitest/RTL и очистка DOM между тестами
 ```

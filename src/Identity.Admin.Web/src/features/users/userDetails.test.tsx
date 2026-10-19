@@ -38,7 +38,9 @@ function responses(detail: unknown = account, events: unknown[] = [event]) {
       Promise.resolve(
         path(input).includes('/audit-events')
           ? json({ items: events, page: 1, pageSize: 10, total: events.length })
-          : json(detail),
+          : path(input).includes('/sessions')
+            ? json({ items: [], page: 1, pageSize: 25, total: 0 })
+            : json(detail),
       ),
     );
 }
@@ -191,7 +193,9 @@ describe('read-only user details', () => {
       Promise.resolve(
         path(input).includes('/audit-events')
           ? json({ items: [], page: 1, pageSize: 10, total: 0 })
-          : json(account),
+          : path(input).includes('/sessions')
+            ? json({ items: [], page: 1, pageSize: 25, total: 0 })
+            : json(account),
       ),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
@@ -212,7 +216,9 @@ describe('read-only user details', () => {
             ? fail
               ? json({}, 500)
               : json({ items: [event], page: 1, pageSize: 10, total: 1 })
-            : json(account),
+            : path(input).includes('/sessions')
+              ? json({ items: [], page: 1, pageSize: 25, total: 0 })
+              : json(account),
         ),
       );
     mount();
@@ -223,7 +229,7 @@ describe('read-only user details', () => {
     await screen.findByText(event.eventType);
     expect(
       fetch.mock.calls.filter(
-        ([input]) => !path(input).includes('/audit-events'),
+        ([input]) => path(input) === `/api/v1/admin/users/${id}`,
       ),
     ).toHaveLength(1);
   });

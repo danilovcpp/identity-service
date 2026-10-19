@@ -1,4 +1,156 @@
-# Текущий статус: этап 11.10 — запрос сброса пароля администратором
+# Текущий статус: этап 11.11 — управление пользовательскими сессиями
+
+**Completed: 11.11**
+
+**Next: 11.12 — только по отдельному запросу пользователя.**
+
+## 1. Этап
+
+11.11 из Identity_Admin_Codex_Addendum_v1.2.md, 20.10.2026. Изучены AGENTS.md,
+основной Spec, дополнение, status, Git и фактические API/handlers/DTO/frontend.
+Начальное дерево чистое, предыдущий commit **e644282**. Сохранены backend0–10,
+frontend11.1–11.10 и стандартное оформление Ant Design. Следующие этапы не начаты.
+
+## 2. Реализовано
+
+- `features/users/sessions/api.ts`: generated types + существующие GET/DELETE/POST,
+  numeric string normalization, validation UUID/dates/unique IDs/page bounds,
+  explicit DTO projection. Неожиданные поля не попадают в cache/DOM.
+- `useUserSessions.ts`: Query key с userId/page/pageSize/state, AbortSignal,
+  staleTime30s, server pagination25 и server state filter all/active/revoked/expired.
+- `UserSessions.tsx` / `SessionsTable.tsx`, подключены в `UserDetailsPage.tsx`:
+  отдельная секция после профиля, session UUID/client/optional user-agent/state,
+  created/lastUsed/expiry/revoked/reason, local time + UTC title. Loading/empty/error/
+  manual GET retry, первая страница после filter change, явный возврат с пустой
+  поздней страницы. Пагинация и фильтр локальны секции; catalog URL не меняется.
+  Доступное keyboard scroll region и штатная Ant Table; CSS только spacing/overflow.
+- Два отдельных confirmation: Revoke session в active row с конкретным UUID и
+  Revoke all sessions в верхней панели. Без запроса при open/Cancel. Только
+  Administrator; ReadOnly не видит write controls/Actions column. Для inactive,
+  expired и revoked row действие отсутствует. Revoke all доступен и при пустом
+  refresh-списке, поскольку может завершать не показанные здесь admin sessions.
+- `useRevokeSessions.ts`: immediate ref double-submit guard, pending, timeout30s,
+  unmount cancellation; retry=false/networkMode=always/gcTime=0 по прежней политике.
+  После204 обновляются user detail + все его session query keys/dashboard/audit.
+  Нет optimistic success или затрагивания другого user's detail cache.
+- `SessionCommandError.tsx`: safe403/404/409/CSRF/network/timeout; uncertain completion
+  не повторяет POST/DELETE автоматически. Global401/403 оставлен AuthProvider.
+  ConfirmAction получил optional afterClose: после успеха focus на Refresh sessions,
+  поскольку action отозванной строки исчезает; Cancel сохраняет trigger focus.
+- `sessions.test.tsx` + test fixture:24 read/write cases. Новые sessions GET учтены
+  в старых details tests, старый E2E актуализирован для Revoke all по роли.
+- `e2e/sessions.spec.ts`:10 сценариев с настоящим backend: single/all204 и проверка
+  refresh401, независимая другая сессия, отзыв reader admin cookie; реальный ReadOnly403,
+  state/empty, injected403/404/409/network, scroll/modal keyboard/focus360/768/1280.
+  Новый project после password-reset и перед visual; прежние retries0/workers4.
+- `docs/sessions.md`, User details docs, frontend/root README и CHANGELOG обновлены.
+
+## 3. Решения / API / миграции / конфигурация
+
+Используется только существующий per-user sessions API. DTO перечисляет refresh
+sessions и isActive, без IP/device/isCurrent для admin browser. Такие поля не
+добавлены/не выдуманы. Revoked имеет приоритет, Active берётся из server snapshot;
+иначе показывается Expired по expiry либо Inactive. Fresh state — через GET refresh.
+Revoke all завершает и refresh-, и admin cookie sessions согласно SessionRevoker;
+это явно указано, включая own-session effect. Количество затрагиваемых сессий не
+обещается, поскольку page/filter total не включает admin cookies и может устареть.
+Внешние JWT остаются потенциально валидными до exp. Domain/Application/Infrastructure/
+API/schema/миграции/пакеты/lockfile/config/env/smoke fixture не менялись.
+
+## 4. Проверки
+
+### Commands run
+
+Из frontend:
+
+```powershell
+npx prettier --write src/features/users/sessions src/features/users/UserDetailsPage.tsx src/components/ConfirmAction.tsx src/app/styles.css
+npx prettier --write src/features/users/sessions src/test/userSessions.ts src/features/users/userDetails.test.tsx
+npx prettier --write src/features/users/sessions/sessions.test.tsx e2e/sessions.spec.ts e2e/userDetails.spec.ts playwright.config.ts
+npx prettier --write docs/sessions.md docs/user-details.md README.md
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test:run
+npm run api:check
+npm run test:e2e
+```
+
+api:check/test:e2e выполняет smoke harness; test:e2e вызывает npm run build.
+Из корня:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet tool restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage-11-11'
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet format Identity.slnx --no-restore --verify-no-changes
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+### Observed results
+
+- TypeScript/ESLint/Prettier exit0; **262 frontend tests passed**,15files,0failed/skipped,
+  18.71s, включая regression pending-refetch focus. В первом run260passed/1failed:
+  jsdom не предоставляет ResizeObserver при
+  раскрытии Select; добавлен feature-test-only adapter по существующему образцу.
+  Повторный полный run зелёный; timeouts/retries/assertions не ослаблялись.
+- .NET restore/build exit0,0warnings/0errors; **470 tests passed**,0failed/skipped:
+  147Unit/45API/278Integration, реальные PostgreSQL/Mailpit, integration1m24s.
+- EF: No changes have been made to the model since the last migration; format exit0.
+  OpenAPI types match Identity.Api. Frontend production build exit0, UserDetails22.23kB,
+  CSS4.11kB, максимальный chunk357.43kB; warning500kB неизменён.
+- Итоговый HTTPS smoke exit0: **64 Chromium scenarios passed**,0failed/skipped,
+  0retry,4workers,2.5m:54 прежних+10 новых. Подтверждены DELETE одной сессии/POST всех,
+  refresh401 после отзыва, независимая другая сессия, reader cookie revocation,
+  audit events, server ReadOnly403, фильтр/empty, safe errors, scroll и keyboard/focus.
+  Три viewport PNG360/768/1280 просмотрены вручную: диалоги читаемы, таблица остаётся
+  внутри горизонтального scroll region, стандартные Ant Design controls сохранены.
+  Все6 existing migrations применены на новой PostgreSQL БД; OpenAPI/dist secret
+  checks прошли. Harness очистил API/Vite, Compose volumes и temporary secrets.
+- Repository secret guard с self-test/untracked и Git whitespace check exit0.
+
+Первый smoke:58passed/1failed/5not run. Реальные revoke/refresh/ReadOnly сценарии прошли;
+keyboard scroll assertion считывал scrollLeft немедленно после ArrowRight, до browser
+scroll animation. Заменено на expect.poll до фактического scrollLeft>0, как в прежнем
+users.spec.ts; добавлена обратная ArrowLeft проверка. Timeouts/retries не повышались,
+проверка scroll/overflow не удалялась. Второй smoke51passed/1failed/12not run нашёл
+неустойчивый возврат focus: Refresh button был disabled при background refetch,
+а loading icon менял accessible name. Убран лишний disabled (Ant loading сам
+блокирует повторный click), добавлен aria-label. Regression test держит GET pending,
+проверяет восстановленный focus и отсутствие повторного запроса. Полный smoke
+повторён с новой БД, без увеличения timeout/retries; итог64passed.
+
+## 5. Безопасность
+
+Same-origin HttpOnly cookies/CSRF/серверная авторизация не менялись. ReadOnly UI
+только читает, backend независимо отклоняет unsafe операции. Mutation variables —
+user/session UUID, без tokens/passwords. Read projection исключает unexpected sensitive
+поля; React экранирует user-agent/reason. Нет storage/console/analytics с секретами.
+Native tokens для E2E находятся только в Node test closure, не в browser JS/URL/storage
+или screenshots. Подтверждения объясняют refresh/admin scope и JWT revocation lag.
+
+## 6. Ограничения / Known issues
+
+Отдельной глобальной страницы сессий нет, как требует11.11. Admin cookie sessions
+не перечисляются существующим GET; количество всех затронутых сессий неизвестно.
+Состояния отражают серверный read snapshot. Исторические сессии ограничены прежней
+retention policy; отсутствие rows не означает отсутствие сессий за всю историю.
+Только Chromium; Firefox/WebKit/axe/Lighthouse/production deployment/image не проверялись.
+npm ci не повторяется: зависимости не менялись. MFA/network ограничения прежние.
+
+## 7. Следующий этап
+
+**11.12 — Журнал аудита**, только по отдельному запросу. Не начат.
+Git summary и commit — на английском; push/deploy не выполняются.
+
+---
+
+# История: этап 11.10 — запрос сброса пароля администратором
 
 **Completed: 11.10**
 
