@@ -11,6 +11,7 @@ import { isUserId } from './userId';
 import { useUserDetails } from './useUserDetails';
 import { UserProfile } from './UserProfile';
 import { UserActivity } from './UserActivity';
+import { ResendInvitation } from './invitations/ResendInvitation';
 
 function Details({ userId }: { userId: string }) {
   const query = useUserDetails(userId);
@@ -33,6 +34,7 @@ function Details({ userId }: { userId: string }) {
   return (
     <div aria-busy={query.isFetching}>
       <div className="user-details-refresh">
+        <ResendInvitation userId={userId} status={query.data.status} />
         <Button
           icon={<ReloadOutlined aria-hidden="true" />}
           aria-label="Refresh user details"

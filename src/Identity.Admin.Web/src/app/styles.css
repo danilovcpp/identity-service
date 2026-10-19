@@ -285,6 +285,20 @@ body {
 .user-activity {
   margin-top: var(--ant-margin-lg);
 }
+.user-actions,
+.invitation-dialog-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ant-margin-sm);
+}
+.invitation-dialog-actions {
+  justify-content: end;
+}
+.user-details-refresh {
+  flex-wrap: wrap;
+  gap: var(--ant-margin-sm);
+}
 .user-profile {
   overflow-wrap: anywhere;
 }

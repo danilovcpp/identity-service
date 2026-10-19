@@ -23,7 +23,21 @@ export default defineConfig({
     trace: 'off',
     video: 'off',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      testIgnore: '**/invitations.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    // These scenarios create users in the shared disposable database. Run them
+    // after dashboard baseline assertions, rather than racing live counts.
+    {
+      name: 'chromium-invitations',
+      testMatch: '**/invitations.spec.ts',
+      dependencies: ['chromium'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
   webServer: {
     command: `npm run dev -- --port ${port}`,
     url: baseURL,

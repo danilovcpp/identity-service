@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10, 11.1–11.7
+## Unreleased — v1.1, stages 8–10, 11.1–11.8
+
+- Administrator invitation form and confirmed resend for Invited accounts, using
+  existing cookie/CSRF API, typed mutations and targeted query invalidation.
+- Validation, conflict/uncertain-network feedback, double-submit protection and202
+  processing acknowledgment; no password assignment or guaranteed-delivery claim.
+- ReadOnly controls absent; disposable HTTPS/PostgreSQL/Mailpit checks include real
+  invite/resend mail receipts and responsive keyboard/focus behavior.
 
 - Read-only account details with status, verification and lifecycle timestamps,
   accessible ID copy feedback and explicit invalid-ID/not-found/error states.

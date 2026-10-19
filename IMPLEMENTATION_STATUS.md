@@ -1,4 +1,157 @@
-# Текущий статус: этап 11.7 завершён
+# Текущий статус: этап 11.8 завершён
+
+**Completed: 11.8**
+
+**Next: 11.9 — только по отдельному запросу пользователя.**
+
+## 1. Этап
+
+**11.8 — Приглашение и повторная отправка приглашения**, 2026-10-19.
+Прочитаны AGENTS.md, основной Spec, дополнение v1.2, текущий статус, Git и существующие
+OpenAPI/Controllers/validators/handlers. При первом чтении оставались изменения11.7;
+в ходе работы они зафиксированы commit92e8908 User card. Существующие изменения сохранены.
+Реализован только11.8; backend0–10 и frontend11.1–11.7 сохранены.
+
+## 2. Реализовано
+
+- `features/users/invitations/api.ts`: существующие POST invite/resend, generated DTO,
+  общий typed same-origin client с cookie/CSRF и пустым202. Нет новых API.
+- `useInvitationCommand.ts`: TanStack mutation для двух конкретных команд; моментальная
+  защита ref от double submit, timeout30s, AbortController создан до запуска мутации,
+  отмена при unmount даже до начала HTTP. Прежние retry=false/networkMode=always/gcTime=0.
+- `InviteUser.tsx`: кнопка на Users только для Administrator, Ant Modal/Form email required
+  до320, optional display name до120, проверка control characters, trim/null. Получатель
+  сам задаёт пароль; Send invitation явно подтверждает запрос. Pending блокирует поля,
+  submit/cancel/close. Форма уничтожается при закрытии; Cancel не отправляет запрос.
+- `ResendInvitation.tsx`: только Administrator + Invited; общий ConfirmAction с пояснением
+  отзыва старых invitation links, Cancel в начальном фокусе, pending/double guard.
+- `InvitationError.tsx`: safe validation/duplicate409/state409/404/429/503/CSRF feedback;
+  network/timeout означает неизвестный результат и предлагает проверить Users/activity.
+  Нет автоматического replay, raw server detail или произвольного exception.message.
+- После202 toast Invitation accepted for processing без обещания доставки; invite
+  закрывает форму и инвалидирует users/dashboard; resend закрывает confirmation и
+  инвалидирует конкретный detail/audit. Обновляются активные GET, без SPA reload.
+- `UsersPage.tsx`, `UserDetailsPage.tsx`: встраивание действий в существующий layout.
+  `styles.css`: только responsive geometry с theme tokens. `containTabFocus.ts` учитывает
+  input/select/textarea для клавиатурного обхода формы; Ant Modal возвращает фокус trigger.
+- `invitations.test.tsx`:22 новых component/hook cases. `test/TestAuth.tsx` — test-only
+  provider существующего AuthContext; прежние catalog/detail tests читают как ReadOnly.
+- `e2e/invitations.spec.ts`:7 real-backend scenarios: invite, Invited row, resend/audit,
+  два Mailpit receipts, ReadOnly, real409, network failure, keyboard/focus360/768/1280.
+  Старый users test теперь ожидает Invite только у Administrator.
+- `playwright.config.ts`: отдельный invitation project зависит от прежнего Chromium suite,
+  чтобы записи в общей disposable DB не гонялись с dashboard baseline assertions.
+  Invitation scenarios serial; workers4/retries0 сохранены.
+- `scripts/Test-AdminWebSmoke.ps1`: existing Invitations/фиксированный email template
+  включаются только в ephemeral fixture; server-only IDENTITY_E2E_MAILPIT_URL для проверок
+  envelope metadata. Mail bodies/links/tokens не читаются новыми browser tests.
+- README/CHANGELOG/frontend README/docs users/details/shell/authentication и новый
+  docs/invitations.md обновлены. Конфиги-примеры не менялись: новых product settings нет.
+- Backend, CQRS, security policies, OpenAPI schema, DB/миграции, solution, dependencies,
+  lockfile, Docker images/CI не менялись. Новых библиотек/секретов нет.
+
+## 3. Решения
+
+Первый write flow использует существующий feature API и Query infrastructure, Ant Design
+theme и controlled confirmation. Один небольшой hook содержит только две invitation
+команды; универсального CRUD/mutation framework нет. Значения формы не попадают в URL
+или browser storage. Password/token вообще не входят в контракт. Form submit служит
+явным подтверждением invite (§6 дополнения); resend требует отдельного подтверждения.
+
+После команды UI показывает факт202, а не доставку. При сетевой неопределённости
+автоматический повтор запрещён; для resend409 требуется refresh изменившегося аккаунта.
+Фильтры каталога сохраняются: новый аккаунт может не соответствовать текущему фильтру.
+API полностью совместим, изменения backend/согласования контрактов не потребовались.
+
+## 4. Проверки
+
+### Commands run
+
+Frontend:
+
+```powershell
+npm run format
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test:run -- src/features/users/invitations/invitations.test.tsx
+npm run test:run
+npm run api:check
+npm run build
+npm run test:e2e
+```
+
+Последние три выполняются HTTPS smoke script (test:e2e также включает build).
+Из корня:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage11-8'
+dotnet tool restore
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet format Identity.slnx --no-restore --verify-no-changes
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+### Observed results
+
+- Итоговые TypeScript/lint/Prettier exit0; **184 frontend tests passed**,0failed/skipped,
+  12files (162 прежних +22 новых). Validation/202/409/readonly/double-submit acceptance
+  покрыт, включая field errors, null name, cache invalidations и abort до/во время HTTP.
+- Итоговый HTTPS smoke exit0: **35 Chromium scenarios passed**,0retry,4workers,42.2s,
+  включая7 новых (первый прогон также35passed,44.9s).
+  Реальные API/Vite TLS/PostgreSQL17/Mailpit, обе роли, два доставленных invitation emails,
+  реальный409, обновлённая Invited row и admin_resent_invitation. OpenAPI types match.
+  Применены все6 миграций, temporary processes/volumes/keys/env очищены harness finally.
+  Снимки360/768/1280 просмотрены: форма помещается, фокус/Tab/Escape/возврат работают.
+- Production build exit0, без500kB chunk warning; все chunks меньше358kB. Нет тестовых
+  секретов в dist. Browser tests используют dev HTTPS proxy, не production hosting.
+- .NET restore/build exit0, **0warnings/0errors**. **470 backend tests passed**,
+  0failed/skipped: Unit147/API45/Integration278, real PostgreSQL/Mailpit; Integration1m29s.
+- EF: No changes have been made to the model since the last migration. .NET format,
+  secret guard с SelfTest/IncludeUntracked и whitespace check exit0.
+- npm ci/API Docker image build не повторялись (зависимости/backend без изменений).
+  Production frontend image, release deployment и CI hardening — этап12.
+
+Первичные TypeScript/lint проверки нашли неверный порядок аргументов существующего
+client, widened form field types, control-regex и test-only typing/async issues; исправлены.
+Первый component run требовал ожидания видимости Ant Modal в jsdom; исправлены ожидания
+и стабильное accessible name pending submit. После исправлений полный suite зелёный.
+Первый HTTPS smoke также прошёл35 cases; после дополнительной защиты раннего abort
+выполнены полный frontend suite и повторный smoke. NO_COLOR/FORCE_COLOR warnings runner
+косметические; SELECT migration history до создания чистой DB ожидаем.
+
+## 5. Безопасность
+
+Authorization остаётся на сервере, UI использует canWrite только для отсутствия controls.
+Центральные same-origin cookie/CSRF и global401/403 остаются прежними. Нет паролей,
+tokens/links/raw errors в UI/cache/storage/logs; mutation variables содержат только
+несекретный input email/name либо userId. Form values очищаются при закрытии, inactive
+mutation cache gcTime0. Ref guard/timeout/abort/retry=false исключают скрытые повторы.
+Одноразовые токены и outbox encryption остаются server-side. Mailpit assertions читают
+только envelope metadata; новые скриншоты содержат пустую форму и disposable account data.
+
+## 6. Ограничения / Known issues
+
+- 202 не гарантирует SMTP delivery; retry после сети — только осознанное действие оператора.
+- Public activation UI —11.13. До неё получатель не может завершить приглашение через SPA;
+  существующий public acceptance API сохранён. Password assignment не добавлен.
+- Disable/enable11.9, reset11.10, sessions11.11, полный audit11.12 не реализованы.
+- Firefox/WebKit/axe/Lighthouse/production deployment не проверялись. До MFA требуется
+  restricted admin network. Продуктовые версии и env samples остаются прежними.
+- Известных блокеров11.8 нет. Commit/push/deploy не выполнялись агентом.
+
+## 7. Следующий этап
+
+**11.9 — Блокировка и разблокировка пользователя**, только по отдельному запросу. Не начат.
+
+---
+
+# История: этап 11.7 завершён
 
 **Completed: 11.7**
 

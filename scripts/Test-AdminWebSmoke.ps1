@@ -73,6 +73,8 @@ try {
         ASPNETCORE_Kestrel__Certificates__Default__Path=$pfx; ASPNETCORE_Kestrel__Certificates__Default__Password=$pfxPassword
         AdminAccess__Enabled='true'; AdminAccess__DataProtectionKeyPath=$keyDirectory
         Registration__Enabled='true'; Outbox__Enabled='true'; Outbox__PollSeconds='0.1'
+        Invitations__Enabled='true'; Email__InvitationUrlTemplate='https://localhost/account/activate#token={token}'
+        IDENTITY_E2E_MAILPIT_URL="http://127.0.0.1:$mailPort"
         OutboxEncryption__ActiveKeyId='smoke'; OutboxEncryption__Keys__smoke=$outbox
         Email__FromAddress='no-reply@identity.example'; Email__VerificationUrlTemplate='https://localhost/verify#token={token}'
         Email__Smtp__Host='127.0.0.1'; Email__Smtp__Port="$smtpPort"; Email__Smtp__Tls='None'

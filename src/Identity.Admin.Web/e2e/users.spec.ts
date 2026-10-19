@@ -31,9 +31,12 @@ for (const readOnly of [false, true]) {
     );
     await expect(
       page.getByRole('button', {
-        name: /invite|disable|enable|reset password|revoke/i,
+        name: /disable|enable|reset password|revoke/i,
       }),
     ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Invite user', exact: true }),
+    ).toHaveCount(readOnly ? 0 : 1);
     expect(requests.length).toBeGreaterThan(0);
     expect(requests.every((method) => method === 'GET')).toBe(true);
   });

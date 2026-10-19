@@ -19,6 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createQueryClient } from '@/app/queryClient';
 import { queryKeys } from '@/api/queryKeys';
 import { ClientError } from '@/api/errors';
+import { TestAuth } from '@/test/TestAuth';
 import { UsersPage } from './UsersPage';
 import { getUsers } from './api';
 import { parseUsersParameters, usersApiQuery } from './parameters';
@@ -89,16 +90,18 @@ function mount(path = '/admin/users') {
   const view = render(
     <QueryClientProvider client={client}>
       <ConfigProvider theme={{ token: { motion: false } }}>
-        <MemoryRouter initialEntries={[path]}>
-          <Location />
-          <Routes>
-            <Route path="/admin/users" element={<UsersPage />} />
-            <Route
-              path="/admin/users/:id"
-              element={<h1>Detail destination</h1>}
-            />
-          </Routes>
-        </MemoryRouter>
+        <TestAuth>
+          <MemoryRouter initialEntries={[path]}>
+            <Location />
+            <Routes>
+              <Route path="/admin/users" element={<UsersPage />} />
+              <Route
+                path="/admin/users/:id"
+                element={<h1>Detail destination</h1>}
+              />
+            </Routes>
+          </MemoryRouter>
+        </TestAuth>
       </ConfigProvider>
     </QueryClientProvider>,
   );

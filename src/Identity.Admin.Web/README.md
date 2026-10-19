@@ -2,7 +2,7 @@
 
 Frontend самостоятельного продукта Identity. Выполнены **11.1 — bootstrap** и
 **11.2 — HTTP-клиент, OpenAPI, CSRF**, **11.3 — тема и App Shell**,
-**11.4 — Login / Logout / Route Guards**, **11.5 — Dashboard**, **11.6 — Users catalog**, **11.7 — User details** из
+**11.4 — Login / Logout / Route Guards**, **11.5 — Dashboard**, **11.6 — Users catalog**, **11.7 — User details**, **11.8 — Invite/resend** из
 [дополнения v1.2](../../Identity_Admin_Codex_Addendum_v1.2.md).
 Вход, выход, профиль и защита маршрутов работают через реальные cookie/CSRF API.
 `/admin` показывает реальные метрики и график регистраций; `/admin/users` — серверный каталог с поиском, фильтрами и пагинацией. Audit пока не подключён.
@@ -10,6 +10,7 @@ Frontend самостоятельного продукта Identity. Выпол�
 Контракт, обновление и проверки статистики: [Dashboard](docs/dashboard.md).
 Параметры URL, границы страниц и проверки каталога: [Users](docs/users.md).
 Карточка пользователя, copy ID и связанные security events: [User details](docs/user-details.md).
+Приглашение пользователя и повторная отправка для Administrator: [Invitations](docs/invitations.md).
 
 ## Требования и запуск
 
@@ -68,6 +69,7 @@ src/
   components/   layouts, PageHeader, states, confirmation, StatusTag
   features/auth/ session API, auth context/provider, login, guards, session controls
   features/dashboard/ read API, Query hook, metrics, registrations chart
+  features/users/ catalog, details, scoped activity, invitations API/mutations/forms
   pages/        NotFoundPage
   test/         общий setup Vitest/RTL и очистка DOM между тестами
 ```

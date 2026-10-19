@@ -40,6 +40,11 @@ Playwright smoke с настоящими PostgreSQL/Mailpit и CLI bootstrap. Б
 Фильтры каталога сохраняются после перехода и перезагрузки. Карточка доступна обеим
 административным ролям только для чтения; приглашения и другие действия — далее.
 
+**Этап 11.8**: [Invite/resend](src/Identity.Admin.Web/docs/invitations.md) — форма приглашения
+и подтверждение повторной отправки для Administrator. После202 обновляются каталог/
+dashboard либо detail/audit; UI сообщает принятие в обработку. ReadOnly только читает.
+Публичная страница активации остаётся этапом11.13.
+
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):
 registration/verification, RS256 JWT/JWKS, refresh rotation/replay, собственные sessions/

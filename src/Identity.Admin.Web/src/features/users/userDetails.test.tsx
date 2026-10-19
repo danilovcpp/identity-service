@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createQueryClient } from '@/app/queryClient';
 import { queryKeys } from '@/api/queryKeys';
 import { ClientError } from '@/api/errors';
+import { TestAuth } from '@/test/TestAuth';
 import { safeReturnPath } from '@/features/auth/returnPath';
 import {
   testUserDetails as account,
@@ -52,13 +53,18 @@ function mount(route = `/admin/users/${id}`) {
   const view = render(
     <QueryClientProvider client={client}>
       <ConfigProvider theme={{ token: { motion: false } }}>
-        <MemoryRouter initialEntries={[route]}>
-          <Location />
-          <Routes>
-            <Route path="/admin/users/:userId" element={<UserDetailsPage />} />
-            <Route path="/admin/users" element={<h1>Users destination</h1>} />
-          </Routes>
-        </MemoryRouter>
+        <TestAuth>
+          <MemoryRouter initialEntries={[route]}>
+            <Location />
+            <Routes>
+              <Route
+                path="/admin/users/:userId"
+                element={<UserDetailsPage />}
+              />
+              <Route path="/admin/users" element={<h1>Users destination</h1>} />
+            </Routes>
+          </MemoryRouter>
+        </TestAuth>
       </ConfigProvider>
     </QueryClientProvider>,
   );

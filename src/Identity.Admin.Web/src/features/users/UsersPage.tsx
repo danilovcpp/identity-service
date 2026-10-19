@@ -12,6 +12,7 @@ import { useUsersParameters } from './useUsersParameters';
 import { maxUsersPage, userStatuses } from './parameters';
 import { useUsers } from './useUsers';
 import { UsersTable } from './UsersTable';
+import { InviteUser } from './invitations/InviteUser';
 
 const number = new Intl.NumberFormat('en-US');
 export function UsersPage() {
@@ -29,14 +30,17 @@ export function UsersPage() {
         title="Users"
         description="Find and review Identity accounts."
         actions={
-          <Button
-            icon={<ReloadOutlined aria-hidden="true" />}
-            onClick={refresh}
-            loading={query.isFetching}
-            disabled={query.isFetching}
-          >
-            Refresh
-          </Button>
+          <div className="user-actions">
+            <InviteUser />
+            <Button
+              icon={<ReloadOutlined aria-hidden="true" />}
+              onClick={refresh}
+              loading={query.isFetching}
+              disabled={query.isFetching}
+            >
+              Refresh
+            </Button>
+          </div>
         }
       />
       <Card>

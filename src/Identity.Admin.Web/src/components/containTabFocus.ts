@@ -6,7 +6,7 @@ export function containTabFocus(event: KeyboardEvent<HTMLDivElement>) {
   if (event.key !== 'Tab') return;
   const elements = Array.from(
     event.currentTarget.querySelectorAll<HTMLElement>(
-      'a[href],button,[tabindex]',
+      'a[href],button,input,select,textarea,[tabindex]',
     ),
   ).filter(
     (element) =>

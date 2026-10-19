@@ -30,7 +30,8 @@ Dashboard и Users активны. Audit disabled и не имеет ссылк�
 Login/logout/profile/Forbidden/cache cleanup: [authentication](authentication.md).
 Метрики/UTC chart/refresh: [Dashboard](dashboard.md).
 Каталог/URL filters/server pagination: [Users](users.md).
-[User details](user-details.md) подключён только для чтения. `/account/*` ещё не реализованы.
+[User details](user-details.md) показывает профиль/activity; с11.8 подключены [Invite/resend](invitations.md)
+для Administrator. `/account/*` ещё не реализованы.
 Нет фиктивных метрик/сессий.
 
 ## Общие компоненты
@@ -41,7 +42,7 @@ Login/logout/profile/Forbidden/cache cleanup: [authentication](authentication.md
 - ConfirmAction: controlled Modal с явными title/description/confirmText, Cancel в
   начальном фокусе, pending блокирует повторное подтверждение и закрытие. Компонент
   не отправляет запросы: permissions, pending/error, timeout и mutation принадлежат feature.
-  Реальные формы действий не добавлены; callback проверяется только в test fixtures.
+  С11.8 переиспользуется для подтверждения resend; focus trap учитывает поля формы.
 - StatusTag использует реальные UserStatus: PendingVerification, Active, Invited,
   Disabled, Deactivated. Незнакомое значение — нейтральный escaped текст, не выдуманный
   доменный статус. Подпись различает состояния без зависимости только от цвета.

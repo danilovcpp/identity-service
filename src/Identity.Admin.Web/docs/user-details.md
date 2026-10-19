@@ -51,8 +51,9 @@ Absolute return URLs не принимаются. Поиск по email/name о�
 
 На360px Descriptions в одну колонку, ID/тексты переносятся. Заголовок активности и Refresh
 не конкурируют за ширину одной строки. Проверяются360/768/1280px и keyboard copy.
-Нет placeholders/buttons для invitation, password reset, enable/disable, редактирования
-или session revoke. Сессии — этап11.11; следующие write flows начинаются с11.8.
+С11.8 для Administrator в статусе Invited доступна [повторная отправка приглашения](invitations.md)
+с подтверждением. Для ReadOnly это действие отсутствует. Password reset, enable/disable,
+редактирование и session revoke не подключены; сессии — этап11.11.
 
 ## Проверки
 
