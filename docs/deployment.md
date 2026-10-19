@@ -1,4 +1,9 @@
-# Запуск и конфигурация Identity — этапы 0–6
+# Запуск и конфигурация Identity 1.0.0
+
+Для новой production установки используйте отдельный [runbook](production.md),
+`deploy/compose.production.yaml` и `deploy/production.env.example`. Ниже — полный
+справочник SDK/options/maintenance; быстрый dev запуск — [README](../README.md).
+Три существующие миграции сохранены, новой схемы в этапе 7 нет.
 
 ## Этап 6: транспорт, retention и наблюдаемость
 
@@ -267,12 +272,18 @@ Readiness `/health/ready` проверяет соединение, отвеча�
 быть закрыт на сетевом уровне. Не проксируйте его в публичную сеть. Локально порты
 Compose уже привязаны к loopback; `/health/live` остаётся проверкой только процесса.
 
-Образы используют stable tags `10.0`, `17-alpine`, `v1`, чтобы получать обновления
-соответствующих линеек. Перед будущей production-поставкой нужно закрепить проверенные
-digests и настроить их обновление. Полная production-инструкция относится к этапу 7.
-В ней потребуются TLS/reverse proxy, secret mounts и постоянные JWT/outbox ключи,
-SMTP с TLS, backups PostgreSQL, отдельный запуск миграций и retention policies.
-Текущий Compose с Mailpit и Development не является production deployment.
+Dockerfile и dev Compose закреплены на проверенные digests .NET 10/PostgreSQL 17/Mailpit.
+Обновляйте их осознанно вместе с full tests/smoke; pinned image не получает patches
+без rebuild. Отдельная [production-инструкция](production.md) описывает immutable release
+image, TLS/reverse proxy, secret mounts/keys, SMTP TLS, backups и migrations.
+Dev Compose с Mailpit и Development не используется как production deployment.
+
+Container HEALTHCHECK запускает `dotnet Identity.Api.dll --health-check`, exit 0
+только при 200 healthy от loopback /health/live. ASPNETCORE_HTTP_PORTS должен содержать
+один числовой port (в образе 8080), IDENTITY_HEALTH_HOST — разрешённый Host (default
+localhost). Redirect/proxy для probe выключены, timeout 3 секунды; shell/curl/SDK
+в runtime не нужны. Docker health сообщает liveness, readiness/schema/SMTP проверяются
+отдельно. Compose --wait теперь ожидает этот healthcheck, а не только running state.
 
 ## Регистрация и письма
 

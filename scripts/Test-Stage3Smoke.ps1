@@ -1,12 +1,13 @@
 #requires -Version 7.4
 # Isolated local-only smoke. Requires a Release build, dotnet-ef and Docker Linux containers.
-param([switch] $Stage4, [switch] $Stage5, [switch] $Stage6)
+param([switch] $Stage4, [switch] $Stage5, [switch] $Stage6, [switch] $Stage7)
 $ErrorActionPreference = 'Stop'
 $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 Push-Location $root
 $suffix = [Guid]::NewGuid().ToString('N')
+if ($Stage7) { $Stage6 = $true }
 if ($Stage6) { $Stage5 = $true }
-$stage = if ($Stage6) { 6 } elseif ($Stage5) { 5 } elseif ($Stage4) { 4 } else { 3 }
+$stage = if ($Stage7) { 7 } elseif ($Stage6) { 6 } elseif ($Stage5) { 5 } elseif ($Stage4) { 4 } else { 3 }
 $project = "identity-stage$stage-smoke-$suffix"
 $environmentFile = Join-Path $root ".env.stage$stage-smoke-$suffix"
 $secretDirectory = Join-Path $root "secrets/stage$stage-smoke-$suffix"
@@ -114,6 +115,10 @@ try {
         Assert-True ($sessions.Count -eq 2 -and @($sessions | Where-Object isCurrent).Count -eq 1) 'Own session list invalid.'
         $rotated = Invoke-RestMethod "$api/api/v1/auth/refresh" -Method Post -ContentType 'application/json' -Body (@{ refreshToken = $pair.refreshToken } | ConvertTo-Json -Compress)
         Assert-True ($rotated.refreshToken -cne $pair.refreshToken) 'Rotation reused the old token.'
+        if ($Stage7) {
+            $profile = Invoke-RestMethod "$api/api/v1/users/me" -Headers @{ Authorization = "Bearer $($rotated.accessToken)" }
+            Assert-True ($profile.email -eq 'smoke@identity.example' -and $profile.status -eq 'active') 'Rotated token cannot read own profile.'
+        }
         Invoke-Compose restart api
         $restarted = $false
         for ($attempt = 0; $attempt -lt 30; $attempt++) {
@@ -145,6 +150,11 @@ try {
         $afterAll = Invoke-WebRequest "$api/api/v1/sessions" -Headers $otherHeaders -SkipHttpErrorCheck
         Assert-True ($afterAll.StatusCode -eq 401) 'Logout-all left current JWT active on Identity.'
         $last = Invoke-RestMethod "$api/api/v1/auth/login" -Method Post -ContentType 'application/json' -Body $body
+        if ($Stage7) {
+            $last = Invoke-RestMethod "$api/api/v1/auth/refresh" -Method Post -ContentType 'application/json' -Body (@{ refreshToken = $last.refreshToken } | ConvertTo-Json -Compress)
+            $profile = Invoke-RestMethod "$api/api/v1/users/me" -Headers @{ Authorization = "Bearer $($last.accessToken)" }
+            Assert-True ($profile.emailVerified) 'Profile email is not verified.'
+        }
         $logoutBody = @{ refreshToken = $last.refreshToken } | ConvertTo-Json -Compress
         $logout = Invoke-WebRequest "$api/api/v1/auth/logout" -Method Post -ContentType 'application/json' -Body $logoutBody
         $repeat = Invoke-WebRequest "$api/api/v1/auth/logout" -Method Post -ContentType 'application/json' -Body $logoutBody
@@ -152,7 +162,8 @@ try {
         $afterLogout = Invoke-WebRequest "$api/api/v1/auth/refresh" -Method Post -ContentType 'application/json' -Body $logoutBody -SkipHttpErrorCheck
         Assert-True ($afterLogout.StatusCode -eq 401) 'Logout left a refresh token active.'
         $state = Invoke-Compose exec -T postgres psql -U identity -d identity -t -A -c "SELECT (SELECT count(*) FROM sessions), (SELECT count(*) FROM refresh_tokens), (SELECT bool_and(revoked_at IS NOT NULL) FROM refresh_tokens), (SELECT bool_and(audience = 'identity-native') FROM sessions), (SELECT count(*) FROM security_audit_events WHERE event_type = 'refresh_replay_detected');"
-        Assert-True (($state -join '').Trim() -eq '4|6|t|t|1') 'Stage 4 persisted state invalid.'
+        $expectedState = if ($Stage7) { '4|7|t|t|1' } else { '4|6|t|t|1' }
+        Assert-True (($state -join '').Trim() -eq $expectedState) 'Stage 4 persisted state invalid.'
         Write-Output 'Stage 4 Docker smoke passed: registration/email/login/JWKS -> rotation -> restart -> rotation -> replay/family revoke -> own sessions/revoke -> logout-all -> login/logout -> failed refresh; non-root.'
     } else {
         Write-Output 'Stage 3 Docker smoke passed: register -> Mailpit -> verify -> login -> public JWKS -> restart -> login; persisted sessions/hashes, cleared outbox, non-root.'
@@ -201,7 +212,8 @@ try {
         $disabledLogin = Invoke-WebRequest "$api/api/v1/auth/login" -Method Post -ContentType 'application/json' -Body $resetLoginBody -SkipHttpErrorCheck
         Assert-True ($disabledLogin.StatusCode -eq 401) 'Deactivated account can log in.'
         $state = Invoke-Compose exec -T postgres psql -U identity -d identity -t -A -c "SELECT (SELECT count(*) FROM sessions), (SELECT count(*) FROM refresh_tokens), (SELECT bool_and(revoked_at IS NOT NULL) FROM refresh_tokens), (SELECT bool_and(status = 3 AND display_name = 'Smoke Updated') FROM users), (SELECT bool_and(consumed_at IS NOT NULL) FROM one_time_tokens WHERE purpose = 1), (SELECT count(*) FROM security_audit_events WHERE event_type = 'password_changed'), (SELECT count(*) FROM security_audit_events WHERE event_type = 'password_reset'), (SELECT count(*) FROM security_audit_events WHERE event_type = 'account_deactivated');"
-        Assert-True (($state -join '').Trim() -eq '7|9|t|t|t|1|1|1') 'Stage 5 persisted state invalid.'
+        $expectedFinal = if ($Stage7) { '7|10|t|t|t|1|1|1' } else { '7|9|t|t|t|1|1|1' }
+        Assert-True (($state -join '').Trim() -eq $expectedFinal) 'Stage 5 persisted state invalid.'
         Write-Output 'Stage 5 Docker smoke passed: profile/update -> password change/all-session revoke -> Mailpit reset/single-use -> new login -> deactivation -> failed login; stage 3/4 checks included.'
     }
     if ($Stage6) {
@@ -212,6 +224,21 @@ try {
         $indexes = Invoke-Compose exec -T postgres psql -U identity -d identity -tAc "SELECT count(*) FROM pg_indexes WHERE indexname = 'ix_outbox_processed_at';"
         Assert-True (($indexes -join '').Trim() -eq '1') 'Missing security maintenance index.'
         Write-Output 'Stage 6 Docker smoke passed: security headers/correlation, generic error contract, maintenance migration; stage 3/4/5 flows included.'
+    }
+    if ($Stage7) {
+        $containerId = (Invoke-Compose ps -q api | Select-Object -Last 1).Trim()
+        $health = 'starting'
+        for ($attempt = 0; $attempt -lt 40 -and $health -ne 'healthy'; $attempt++) {
+            $health = & docker inspect --format '{{.State.Health.Status}}' $containerId
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot read container health.' }
+            if ($health -ne 'healthy') { Start-Sleep -Seconds 1 }
+        }
+        Assert-True ($health -eq 'healthy') 'Container is not healthy.'
+        Invoke-Compose exec -T api dotnet Identity.Api.dll --health-check
+        $version = & docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' $containerId
+        if ($LASTEXITCODE -ne 0) { throw 'Cannot read container version.' }
+        Assert-True ($version -eq '1.0.0') 'Container release version invalid.'
+        Write-Output 'Stage 7 Docker smoke passed: register -> Mailpit -> verify -> login -> refresh -> me -> logout -> failed refresh; non-root, healthcheck and version 1.0.0; all earlier stage smoke checks included.'
     }
 } finally {
     [Environment]::SetEnvironmentVariable('Database__ConnectionString', $previousConnection)

@@ -1,4 +1,11 @@
-# Архитектура Identity — этапы 0–6
+# Архитектура Identity 1.0.0
+
+Этап 7 завершает поставку без изменения business handlers/схемы: version 1.0.0,
+SHA-pinned CI, secret guard, dev/production templates и release notes. Docker image
+содержит только publish output, работает non-root и проверяет liveness отдельным
+`--health-check` процессом того же assembly, до построения host/DI. Probe использует
+только HttpClient/JSON к фиксированному loopback, не загружает keys и не делает EF/SMTP IO.
+Нового HTTP endpoint или зависимости Domain/Application не добавлено.
 
 Этап 6 добавляет API transport options/allowlist, RequestSecurityMiddleware с единым
 OperationContext/trace/header/scope и безопасными HTTP metrics. Forwarded headers

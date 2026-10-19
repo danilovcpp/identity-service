@@ -8,6 +8,12 @@ using Identity.Application.Abstractions.Cqrs;
 using Identity.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 
+if (args is ["--health-check"])
+{
+    Environment.ExitCode = await ContainerHealthProbe.RunAsync();
+    return;
+}
+
 Activity.DefaultIdFormat = ActivityIdFormat.W3C;
 Activity.ForceDefaultIdFormat = true;
 var builder = WebApplication.CreateBuilder(args);

@@ -1,0 +1,35 @@
+name: identity-production
+
+# Standalone API only. Supply PostgreSQL, TLS terminator and SMTP separately.
+services:
+  api:
+    image: ${IDENTITY_IMAGE:?Set IDENTITY_IMAGE to a reviewed image digest}
+    env_file: ${IDENTITY_RUNTIME_ENV_FILE:-../.env.production}
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: "8080"
+      Jwt__PrivateKeyPath: /run/secrets/identity_jwt_key
+    ports:
+      - "127.0.0.1:${API_PORT:-5080}:8080"
+    secrets:
+      - identity_jwt_key
+      - identity_outbox_key
+    read_only: true
+    tmpfs:
+      - /tmp:size=16777216,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 512m
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+secrets:
+  identity_jwt_key:
+    file: ${JWT_KEY_FILE:?Set JWT_KEY_FILE}
+  identity_outbox_key:
+    file: ${OUTBOX_KEY_FILE:?Set OUTBOX_KEY_FILE}

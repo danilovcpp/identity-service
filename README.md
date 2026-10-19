@@ -1,180 +1,171 @@
-# Identity
+# Identity 1.0.0
 
-Самостоятельный self-hosted сервис учётных записей и аутентификации на .NET 10.
-Источник требований — [Identity_Codex_Spec.md](Identity_Codex_Spec.md).
-
-Реализованы **этапы 0–6**: каркас, Domain, EF Core/CQRS, регистрация и подтверждение
-email через зашифрованный transactional outbox и SMTP, login с RS256 JWT/JWKS,
-сессиями и refresh rotation/replay protection, logout/logout-all, просмотр/отзыв
-собственных сессий и cleanup истории, профиль, смена/сброс пароля и деактивация,
-security hardening, безопасные метрики/логи и ограниченные retention batches.
+Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
+PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):
+registration/verification, RS256 JWT/JWKS, refresh rotation/replay, собственные sessions/
+profile, password lifecycle, deactivation, encrypted SMTP outbox и security audit.
+Состав выпуска и ограничения — в [CHANGELOG](CHANGELOG.md).
 
 ## Требования
 
-- .NET SDK 10.0 (stable; `global.json` допускает новые feature bands 10.0).
-- Docker Engine с Linux containers и Docker Compose v2 для локального окружения
-  и интеграционных тестов (Testcontainers запускает PostgreSQL 17 и Mailpit).
+- .NET SDK 10.0 stable (`global.json`, rollForward latestFeature).
+- Docker Engine с **Linux containers**, Compose v2 и доступным daemon.
+- PowerShell **7.4+** (`pwsh`) для команд ниже и smoke scripts, Git.
+  PowerShell доступен и для Linux/macOS. Тесты используют реальные PostgreSQL/Mailpit
+  в Testcontainers; Docker обязателен, integration tests без него не пропускаются.
 
-## Сборка и тесты
+## Быстрый локальный запуск
 
-```sh
+Все команды выполняются из корня checkout в PowerShell 7.4+. Это dev окружение:
+loopback HTTP, Development и Mailpit. Production описан [отдельно](docs/production.md).
+
+1. Восстановите инструменты и соберите API:
+
+```powershell
 dotnet restore Identity.slnx
 dotnet tool restore
-dotnet build Identity.slnx --no-restore --configuration Release
-dotnet test Identity.slnx --no-build --no-restore --configuration Release
+dotnet build Identity.slnx --configuration Release --no-restore
 ```
 
-Тесты запускают временные PostgreSQL/Mailpit, создают временный ключ, применяют миграцию и удаляют ресурсы после
-проверок. БД из Compose и ConnectionString для `dotnet test` не требуются.
-Без доступного Docker integration tests завершаются ошибкой, а не пропускаются.
-
-## Запуск API с SDK
-
-Сначала запустите PostgreSQL из Compose (настройка `.env` описана ниже):
-
-```sh
-docker compose up --detach --wait postgres
-```
-
-Для API и EF CLI обязательна `Database__ConnectionString`. В PowerShell 7 задайте её
-через скрытый ввод, чтобы значение не попало в историю команд:
+2. Создайте локальные настройки и постоянные **случайные** dev keys. При повторном
+запуске существующие `.env` и keys сохраняются; не добавляйте их в Git:
 
 ```powershell
-$env:Database__ConnectionString = Read-Host 'PostgreSQL connection string' -MaskInput
-dotnet ef database update --project src/Identity.Infrastructure --configuration Release
-dotnet run --project src/Identity.Api --launch-profile Identity.Api
-```
-
-Форма строки для локальной БД: `Host=localhost;Port=54320;Database=identity;Username=identity;Password=<ваш пароль из .env>`.
-Без корректной конфигурации API не стартует. API: `http://localhost:5080`. Проверка:
-
-```sh
-curl --fail http://localhost:5080/health/live
-curl --fail http://localhost:5080/health/ready
-curl --fail http://localhost:5080/openapi/v1.json
-```
-
-`/health/live` возвращает `200` и `{"status":"healthy"}`. OpenAPI доступен только
-в Development. Launch profile включает Development; без профиля среда по умолчанию
-Production, URL настраивается через `ASPNETCORE_URLS`/`ASPNETCORE_HTTP_PORTS`.
-`/health/ready` проверяет подключение к PostgreSQL (200/503), не состояние схемы.
-Миграции выполняются отдельной командой, никогда автоматически при старте API.
-При запуске с SDK регистрация, password reset и worker по умолчанию выключены. Для включения
-см. [конфигурацию доставки](docs/deployment.md#регистрация-и-письма).
-
-## Локальный запуск через Compose
-
-Скопируйте `.env.example` в `.env` и задайте **свой случайный** `POSTGRES_PASSWORD`.
-Без него Compose откажется запускаться. Например, в PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-$identityPassword = [Convert]::ToHexString([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
-(Get-Content .env) -replace '^POSTGRES_PASSWORD=.*$', "POSTGRES_PASSWORD=$identityPassword" | Set-Content .env
-Remove-Variable identityPassword
+if (-not (Test-Path .env)) {
+    Copy-Item .env.example .env
+    $identityPassword = [Convert]::ToHexString([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+    (Get-Content .env) -replace '^POSTGRES_PASSWORD=.*$', "POSTGRES_PASSWORD=$identityPassword" | Set-Content .env
+    Remove-Variable identityPassword
+}
 New-Item -ItemType Directory -Path secrets -Force | Out-Null
 if (-not (Test-Path secrets/outbox-dev.key)) {
     [System.IO.File]::WriteAllBytes((Join-Path (Get-Location) 'secrets/outbox-dev.key'), [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
 }
 if (-not (Test-Path secrets/jwt-dev.pem)) {
     $identityRsa = [System.Security.Cryptography.RSA]::Create(3072)
-    [System.IO.File]::WriteAllText((Join-Path (Get-Location) 'secrets/jwt-dev.pem'), $identityRsa.ExportPkcs8PrivateKeyPem())
-    $identityRsa.Dispose()
-    Remove-Variable identityRsa
+    try { [System.IO.File]::WriteAllText((Join-Path (Get-Location) 'secrets/jwt-dev.pem'), $identityRsa.ExportPkcs8PrivateKeyPem()) }
+    finally { $identityRsa.Dispose(); Remove-Variable identityRsa }
 }
 ```
 
-Это первоначальная настройка: при обычном запуске сохраняйте существующие `.env`
-и ключ. При обновлении добавьте из `.env.example` обязательную переменную
-`RESET_PASSWORD_URL_TEMPLATE` (локально `http://localhost:3000/reset#token={token}`).
-Не добавляйте секреты в Git. Сначала поднимите зависимости:
+В существующем `.env` из ранних этапов проверьте непустой POSTGRES_PASSWORD и оба
+URL templates из `.env.example`, включая RESET_PASSWORD_URL_TEMPLATE. Порты меняются
+там же. Пример предназначен для простой unquoted key=value формы `.env.example`.
+Не меняйте пароль уже инициализированного PostgreSQL volume только правкой `.env`.
 
-```sh
+3. Поднимите зависимости и примените **все три миграции** отдельной SDK-командой.
+Connection string формируется в памяти из dev `.env` и не печатается:
+
+```powershell
 docker compose config --quiet
 docker compose up --detach --wait postgres mailpit
-```
-
-Примените миграцию SDK-командой из предыдущего раздела с host `localhost`, портом
-54320 и паролем из `.env`. Затем запустите API:
-
-```sh
+$identityLocal = Get-Content .env -Raw | ConvertFrom-StringData
+$identityConnection = [System.Data.Common.DbConnectionStringBuilder]::new()
+$identityConnection['Host'] = '127.0.0.1'
+$identityConnection['Port'] = $identityLocal.POSTGRES_PORT
+$identityConnection['Database'] = 'identity'
+$identityConnection['Username'] = 'identity'
+$identityConnection['Password'] = $identityLocal.POSTGRES_PASSWORD
+$identityPreviousConnection = $env:Database__ConnectionString
+try {
+    $env:Database__ConnectionString = $identityConnection.ConnectionString
+    dotnet ef database update --project src/Identity.Infrastructure --configuration Release --no-build
+    if ($LASTEXITCODE -ne 0) { throw 'Migration failed.' }
+} finally {
+    $env:Database__ConnectionString = $identityPreviousConnection
+    Remove-Variable identityLocal, identityConnection, identityPreviousConnection
+}
 docker compose up --build --detach --wait api
-curl --fail http://localhost:5080/health/live
-curl --fail http://localhost:5080/health/ready
-curl --fail http://localhost:5080/openapi/v1.json
-docker compose exec -T postgres pg_isready -U identity -d identity
 docker compose ps
 ```
 
-Локальные адреса (порты можно изменить в `.env`):
+Если меняли шаблон/формат `.env`, задайте Database__ConnectionString через защищённый
+ввод по [SDK-инструкции](docs/deployment.md#миграции). API не вызывает auto-migrate.
+Значение `ready` означает DB connectivity, не актуальность schema или исправность SMTP.
 
-| Сервис | Адрес |
+4. Проверьте окружение:
+
+```powershell
+Invoke-RestMethod http://localhost:5080/health/live
+Invoke-RestMethod http://localhost:5080/health/ready
+Invoke-RestMethod http://localhost:5080/.well-known/jwks.json
+```
+
+| Сервис | Адрес по умолчанию |
 | --- | --- |
-| API | `http://localhost:5080` |
-| PostgreSQL 17 | `localhost:54320`, database/user: `identity` |
-| Mailpit UI | `http://localhost:8025` |
-| Mailpit SMTP | `localhost:1025` |
+| API / OpenAPI (только Development) | `http://localhost:5080` / `/openapi/v1.json` |
+| Mailpit UI / SMTP | `http://localhost:8025` / `localhost:1025` |
+| PostgreSQL | `localhost:54320`, database/user `identity` |
 
-Все опубликованные порты привязаны к `127.0.0.1`. Контейнер API работает без root.
-PostgreSQL использует именованный volume; `docker compose down` останавливает окружение
-с сохранением данных. `docker compose down --volumes` также **удаляет локальные данные БД**.
-Изменение пароля в `.env` не меняет пароль уже инициализированного PostgreSQL volume.
-API получает настройки БД/SMTP через env, ключ — через secret mount.
-При обновлении до этапа 6 сначала примените новую миграцию `SecurityMaintenanceIndex`.
-В production business API принимает только HTTPS; proxy trust задаётся явно.
-Настройки, retention и метрики описаны в [deployment](docs/deployment.md#этап-6-транспорт-retention-и-наблюдаемость),
-матрица проверок и ограничения — в [security checklist](docs/security.md#checklist-этапа-6).
-Внутри Compose используются `postgres:5432` и `mailpit:1025`.
-Worker доставляет письма в Mailpit; успешная доставка очищает encrypted payload.
-Compose предназначен для разработки: Development и Mailpit без SMTP-аутентификации.
+Все опубликованные dev порты привязаны к 127.0.0.1. API non-root; Docker healthcheck
+использует `dotnet Identity.Api.dll --health-check` (liveness, без загрузки DB/keys).
+HTTP port внутри образа — 8080. Mailpit worker очищает encrypted payload после success.
+Обычный `docker compose down` сохраняет volume; добавление `--volumes` **удаляет БД**.
 
-Сценарий register → Mailpit → verify → login, resend и curl-команды описаны в [docs/api.md](docs/api.md).
-Страницы `localhost:3000/verify` и `/reset` из dev-шаблонов не входят в Identity:
-скопируйте токен из fragment ссылки в Mailpit и отправьте POST verify/reset
-либо настройте собственную страницу/BFF. Профиль и password lifecycle описаны в [API](docs/api.md#профиль-пароль-и-деактивация).
+Далее пройдите [curl-сценарий API](docs/api.md#первый-end-to-end-сценарий) или запустите
+полностью изолированный smoke:
 
-## Структура и проверки
+```powershell
+pwsh -NoProfile -File scripts/Test-Stage7Smoke.ps1
+```
+
+Smoke создаёт свои временные ports/env/keys/Compose project, применяет миграции,
+собирает image и проверяет register → Mailpit → verify → login → refresh → me →
+logout → failed refresh плюс replay/password/deactivation/restart. После себя удаляет
+только свои containers/network/volume/env/keys. Для него пользовательский `.env` не нужен.
+Страницы localhost:3000/verify и /reset из email templates не входят в backend:
+локально скопируйте token из fragment ссылки Mailpit в JSON POST verify/reset либо
+настройте внешнюю UI/BFF. Не передавайте одноразовые tokens в query API.
+
+## Архитектура и API
 
 ```text
-src/Identity.Domain          сущности, инварианты и переходы состояний
-src/Identity.Application     CQRS, auth/session/profile/password handlers и validators
-src/Identity.Infrastructure  EF/Npgsql, PBKDF2, AES-GCM, RS256/JWKS, SMTP, outbox worker
-src/Identity.Api             composition root, диспетчеры, MVC Controllers, ProblemDetails
-tests/Identity.UnitTests         Domain, CQRS, конфигурация и архитектура
-tests/Identity.IntegrationTests  PostgreSQL/Testcontainers, миграции, CRUD, транзакции, конкуренция
-tests/Identity.ApiTests          HTTP smoke, readiness 503 и ProblemDetails
-docs/                           архитектура, API, безопасность, запуск
+Domain          -> нет зависимостей
+Application     -> Domain
+Infrastructure  -> Application, Domain
+Api             -> Application, Infrastructure
 ```
 
-CI-ready команды из корня репозитория:
+Controllers, собственные typed CQRS dispatchers/validators/handlers, явная DI и UoW.
+Domain/Application не зависят от ASP.NET/EF. Нет MediatR, generic repository,
+Identity user management или готового auth server. Schema: users, credentials,
+sessions, refresh_tokens, one_time_tokens, outbox_messages, security_audit_events.
 
-```sh
+- [Архитектура и конкурентность](docs/architecture.md).
+- [Все API contracts и curl](docs/api.md), включая пример JWT validation в отдельном .NET API.
+- [Security checklist и ограничения](docs/security.md).
+- [Options, SDK, миграции, key rotation, retention/metrics](docs/deployment.md).
+- [Production runbook: TLS, secrets, PostgreSQL, deploy/backup/restore](docs/production.md).
+
+## Сборка, тесты и CI
+
+```powershell
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+dotnet clean Identity.slnx --configuration Release
 dotnet restore Identity.slnx
 dotnet tool restore
-dotnet build Identity.slnx --no-restore --configuration Release
-dotnet test Identity.slnx --no-build --no-restore --configuration Release
+dotnet build Identity.slnx --configuration Release --no-restore
 dotnet format Identity.slnx --no-restore --verify-no-changes
-docker build --tag identity:local .
-# PowerShell 7.4+: изолированный end-to-end smoke этапа 6 (временные ресурсы удаляются)
-pwsh -NoProfile -File scripts/Test-Stage6Smoke.ps1
+dotnet test Identity.slnx --configuration Release --no-build --no-restore
+pwsh -NoProfile -File scripts/Test-Stage7Smoke.ps1
 ```
 
-Настройки компилятора общие: nullable, warnings-as-errors, C# 14; версии NuGet
-фиксируются в `Directory.Packages.props`. Локальный `dotnet-ef` фиксирован в tool manifest.
-Проверка snapshot (с заданной `Database__ConnectionString`):
+Tests применяют/revert/reapply migrations на временном PostgreSQL 17; EF InMemory/SQLite
+не используются. Время и криптографические ключи тестов изолированы. DB из dev Compose
+и connection string для `dotnet test` не нужны. Для проверки model snapshot и SQL
+используйте команды [миграций](docs/deployment.md#миграции); SQL output ignored.
 
-```sh
-dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release
-dotnet ef migrations script --idempotent --project src/Identity.Infrastructure --configuration Release --output migration.sql
-```
+[GitHub Actions CI](.github/workflows/ci.yml) запускает те же проверки на Ubuntu/Docker,
+включая migrations и container smoke. Actions pinned по SHA, permissions contents:read,
+checkout без сохранения credentials; workflow не публикует image/release и не deploy.
+Guard проверяет текущие tracked files (локально также untracked с флагом), запрещает
+secret file paths и известные PEM/token literals; не заменяет проверку всей Git history
+и ручной review произвольных passwords/config. TRX retention в CI — 7 дней.
 
-`migration.sql` — локальный результат, его не нужно добавлять в репозиторий.
-EF InMemory и SQLite не используются вместо PostgreSQL.
-CI workflow и полная продуктовая поставка относятся к этапу 7.
+## Границы v1.0
 
-Подробности: [архитектура](docs/architecture.md), [HTTP API](docs/api.md),
-[безопасность](docs/security.md), [запуск и конфигурация](docs/deployment.md).
-
-REST token protocol Identity **не является OAuth 2.0/OpenID Connect**
-и не предоставляет стандартизованный SSO. Браузерным приложениям потребуется BFF;
-refresh tokens нельзя сохранять в localStorage/sessionStorage или доступных JavaScript cookie.
+Собственный REST protocol **не OAuth2/OIDC/SSO**; MFA/social login/passkeys и frontend
+не поставляются. clientId — публичный audience selector. Browser integration требует BFF:
+refresh нельзя хранить в localStorage/sessionStorage/JavaScript-accessible cookie.
+JWT в downstream действует до exp (+skew), IP/account limits локальны процессу,
+SMTP at-least-once, deactivation сохраняет PII. Полный список — [release notes](CHANGELOG.md).

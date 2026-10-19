@@ -1,4 +1,38 @@
-# HTTP API Identity — этапы 0–6
+# HTTP API Identity 1.0.0
+
+## Первый end-to-end сценарий
+
+После [локального запуска](../README.md#быстрый-локальный-запуск), с отдельным dev
+email/паролем. Все значения tokens ниже — placeholders; не сохраняйте реальные
+секреты в shell history/CI logs. Для защищённого интерактивного клиента используйте
+память/защищённое хранилище, не копируйте реальные значения в общие скрипты.
+
+```sh
+curl -i http://localhost:5080/api/v1/auth/register -H "Content-Type: application/json" --data '{"email":"reader@identity.example","password":"<strong-password-15-plus-codepoints>","displayName":"Reader","clientId":"native"}'
+```
+
+Ожидается 202. Откройте Mailpit (`http://localhost:8025`), найдите письмо Identity,
+скопируйте token из fragment `#token=...`. Переход на localhost:3000 не нужен: эта
+страница не поставляется. Отправьте token в JSON, затем войдите:
+
+```sh
+curl -i http://localhost:5080/api/v1/auth/email/verify -H "Content-Type: application/json" --data '{"token":"<verification-token-from-Mailpit>"}'
+curl -i http://localhost:5080/api/v1/auth/login -H "Content-Type: application/json" --data '{"email":"reader@identity.example","password":"<same-strong-password>","clientId":"native"}'
+```
+
+Verify даёт 204, login — 200 c accessToken/refreshToken. Обменяйте login refresh
+один раз; сохраните **оба новых** значения из ответа, старый refresh больше не используйте:
+
+```sh
+curl -i http://localhost:5080/api/v1/auth/refresh -H "Content-Type: application/json" --data '{"refreshToken":"<login-refresh>"}'
+curl -i http://localhost:5080/api/v1/users/me -H "Authorization: Bearer <new-access>"
+curl -i http://localhost:5080/api/v1/auth/logout -H "Content-Type: application/json" --data '{"refreshToken":"<new-refresh>"}'
+curl -i http://localhost:5080/api/v1/auth/refresh -H "Content-Type: application/json" --data '{"refreshToken":"<new-refresh>"}'
+```
+
+Результаты: 200 token pair → 200 собственный профиль → 204 → 401 invalid_refresh_token.
+Повтор старого consumed refresh до logout считается replay и отзывает всё семейство.
+Автоматический эквивалент, включая Mailpit и cleanup: `scripts/Test-Stage7Smoke.ps1`.
 
 ## Транспорт и ошибки
 

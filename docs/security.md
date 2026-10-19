@@ -1,4 +1,12 @@
-# Безопасность Identity — этапы 0–6
+# Безопасность Identity 1.0.0
+
+Поставка: pinned base images/actions, non-root runtime с liveness probe, отдельный
+production template с read-only rootfs/secret mounts/cap_drop/no-new-privileges.
+CI работает без production credentials, contents:read, без publish/deploy.
+`Test-RepositorySecrets.ps1` проверяет current Git tree на secret paths и известные
+PEM/token formats, не всю историю и не все произвольные passwords. До публикации
+нужны review конфигурации и процедура ротации найденных секретов, не только их удаление.
+Production backup/restore security boundaries описаны в [runbook](production.md).
 
 ## Checklist этапа 6
 
@@ -37,7 +45,8 @@ clientId не является аутентификацией приложени
 Изменение client config/key rollout и согласование лимитов replicas — обязанности
 оператора. Framework/bootstrap logs до построения pipeline и логи внешнего proxy/
 collector требуют отдельной защищённой конфигурации. Generic responses не обещают
-постоянное сетевое время. Этап 7 (CI/release/product packaging) не выполнялся.
+постоянное сетевое время. Полная продуктовая поставка описана в README/CHANGELOG;
+внешняя production инсталляция остаётся ответственностью оператора.
 
 Профиль доступен только владельцу из проверенных sub/sid. GET отдаёт явную projection,
 PATCH допускает только displayName; email, userId и неизвестные поля отклоняются.
@@ -176,7 +185,7 @@ Register и verify сохраняют свои состояния с audit event
 в таблице token hash, в outbox зашифрованы recipient/subject/body целиком.
 SMTP protocol logging отсутствует. Message-Id стабилен, но delivery остаётся at-least-once.
 
-Полная версия продукта ещё не завершена: продуктовая поставка относится к этапу 7.
+Dev окружение предназначено только для локального запуска; production требует runbook.
 Не публикуйте текущее dev-окружение в Интернет.
 
 Ограничения продукта по ТЗ:
