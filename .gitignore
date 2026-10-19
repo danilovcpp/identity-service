@@ -10,6 +10,7 @@ TestResults/
 .env.*
 !.env.example
 secrets/
+**/data-protection-keys/
 *.pem
 *.pfx
 *.key

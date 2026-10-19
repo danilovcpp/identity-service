@@ -29,11 +29,13 @@ public sealed class RegistrationFixture : IAsyncLifetime
     public string JwtKeyPath => Path.Combine(_directory, "jwt-key.pem");
     public string OldPublicKeyPath => Path.Combine(_directory, "jwt-public.pem");
     public string NextJwtKeyPath => Path.Combine(_directory, "jwt-next.pem");
+    public string AdminKeyDirectory => Path.Combine(_directory, "admin-data-protection");
     public HttpClient Mailpit { get; private set; } = null!;
 
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(_directory);
+        Directory.CreateDirectory(AdminKeyDirectory);
         await File.WriteAllBytesAsync(KeyPath, RandomNumberGenerator.GetBytes(32));
         using (var rsa = RSA.Create(3072))
         {
@@ -56,6 +58,8 @@ public sealed class RegistrationFixture : IAsyncLifetime
         File.Delete(JwtKeyPath);
         File.Delete(OldPublicKeyPath);
         File.Delete(NextJwtKeyPath);
+        foreach (var file in Directory.EnumerateFiles(AdminKeyDirectory)) { File.Delete(file); }
+        Directory.Delete(AdminKeyDirectory);
         Directory.Delete(_directory);
     }
 

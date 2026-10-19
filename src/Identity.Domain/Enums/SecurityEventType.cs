@@ -12,5 +12,16 @@ public enum SecurityEventType
     LogoutAll,
     PasswordChanged,
     PasswordReset,
-    AccountDeactivated
+    AccountDeactivated,
+    AdminLogin,
+    AdminLoginFailed,
+    AdminLogout,
+    AdminRoleGranted,
+    AdminRoleRevoked,
+    AdminInvitedUser,
+    AdminResentInvitation,
+    AdminRequestedPasswordReset,
+    AdminDisabledUser,
+    AdminEnabledUser,
+    AdminRevokedSession
 }

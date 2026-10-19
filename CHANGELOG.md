@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — v1.1, stage 8
+
+- Identity system administrator/read-only roles, protected local grant/revoke CLI.
+- Separate server-side admin sessions, Secure HttpOnly cookies, CSRF and JSON auth API.
+- Durable Data Protection, per-request validation, idle/absolute expiry, audit actor/target.
+- Atomic last-administrator protection including existing self-deactivation; password
+  change/reset/logout-all revoke admin sessions alongside existing refresh sessions.
+- Additive AdminSecureAccess migration, Invited/Invitation schema preparation. Existing
+  Bearer REST protocol preserved; no admin UI/user-management endpoints yet.
+
 ## 1.0.0 — 2026-10-19
 
 Подготовленный первый самостоятельный выпуск Identity, .NET 10 / PostgreSQL 17+.

@@ -11,8 +11,8 @@ internal sealed class OneTimeTokenConfiguration : IEntityTypeConfiguration<OneTi
         builder.ToTable("one_time_tokens", table =>
         {
             table.HasCheckConstraint("ck_one_time_hash", "token_hash ~ '^[0-9a-f]{64}$'");
-            table.HasCheckConstraint("ck_one_time_purpose", "purpose IN (0, 1)");
-            table.HasCheckConstraint("ck_one_time_times", "expires_at > created_at AND expires_at <= created_at + CASE purpose WHEN 0 THEN interval '24 hours' ELSE interval '30 minutes' END AND (consumed_at IS NULL OR (consumed_at >= created_at AND consumed_at < expires_at))");
+            table.HasCheckConstraint("ck_one_time_purpose", "purpose IN (0, 1, 2)");
+            table.HasCheckConstraint("ck_one_time_times", "expires_at > created_at AND expires_at <= created_at + CASE purpose WHEN 0 THEN interval '24 hours' WHEN 2 THEN interval '72 hours' ELSE interval '30 minutes' END AND (consumed_at IS NULL OR (consumed_at >= created_at AND consumed_at < expires_at))");
         });
         builder.HasKey(token => token.Id);
         builder.Property(token => token.Id).ValueGeneratedNever();

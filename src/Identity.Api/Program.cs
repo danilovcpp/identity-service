@@ -6,6 +6,8 @@ using Identity.Api.Middleware;
 using Identity.Application;
 using Identity.Application.Abstractions.Cqrs;
 using Identity.Infrastructure;
+using Identity.Infrastructure.Security.AdminSession;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 if (args is ["--health-check"])
@@ -25,6 +27,8 @@ builder.Logging.AddFilter("Microsoft.AspNetCore.Authentication", LogLevel.None);
 builder.Logging.AddFilter("Microsoft.AspNetCore.HttpOverrides", LogLevel.None);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.None);
 builder.Logging.AddFilter("Npgsql", LogLevel.None);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Antiforgery", LogLevel.None);
+builder.Logging.AddFilter("Microsoft.AspNetCore.DataProtection", LogLevel.None);
 builder.Services.AddTransportSecurity();
 builder.Services.AddSingleton<RequestMetrics>();
 
@@ -37,6 +41,17 @@ builder.Host.UseDefaultServiceProvider(options =>
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 builder.Services.AddIdentityAuthentication();
+builder.Services.AddAdminCookieAuthentication();
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-CSRF-TOKEN";
+    options.Cookie.Name = "__Host-Identity.Admin.Csrf";
+    options.Cookie.Path = "/";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+});
+builder.Services.AddScoped<AdminSecurityFilter>();
 builder.Services.AddScoped<ICommandDispatcher, CommandDispatcher>();
 builder.Services.AddScoped<IQueryDispatcher, QueryDispatcher>();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
@@ -73,6 +88,7 @@ builder.Services.AddSingleton<IProblemDetailsWriter, JsonProblemDetailsWriter>()
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add(new Microsoft.AspNetCore.Mvc.Authorization.AuthorizeFilter());
+    options.Filters.AddService<AdminSecurityFilter>();
 })
     .ConfigureApiBehaviorOptions(options =>
 {

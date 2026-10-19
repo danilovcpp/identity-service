@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="../../src/Identity.Api/Identity.Api.csproj" />
+    <ProjectReference Include="../../src/Identity.AdminCli/Identity.AdminCli.csproj" ReferenceOutputAssembly="false" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.PostgreSql" />
   </ItemGroup>

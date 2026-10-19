@@ -13,6 +13,8 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     public DbSet<OneTimeToken> OneTimeTokens => Set<OneTimeToken>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<SecurityAuditEvent> SecurityAuditEvents => Set<SecurityAuditEvent>();
+    public DbSet<IdentityAdministrator> IdentityAdministrators => Set<IdentityAdministrator>();
+    public DbSet<AdminSession> AdminSessions => Set<AdminSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -23,6 +25,8 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
         modelBuilder.ApplyConfiguration(new OneTimeTokenConfiguration());
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
         modelBuilder.ApplyConfiguration(new SecurityAuditEventConfiguration());
+        modelBuilder.ApplyConfiguration(new IdentityAdministratorConfiguration());
+        modelBuilder.ApplyConfiguration(new AdminSessionConfiguration());
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {

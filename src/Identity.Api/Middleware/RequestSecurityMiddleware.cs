@@ -33,6 +33,10 @@ public sealed class RequestSecurityMiddleware(RequestDelegate next, IHostEnviron
             context.Response.Headers["X-Correlation-ID"] = operation.CorrelationId;
             context.Response.Headers["X-Content-Type-Options"] = "nosniff";
             context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            if (context.Request.Path.StartsWithSegments("/api/v1/admin"))
+            {
+                context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
+            }
             if (context.Request.Path.StartsWithSegments("/api")) { context.Response.Headers.CacheControl = "no-store"; }
             if (environment.IsProduction() && context.Request.IsHttps)
             {

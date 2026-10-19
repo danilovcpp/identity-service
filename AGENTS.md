@@ -8,7 +8,7 @@ The product name is **Identity**. This repository implements a standalone self-h
 
 ## Workflow
 
-1. Implement **only** the stage explicitly requested by the human (stages 0–7). Do not implement later stages in advance.
+1. Implement **only** the stage explicitly requested by the human (stages 0–7 in the base spec, 8–12 in `Identity_Admin_Codex_Addendum.md`). Read the addendum for admin work; it extends v1.0 scope only for Identity's own administrative functionality. Do not implement later stages in advance.
 2. Before editing, inspect the existing repository. Prefer minimal, focused, maintainable changes.
 3. Follow Clean Architecture dependencies exactly: Domain standalone; Application -> Domain; Infrastructure -> Application + Domain; API -> Application + Infrastructure.
 4. Use ASP.NET Core **Controllers** for business HTTP operations. Use custom CQRS interfaces and dispatchers. **Do not add MediatR, Minimal API business endpoints, a generic repository, ASP.NET Core Identity user management or a ready-made authentication server.**

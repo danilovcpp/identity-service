@@ -1,6 +1,13 @@
 using Identity.Application.Abstractions.Cqrs;
+using Identity.Application.Abstractions.Persistence;
 using Identity.Application.Abstractions.Security;
 using Identity.Application.Common;
+using Identity.Application.Features.Admin.Access.GrantAdministrator;
+using Identity.Application.Features.Admin.Access.RevokeAdministrator;
+using Identity.Application.Features.Admin.Auth.GetMe;
+using Identity.Application.Features.Admin.Auth.Login;
+using Identity.Application.Features.Admin.Auth.Logout;
+using Identity.Application.Features.Admin.Auth.ValidateSession;
 using Identity.Application.Features.Auth.Login;
 using Identity.Application.Features.Auth.Logout;
 using Identity.Application.Features.Auth.LogoutAll;
@@ -17,6 +24,7 @@ using Identity.Application.Features.Users.ChangePassword;
 using Identity.Application.Features.Users.DeactivateAccount;
 using Identity.Application.Features.Users.GetCurrentUser;
 using Identity.Application.Features.Users.UpdateProfile;
+using Identity.Domain.Enums;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -31,6 +39,14 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordPolicy, PasswordPolicy>();
         services.AddScoped<OperationContext>();
         services.AddScoped<SessionRevoker>();
+        services.AddScoped<AdministratorGuard>();
+        services.AddScoped<ICommandHandler<GrantAdministratorCommand, Unit>, GrantAdministratorHandler>();
+        services.AddScoped<ICommandHandler<RevokeAdministratorCommand, Unit>, RevokeAdministratorHandler>();
+        services.AddScoped<ICommandHandler<AdminLoginCommand, AdminLoginResult>, AdminLoginHandler>();
+        services.AddScoped<ICommandValidator<AdminLoginCommand>, AdminLoginValidator>();
+        services.AddScoped<ICommandHandler<AdminLogoutCommand, Unit>, AdminLogoutHandler>();
+        services.AddScoped<ICommandHandler<ValidateAdminSessionCommand, AdministratorRole?>, ValidateAdminSessionHandler>();
+        services.AddScoped<IQueryHandler<GetAdminMeQuery, AdminProfile>, GetAdminMeHandler>();
         services.AddScoped<IQueryHandler<GetCurrentUserQuery, UserProfile>, GetCurrentUserHandler>();
         services.AddScoped<ICommandHandler<UpdateProfileCommand, UserProfile>, UpdateProfileHandler>();
         services.AddScoped<ICommandValidator<UpdateProfileCommand>, UpdateProfileValidator>();

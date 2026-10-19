@@ -12,6 +12,18 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsSer
         ProblemDetails problem;
         switch (exception)
         {
+            case AdminForbiddenException:
+                problem = new ProblemDetails { Status = StatusCodes.Status403Forbidden, Title = "Forbidden" };
+                problem.Extensions["code"] = "forbidden";
+                break;
+            case AdminUnavailableException:
+                problem = new ProblemDetails { Status = StatusCodes.Status503ServiceUnavailable, Title = "Administrative access is unavailable" };
+                problem.Extensions["code"] = "admin_unavailable";
+                break;
+            case LastAdministratorException:
+                problem = new ProblemDetails { Status = StatusCodes.Status409Conflict, Title = "The last active administrator must be retained" };
+                problem.Extensions["code"] = "last_administrator";
+                break;
             case InvalidPasswordResetTokenException:
                 problem = new ProblemDetails { Status = StatusCodes.Status400BadRequest, Title = "Invalid password reset token" };
                 problem.Extensions["code"] = "invalid_password_reset_token";

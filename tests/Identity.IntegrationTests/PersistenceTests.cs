@@ -38,10 +38,11 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
         await using var context = database.CreateContext();
         var migrator = context.GetService<IMigrator>();
         var applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(3, applied.Length);
+        Assert.Equal(4, applied.Length);
         Assert.EndsWith("_InitialIdentity", applied[0]);
         Assert.EndsWith("_SessionAudienceBinding", applied[1]);
         Assert.EndsWith("_SecurityMaintenanceIndex", applied[2]);
+        Assert.EndsWith("_AdminSecureAccess", applied[3]);
         Assert.False(context.Database.HasPendingModelChanges());
         Assert.Contains("IF NOT EXISTS", migrator.GenerateScript(options: MigrationsSqlGenerationOptions.Idempotent));
         await migrator.MigrateAsync("0");
@@ -49,7 +50,7 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
         var tables = await context.Database.SqlQueryRaw<string>("SELECT tablename AS \"Value\" FROM pg_tables WHERE schemaname = 'public' AND tablename <> '__EFMigrationsHistory'").ToListAsync();
         Assert.Empty(tables);
         await migrator.MigrateAsync();
-        Assert.Equal(3, (await context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(4, (await context.Database.GetAppliedMigrationsAsync()).Count());
         Assert.False(context.Database.HasPendingModelChanges());
     }
 
@@ -61,8 +62,8 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
         await migrator.MigrateAsync("20261018205035_InitialIdentity");
         var user = User.Create("legacy@identity.example", null, Now);
         user.VerifyEmail(Now);
-        context.Add(user);
-        await context.SaveChangesAsync();
+        // Insert the legacy shape explicitly: the current model has columns absent at this migration.
+        await context.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO users (id,email,normalized_email,status,email_verified_at,created_at,updated_at,failed_login_count) VALUES ({user.Id},{user.Email},{user.NormalizedEmail},1,{Now},{Now},{Now},0)");
         var id = Guid.NewGuid();
         var tokenId = Guid.NewGuid();
         var hash = new string('e', 64);
@@ -87,7 +88,7 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
     {
         await using var context = database.CreateContext();
         var tables = await context.Database.SqlQueryRaw<string>("SELECT tablename AS \"Value\" FROM pg_tables WHERE schemaname = 'public' AND tablename <> '__EFMigrationsHistory'").ToListAsync();
-        Assert.Equal(new[] { "credentials", "one_time_tokens", "outbox_messages", "refresh_tokens", "security_audit_events", "sessions", "users" }, tables.Order(StringComparer.Ordinal));
+        Assert.Equal(new[] { "admin_sessions", "credentials", "identity_administrators", "one_time_tokens", "outbox_messages", "refresh_tokens", "security_audit_events", "sessions", "users" }, tables.Order(StringComparer.Ordinal));
         var indexes = await context.Database.SqlQueryRaw<string>("SELECT indexname AS \"Value\" FROM pg_indexes WHERE schemaname = 'public'").ToListAsync();
         foreach (var index in new[] { "ux_users_normalized_email", "ux_refresh_tokens_hash", "ux_one_time_tokens_hash",
             "ix_sessions_user_revocation", "ix_sessions_expiry", "ix_refresh_tokens_session", "ix_refresh_tokens_expiry", "ix_outbox_pending" })
@@ -98,6 +99,33 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
         Assert.Equal(0, naiveTimes);
         var columns = await context.Database.SqlQueryRaw<string>("SELECT column_name AS \"Value\" FROM information_schema.columns WHERE table_schema = 'public' AND table_name <> '__EFMigrationsHistory'").ToListAsync();
         Assert.All(columns, column => Assert.Matches("^[a-z0-9_]+$", column));
+    }
+
+    [Fact]
+    public async Task AdminMigrationPreservesExistingAccountsCredentialsAndAudit()
+    {
+        await using var context = database.CreateContext();
+        var migrator = context.GetService<IMigrator>();
+        await migrator.MigrateAsync("20261019012922_SecurityMaintenanceIndex");
+        var id = Guid.NewGuid();
+        var auditId = Guid.NewGuid();
+        try
+        {
+            await context.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO users (id,email,normalized_email,status,email_verified_at,created_at,updated_at,failed_login_count) VALUES ({id},'legacy@identity.example','LEGACY@IDENTITY.EXAMPLE',2,{Now},{Now},{Now},0)");
+            await context.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO credentials (user_id,password_hash,created_at,password_changed_at) VALUES ({id},'legacy-encoded-hash',{Now},{Now})");
+            await context.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO security_audit_events (id,user_id,event_type,occurred_at,correlation_id,metadata) VALUES ({auditId},{id},'login_success',{Now},'legacy-trace','{{}}'::jsonb)");
+        }
+        finally { await migrator.MigrateAsync(); }
+        var user = await context.Users.SingleAsync();
+        Assert.Equal(id, user.Id);
+        Assert.Equal(UserStatus.Disabled, user.Status);
+        Assert.Null(user.DisabledAt); // No invented legacy actor, reason or timestamp.
+        Assert.Equal("legacy-encoded-hash", (await context.Credentials.SingleAsync()).PasswordHash);
+        var audit = await context.SecurityAuditEvents.SingleAsync();
+        Assert.Equal(auditId, audit.Id);
+        Assert.Null(audit.ActorUserId);
+        Assert.Null(audit.TargetUserId);
+        Assert.Empty(await context.IdentityAdministrators.ToArrayAsync());
     }
 
     [Fact]

@@ -5,5 +5,6 @@ public enum UserStatus : short
     PendingVerification = 0,
     Active = 1,
     Disabled = 2,
-    Deactivated = 3
+    Deactivated = 3,
+    Invited = 4
 }

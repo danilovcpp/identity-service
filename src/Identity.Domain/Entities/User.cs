@@ -18,6 +18,9 @@ public sealed class User
     public DateTimeOffset? DeactivatedAt { get; private set; }
     public int FailedLoginCount { get; private set; }
     public DateTimeOffset? LockedUntil { get; private set; }
+    public DateTimeOffset? DisabledAt { get; private set; }
+    public Guid? DisabledBy { get; private set; }
+    public string? DisableReason { get; private set; }
 
     public static User Create(string email, string? displayName, DateTimeOffset now)
     {
@@ -42,11 +45,28 @@ public sealed class User
         Status = UserStatus.Active;
     }
 
+    public static User CreateInvited(string email, string? displayName, DateTimeOffset now)
+    {
+        var user = Create(email, displayName, now);
+        user.Status = UserStatus.Invited;
+        return user;
+    }
+
     public void Disable(DateTimeOffset now)
     {
         DomainRules.Require(Status == UserStatus.Active, "invalid_user_state", "Only an active user can be disabled.");
         UpdatedAt = DomainRules.Time(now, UpdatedAt);
+        DisabledAt = UpdatedAt;
         Status = UserStatus.Disabled;
+    }
+
+    public void Disable(DateTimeOffset now, Guid administratorId, string reason)
+    {
+        var actor = DomainRules.Identifier(administratorId);
+        var text = DomainRules.Text(reason.Trim(), 500);
+        Disable(now);
+        DisabledBy = actor;
+        DisableReason = text;
     }
 
     public void Deactivate(DateTimeOffset now)

@@ -1,5 +1,15 @@
 # Архитектура Identity 1.0.0
 
+Дополнение v1.1, этап 8: `Identity.AdminCli` — локальный composition root Application +
+Infrastructure без HTTP/worker startup. Системные роли и admin sessions — отдельные Domain
+entities, Application/Admin use cases зарегистрированы явно. Infrastructure содержит
+EF repositories, CookieAuthentication и Data Protection (shared ASP.NET Core framework);
+Domain/Application не получили ASP.NET/EF dependencies. API Controllers/Admin используют
+собственный CQRS. Cookie validation выполняет Application command в отдельном scope;
+последующий MVC use case не наследует tracked entities завершённой validation-транзакции.
+Общий порядок потери admin eligibility: advisory lock → user → session rows. Обычные
+login/session операции начинают с user lock. [Контракт и решения](admin-access.md).
+
 Этап 7 завершает поставку без изменения business handlers/схемы: version 1.0.0,
 SHA-pinned CI, secret guard, dev/production templates и release notes. Docker image
 содержит только publish output, работает non-root и проверяет liveness отдельным

@@ -1,5 +1,8 @@
 # Запуск и конфигурация Identity 1.0.0
 
+Для дополнения v1.1, этап 8, см. [admin access](admin-access.md): explicit feature flag,
+durable Data Protection, CLI grant/revoke и HTTPS даже локально. Admin UI пока отсутствует.
+
 Для новой production установки используйте отдельный [runbook](production.md),
 `deploy/compose.production.yaml` и `deploy/production.env.example`. Ниже — полный
 справочник SDK/options/maintenance; быстрый dev запуск — [README](../README.md).

@@ -22,6 +22,52 @@ namespace Identity.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Identity.Domain.Entities.AdminSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_at");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_admin_sessions_expiry");
+
+                    b.HasIndex("UserId", "RevokedAt")
+                        .HasDatabaseName("ix_admin_sessions_user_revocation");
+
+                    b.ToTable("admin_sessions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_admin_sessions_times", "last_seen_at >= created_at AND last_seen_at < expires_at AND expires_at > created_at AND expires_at <= created_at + interval '8 hours' AND (revoked_at IS NULL OR revoked_at >= created_at)");
+                        });
+                });
+
             modelBuilder.Entity("Identity.Domain.Entities.Credential", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -54,6 +100,37 @@ namespace Identity.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_credentials_hash", "length(password_hash) BETWEEN 1 AND 4096");
 
                             t.HasCheckConstraint("ck_credentials_times", "password_changed_at >= created_at");
+                        });
+                });
+
+            modelBuilder.Entity("Identity.Domain.Entities.IdentityAdministrator", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTimeOffset>("GrantedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("granted_at");
+
+                    b.Property<Guid?>("GrantedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("granted_by");
+
+                    b.Property<short>("Role")
+                        .HasColumnType("smallint")
+                        .HasColumnName("role");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("GrantedBy");
+
+                    b.HasIndex("Role")
+                        .HasDatabaseName("ix_identity_administrators_role");
+
+                    b.ToTable("identity_administrators", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_identity_administrators_role", "role IN (0, 1)");
                         });
                 });
 
@@ -109,9 +186,9 @@ namespace Identity.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_one_time_hash", "token_hash ~ '^[0-9a-f]{64}$'");
 
-                            t.HasCheckConstraint("ck_one_time_purpose", "purpose IN (0, 1)");
+                            t.HasCheckConstraint("ck_one_time_purpose", "purpose IN (0, 1, 2)");
 
-                            t.HasCheckConstraint("ck_one_time_times", "expires_at > created_at AND expires_at <= created_at + CASE purpose WHEN 0 THEN interval '24 hours' ELSE interval '30 minutes' END AND (consumed_at IS NULL OR (consumed_at >= created_at AND consumed_at < expires_at))");
+                            t.HasCheckConstraint("ck_one_time_times", "expires_at > created_at AND expires_at <= created_at + CASE purpose WHEN 0 THEN interval '24 hours' WHEN 2 THEN interval '72 hours' ELSE interval '30 minutes' END AND (consumed_at IS NULL OR (consumed_at >= created_at AND consumed_at < expires_at))");
                         });
                 });
 
@@ -252,6 +329,10 @@ namespace Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
                     b.Property<string>("ClientId")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
@@ -278,6 +359,10 @@ namespace Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurred_at");
 
+                    b.Property<Guid?>("TargetUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_user_id");
+
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
@@ -289,9 +374,15 @@ namespace Identity.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
+                    b.HasIndex("ActorUserId", "OccurredAt")
+                        .HasDatabaseName("ix_audit_actor_time");
+
+                    b.HasIndex("TargetUserId", "OccurredAt")
+                        .HasDatabaseName("ix_audit_target_time");
+
                     b.ToTable("security_audit_events", null, t =>
                         {
-                            t.HasCheckConstraint("ck_audit_event_type", "event_type IN ('register', 'verify_email', 'login_success', 'login_failed', 'refresh_rotated', 'refresh_replay_detected', 'logout', 'logout_all', 'password_changed', 'password_reset', 'account_deactivated')");
+                            t.HasCheckConstraint("ck_audit_event_type", "event_type IN ('register', 'verify_email', 'login_success', 'login_failed', 'refresh_rotated', 'refresh_replay_detected', 'logout', 'logout_all', 'password_changed', 'password_reset', 'account_deactivated', 'admin_login', 'admin_login_failed', 'admin_logout', 'admin_role_granted', 'admin_role_revoked', 'admin_invited_user', 'admin_resent_invitation', 'admin_requested_password_reset', 'admin_disabled_user', 'admin_enabled_user', 'admin_revoked_session')");
 
                             t.HasCheckConstraint("ck_audit_metadata", "jsonb_typeof(metadata) = 'object' AND metadata - 'attemptCount' = '{}'::jsonb AND CASE WHEN NOT (metadata ? 'attemptCount') THEN true WHEN jsonb_typeof(metadata->'attemptCount') = 'number' THEN (metadata->>'attemptCount')::numeric BETWEEN 0 AND 2147483647 AND mod((metadata->>'attemptCount')::numeric, 1) = 0 ELSE false END");
                         });
@@ -383,6 +474,19 @@ namespace Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deactivated_at");
 
+                    b.Property<string>("DisableReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("disable_reason");
+
+                    b.Property<DateTimeOffset?>("DisabledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("disabled_at");
+
+                    b.Property<Guid?>("DisabledBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("disabled_by");
+
                     b.Property<string>("DisplayName")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)")
@@ -428,6 +532,8 @@ namespace Identity.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DisabledBy");
+
                     b.HasIndex("NormalizedEmail")
                         .IsUnique()
                         .HasDatabaseName("ux_users_normalized_email");
@@ -436,16 +542,27 @@ namespace Identity.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_users_deactivation", "(status = 3) = (deactivated_at IS NOT NULL)");
 
+                            t.HasCheckConstraint("ck_users_disable_metadata", "(disabled_at IS NULL OR disabled_at BETWEEN created_at AND updated_at) AND (disable_reason IS NULL OR (length(btrim(disable_reason)) > 0 AND disable_reason !~ '[[:cntrl:]]'))");
+
                             t.HasCheckConstraint("ck_users_email", "length(btrim(email)) > 0 AND email !~ '[[:cntrl:]]' AND length(btrim(normalized_email)) > 0 AND normalized_email !~ '[[:cntrl:]]'");
 
                             t.HasCheckConstraint("ck_users_login_failures", "failed_login_count >= 0 AND (locked_until IS NULL OR locked_until > created_at)");
 
-                            t.HasCheckConstraint("ck_users_status", "status IN (0, 1, 2, 3)");
+                            t.HasCheckConstraint("ck_users_status", "status IN (0, 1, 2, 3, 4)");
 
                             t.HasCheckConstraint("ck_users_times", "updated_at >= created_at AND (email_verified_at IS NULL OR email_verified_at BETWEEN created_at AND updated_at) AND (deactivated_at IS NULL OR deactivated_at BETWEEN created_at AND updated_at)");
 
-                            t.HasCheckConstraint("ck_users_verification", "(status = 0 AND email_verified_at IS NULL) OR (status IN (1, 2) AND email_verified_at IS NOT NULL) OR status = 3");
+                            t.HasCheckConstraint("ck_users_verification", "(status IN (0, 4) AND email_verified_at IS NULL) OR (status = 1 AND email_verified_at IS NOT NULL) OR status IN (2, 3)");
                         });
+                });
+
+            modelBuilder.Entity("Identity.Domain.Entities.AdminSession", b =>
+                {
+                    b.HasOne("Identity.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.Credential", b =>
@@ -453,6 +570,20 @@ namespace Identity.Infrastructure.Persistence.Migrations
                     b.HasOne("Identity.Domain.Entities.User", null)
                         .WithOne()
                         .HasForeignKey("Identity.Domain.Entities.Credential", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Identity.Domain.Entities.IdentityAdministrator", b =>
+                {
+                    b.HasOne("Identity.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("GrantedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Identity.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -485,6 +616,16 @@ namespace Identity.Infrastructure.Persistence.Migrations
                 {
                     b.HasOne("Identity.Domain.Entities.User", null)
                         .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Identity.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("TargetUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Identity.Domain.Entities.User", null)
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.SetNull);
                 });
@@ -496,6 +637,14 @@ namespace Identity.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Identity.Domain.Entities.User", b =>
+                {
+                    b.HasOne("Identity.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("DisabledBy")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 #pragma warning restore 612, 618
         }

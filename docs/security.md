@@ -1,5 +1,13 @@
 # Безопасность Identity 1.0.0
 
+Дополнение v1.1, этап 8: [admin access и recovery](admin-access.md). Системные роли
+Identity хранятся отдельно, не входят в JWT. На каждом admin-запросе — DB validation,
+CSRF на всех unsafe методах, Secure/HttpOnly/Strict cookies, HTTPS даже в dev. До MFA
+все admin routes должны быть за VPN/доверенным контуром. Data Protection ring устойчивый,
+защищён правами ОС и encrypted storage; отдельный от RSA/AES. Последний Active verified
+администратор защищён общей транзакционной блокировкой от CLI revoke/downgrade и
+self-deactivate. Администраторские login/logout/grant/revoke аудируются с actor/target.
+
 Поставка: pinned base images/actions, non-root runtime с liveness probe, отдельный
 production template с read-only rootfs/secret mounts/cap_drop/no-new-privileges.
 CI работает без production credentials, contents:read, без publish/deploy.

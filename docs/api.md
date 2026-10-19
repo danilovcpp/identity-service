@@ -1,5 +1,10 @@
 # HTTP API Identity 1.0.0
 
+Дополнение v1.1, этап 8: [административный auth API](admin-access.md#http--cookie--csrf-contract).
+`GET /api/v1/admin/auth/csrf`, `POST /login`, `GET /me`, `POST /logout` (последние три
+под тем же `/api/v1/admin/auth`). Отдельная Secure HttpOnly cookie-схема и CSRF на login/logout;
+пользовательский Bearer не предоставляет admin-доступ. Остальные admin routes ещё не реализованы.
+
 ## Первый end-to-end сценарий
 
 После [локального запуска](../README.md#быстрый-локальный-запуск), с отдельным dev

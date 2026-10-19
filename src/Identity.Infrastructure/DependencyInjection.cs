@@ -23,6 +23,10 @@ public static class DependencyInjection
         services.AddDbContext<IdentityDbContext>((provider, options) =>
             options.UseNpgsql(provider.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString));
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IAdminRepository, AdminRepository>();
+        services.AddOptions<AdminAccessOptions>().BindConfiguration("AdminAccess")
+            .Validate(AdminAccessOptions.IsValid, "Admin access requires an existing absolute Data Protection directory and valid session limits.").ValidateOnStart();
+        services.AddSingleton<Identity.Application.Abstractions.Security.IAdminAccessSettings>(provider => provider.GetRequiredService<IOptions<AdminAccessOptions>>().Value);
         services.AddScoped<ICredentialRepository, CredentialRepository>();
         services.AddScoped<IProfileRepository, ProfileRepository>();
         services.AddScoped<ISessionRepository, SessionRepository>();

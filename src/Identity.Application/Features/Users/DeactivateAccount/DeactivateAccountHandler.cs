@@ -10,11 +10,12 @@ namespace Identity.Application.Features.Users.DeactivateAccount;
 
 public sealed class DeactivateAccountHandler(IUserRepository users, ISessionRepository sessions, ICredentialRepository credentials,
     IPasswordResetRepository resets, IPasswordService passwords, IUnitOfWork work, SessionRevoker revoker,
-    TimeProvider clock, OperationContext operation) : ICommandHandler<DeactivateAccountCommand, Unit>
+    TimeProvider clock, OperationContext operation, IAdminRepository administrators, AdministratorGuard guard) : ICommandHandler<DeactivateAccountCommand, Unit>
 {
     public async Task<Unit> Handle(DeactivateAccountCommand command, CancellationToken cancellationToken)
     {
         await using var transaction = await work.BeginTransactionAsync(cancellationToken);
+        await administrators.LockAdministratorsAsync(cancellationToken);
         var user = await users.FindByIdForUpdateAsync(command.UserId, cancellationToken);
         var session = await sessions.FindOwnedForUpdateAsync(command.UserId, command.CurrentSessionId, cancellationToken);
         var now = clock.GetUtcNow();
@@ -24,6 +25,7 @@ public sealed class DeactivateAccountHandler(IUserRepository users, ISessionRepo
         {
             throw new InvalidCredentialsException();
         }
+        await guard.RequireRemovableAsync(user!, cancellationToken);
         user!.Deactivate(now);
         await revoker.RevokeAllAsync(user.Id, SessionRevokeReason.AccountDeactivated, now, cancellationToken);
         await resets.InvalidateOutstandingAsync(user.Id, now, null, cancellationToken);

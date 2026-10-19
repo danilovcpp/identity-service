@@ -1,5 +1,10 @@
 # Identity 1.0.0: production deployment
 
+Для дополнения v1.1 (этап 8) дополнительно выполните [admin access runbook](admin-access.md):
+отдельный постоянный writable Data Protection mount, CLI bootstrap, HTTPS и VPN/сетевое
+закрытие всего admin API. Текущий Compose не включает admin автоматически. После restore
+отзовите также `admin_sessions` и проверьте восстановленные роли до открытия трафика.
+
 Инструкция для Linux/Docker с PostgreSQL 17+, SMTP с TLS и отдельным TLS terminator.
 Она не выполняет внешних действий автоматически. `compose.yaml` с Mailpit предназначен
 для локальной разработки; production использует отдельный `deploy/compose.production.yaml`.

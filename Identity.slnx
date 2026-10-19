@@ -4,6 +4,7 @@
     <Project Path="src/Identity.Application/Identity.Application.csproj" />
     <Project Path="src/Identity.Infrastructure/Identity.Infrastructure.csproj" />
     <Project Path="src/Identity.Api/Identity.Api.csproj" />
+    <Project Path="src/Identity.AdminCli/Identity.AdminCli.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Identity.UnitTests/Identity.UnitTests.csproj" />

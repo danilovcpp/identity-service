@@ -18,7 +18,12 @@ public sealed class OneTimeToken
     public static OneTimeToken Create(Guid userId, OneTimeTokenPurpose purpose, string tokenHash, DateTimeOffset now, DateTimeOffset expiresAt)
     {
         DomainRules.Require(Enum.IsDefined(purpose), "invalid_token_purpose", "The token purpose is invalid.");
-        var maximumLifetime = purpose == OneTimeTokenPurpose.EmailVerification ? TimeSpan.FromHours(24) : TimeSpan.FromMinutes(30);
+        var maximumLifetime = purpose switch
+        {
+            OneTimeTokenPurpose.EmailVerification => TimeSpan.FromHours(24),
+            OneTimeTokenPurpose.Invitation => TimeSpan.FromHours(72),
+            _ => TimeSpan.FromMinutes(30)
+        };
         return new OneTimeToken
         {
             Id = Guid.NewGuid(),
