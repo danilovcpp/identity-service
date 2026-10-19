@@ -42,6 +42,10 @@ public sealed class HttpSmokeTests : IAsyncLifetime
 
     [Theory]
     [InlineData("GET", "/api/v1/sessions")]
+    [InlineData("GET", "/api/v1/users/me")]
+    [InlineData("PATCH", "/api/v1/users/me")]
+    [InlineData("POST", "/api/v1/users/me/deactivate")]
+    [InlineData("POST", "/api/v1/auth/password/change")]
     [InlineData("DELETE", "/api/v1/sessions/00000000-0000-0000-0000-000000000001")]
     [InlineData("POST", "/api/v1/auth/logout-all")]
     public async Task SessionManagementRequiresBearerAuthentication(string method, string path)

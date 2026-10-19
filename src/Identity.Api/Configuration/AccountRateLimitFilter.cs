@@ -15,10 +15,15 @@ public sealed class AccountRateLimitFilter(AccountRateLimiter limiter, IOptions<
 {
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        var email = context.ActionArguments.Values.OfType<IEmailRequest>().SingleOrDefault()?.Email;
+        var request = context.ActionArguments.Values.OfType<IEmailRequest>().SingleOrDefault();
         string normalized;
-        try { normalized = EmailAddress.Normalize(email ?? ""); }
-        catch (DomainException) { await next(); return; }
+        if (request is not null)
+        {
+            try { normalized = EmailAddress.Normalize(request.Email ?? ""); }
+            catch (DomainException) { await next(); return; }
+        }
+        else if (Guid.TryParse(context.HttpContext.User.FindFirst("sub")?.Value, out var userId)) { normalized = "user:" + userId.ToString("N"); }
+        else { await next(); return; }
         var key = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
         using var lease = await limiter.Limiter.AcquireAsync(key, 1, context.HttpContext.RequestAborted);
         if (!lease.IsAcquired)

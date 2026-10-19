@@ -8,7 +8,10 @@ using Identity.Application.Features.Auth.LogoutAll;
 using Identity.Application.Features.Auth.Refresh;
 using Identity.Application.Features.Auth.Register;
 using Identity.Application.Features.Auth.RequestEmailVerification;
+using Identity.Application.Features.Auth.RequestPasswordReset;
+using Identity.Application.Features.Auth.ResetPassword;
 using Identity.Application.Features.Auth.VerifyEmail;
+using Identity.Application.Features.Users.ChangePassword;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -20,6 +23,37 @@ namespace Identity.Api.Controllers;
 public sealed class AuthController(ICommandDispatcher commands) : ApiController
 {
     private static readonly VerificationAcceptedResponse AcceptedResponse = new("If the request is eligible, a verification email will be sent.");
+    private static readonly VerificationAcceptedResponse ResetAcceptedResponse = new("If the request is eligible, a password reset email will be sent.");
+
+    [HttpPost("password/forgot")]
+    [AllowAnonymous]
+    [ServiceFilter(typeof(AccountRateLimitFilter))]
+    [ProducesResponseType<VerificationAcceptedResponse>(StatusCodes.Status202Accepted)]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        await commands.Execute<RequestPasswordResetCommand, Unit>(new RequestPasswordResetCommand(request.Email ?? ""), cancellationToken);
+        return Accepted(ResetAcceptedResponse);
+    }
+
+    [HttpPost("password/reset")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request, CancellationToken cancellationToken)
+    {
+        await commands.Execute<ResetPasswordCommand, Unit>(new ResetPasswordCommand(request.Token ?? "", request.NewPassword ?? ""), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("password/change")]
+    [Authorize]
+    [ServiceFilter(typeof(AccountRateLimitFilter))]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken cancellationToken)
+    {
+        await commands.Execute<ChangePasswordCommand, Unit>(new ChangePasswordCommand(CurrentUserId, CurrentSessionId,
+            request.CurrentPassword ?? "", request.NewPassword ?? ""), cancellationToken);
+        return NoContent();
+    }
 
     [HttpPost("refresh")]
     [AllowAnonymous]

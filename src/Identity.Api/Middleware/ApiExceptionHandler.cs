@@ -12,6 +12,10 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsSer
         ProblemDetails problem;
         switch (exception)
         {
+            case InvalidPasswordResetTokenException:
+                problem = new ProblemDetails { Status = StatusCodes.Status400BadRequest, Title = "Invalid password reset token" };
+                problem.Extensions["code"] = "invalid_password_reset_token";
+                break;
             case InvalidRefreshTokenException:
                 problem = new ProblemDetails { Status = StatusCodes.Status401Unauthorized, Title = "Invalid refresh token" };
                 problem.Extensions["code"] = "invalid_refresh_token";

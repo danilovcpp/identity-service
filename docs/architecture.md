@@ -1,4 +1,33 @@
-# Архитектура Identity — этапы 0–4
+# Архитектура Identity — этапы 0–5
+
+Этап 5 добавляет GetCurrentUser, UpdateProfile, ChangePassword, RequestPasswordReset,
+ResetPassword и DeactivateAccount с отдельными handlers/validators и явной DI.
+UsersController/AuthController только преобразуют HTTP DTO и вызывают собственные
+CQRS dispatchers. Application получает trusted user/session IDs без HttpContext.
+GetCurrentUser использует IProfileRepository: одна AsNoTracking projection активного
+user и действующей собственной сессии, без credential/token fields.
+
+UpdateProfile/change/deactivate повторно проверяют actor под блокировками user →
+current session. Общий scoped SessionRevoker используется также LogoutAll: отзывает
+все сессии и refresh rows в той же UoW/явной транзакции. Пароль/статус, отзыв,
+аннулирование reset links и audit фиксируются вместе. Domain и схема не менялись;
+этап 5 использует существующие PasswordReset purpose и revoke/audit enums.
+
+RequestPasswordReset блокирует user, аннулирует старые links и атомарно сохраняет
+30-minute token hash вместе с AES-GCM outbox message. Unknown/ineligible accounts
+выполняют генерацию/encryption без записи и получают тот же 202. Reset сначала
+читает только immutable owner ID, затем блокирует user и заново читает token FOR UPDATE.
+Этот порядок общий с login/refresh/profile и сериализует разные reset tokens одного
+аккаунта. Tracked consumed token исключён из bulk invalidation остальных, чтобы
+не менять его xmin до SaveChanges. Links с будущим createdAt тоже аннулируются;
+consumedAt ограничен снизу createdAt для соблюдения SQL constraints при рассинхронизации часов.
+
+IPasswordResetSettings/IPasswordResetEmailFactory/IPasswordResetRepository изолируют
+Application от options, SMTP, AES и EF. Отдельный PasswordReset:Enabled сохраняет
+независимость от публичной регистрации. Worker принимает только известные типы
+email_verification/password_reset; доставка использует прежние retry/claim/cleanup.
+Транспорт и key ring проверяются при любом включённом producer/worker; URL template
+нужен только включённому producer. Новых packages или migrations нет.
 
 Этап 4 добавляет отдельные команды/handlers Refresh, Logout, LogoutAll, RevokeSession,
 query GetSessions и их явные DI registrations. Login/refresh используют общий

@@ -80,7 +80,7 @@ public sealed class RegistrationSecurityTests(ITestOutputHelper output)
         try
         {
             var options = new OutboxEncryptionOptions { ActiveKeyId = "one", Keys = new() { ["one"] = firstPath, ["two"] = secondPath } };
-            using var ring = new OutboxKeyRing(Options.Create(options), Options.Create(new RegistrationOptions { Enabled = true }), Options.Create(new OutboxOptions()));
+            using var ring = new OutboxKeyRing(Options.Create(options), Options.Create(new RegistrationOptions { Enabled = true }), Options.Create(new OutboxOptions()), Options.Create(new PasswordResetOptions()));
             await ring.StartAsync(CancellationToken.None);
             var protector = new OutboxPayloadProtector(ring);
             const string plaintext = "encrypted email test fixture";

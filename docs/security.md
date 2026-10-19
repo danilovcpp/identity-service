@@ -1,4 +1,31 @@
-# Безопасность Identity — этапы 0–4
+# Безопасность Identity — этапы 0–5
+
+Профиль доступен только владельцу из проверенных sub/sid. GET отдаёт явную projection,
+PATCH допускает только displayName; email, userId и неизвестные поля отклоняются.
+Change/deactivate требуют текущий пароль, проверку активной сессии под user/session
+locks и используют локальный account limit по хешу trusted user ID.
+
+Forgot всегда отвечает generic 202 для корректного email и ограничивается IP и
+хешем normalized email. Только Active получает письмо на сохранённый адрес;
+временная login-блокировка не запрещает recovery. URL задан сервером, redirect
+от клиента отсутствует. Генерация token и encryption выполняются также для неизвестных
+и неактивных аккаунтов, но одинаковая latency не гарантируется.
+
+Reset token: RNG, SHA-256 в БД, purpose binding, 30 минут, одно использование.
+Новое письмо аннулирует старые links; password change/reset/deactivation также
+аннулируют все неистёкшие links. Token consume, новый hash, снятие временной блокировки,
+отзыв всех сессий/refresh и audit атомарны. User row lock сериализует concurrent
+reset/change/deactivate/login/refresh; сбой до commit откатывает всё, потеря ответа
+после reset commit не делает token пригодным повторно. Disabled/deactivated не
+восстанавливаются. Одноразовые токены другой цели отклоняются тем же generic 400.
+
+Reset-письмо целиком зашифровано прежним AES-256-GCM outbox protector; payload
+очищается после SMTP success. Доставка остаётся at-least-once, поэтому при задержке
+письмо может содержать уже аннулированную ссылку. Команды с password/token используют
+обычные classes с безопасным ToString; raw значения отсутствуют в audit/логах.
+Аудит password_changed/password_reset/account_deactivated сохраняется в той же транзакции.
+Деактивация терминальна и сохраняет PII/credential/audit: механизма стирания или
+самостоятельного восстановления нет. JWT стороннего API остаётся действительным до exp.
 
 Refresh хранит полную consumed/replaced chain. Row locks user/session/token и fresh
 чтение после блокировки предотвращают двойную rotation одного token. Replay любого
@@ -31,7 +58,7 @@ rehash при необходимости. Unknown/неактивный/locked п
 получают одинаковую 401. Unknown account выполняет PBKDF2 на случайном dummy hash;
 неактивные/locked аккаунты проверяют реальный hash. Это уменьшает timing shortcuts,
 но не обещает идентичную сетевую латентность для разных DB/cache/старых hash parameters.
-IP/account rate limits общие с регистрацией/resend и локальны экземпляру; DB lockout
+IP/account rate limits общие с регистрацией/resend/forgot и локальны экземпляру; DB lockout
 согласован между replicas. Сырой email/IP не попадает в audit/metric labels.
 
 Session + refresh hash + login_success audit + rehash/counter reset фиксируются одной
@@ -110,8 +137,8 @@ Register и verify сохраняют свои состояния с audit event
 в таблице token hash, в outbox зашифрованы recipient/subject/body целиком.
 SMTP protocol logging отсутствует. Message-Id стабилен, но delivery остаётся at-least-once.
 
-Полная версия продукта ещё не завершена. HTTPS/reverse proxy hardening, refresh lifecycle,
-profile/password lifecycle и дополнительные security checks относятся к последующим этапам.
+Полная версия продукта ещё не завершена. HTTPS/reverse proxy hardening,
+дополнительные security checks и продуктовая поставка относятся к этапам 6–7.
 Не публикуйте текущее dev-окружение в Интернет.
 
 Будущие ограничения продукта по ТЗ:

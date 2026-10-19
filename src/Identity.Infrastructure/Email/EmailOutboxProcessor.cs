@@ -23,7 +23,7 @@ public sealed class EmailOutboxProcessor(IdentityDbContext context, IEmailSender
         if (message is null) { return false; }
         try
         {
-            if (message.Type != "email_verification") { throw new CryptographicException("Unsupported message type."); }
+            if (message.Type is not ("email_verification" or "password_reset")) { throw new CryptographicException("Unsupported message type."); }
             var email = JsonSerializer.Deserialize<EmailMessage>(protector.Decrypt(message.Payload!))
                 ?? throw new CryptographicException("Invalid email envelope.");
             await sender.SendAsync(email, message.Id, cancellationToken);

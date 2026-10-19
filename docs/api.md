@@ -1,8 +1,55 @@
-# HTTP API Identity — этапы 0–4
+# HTTP API Identity — этапы 0–5
 
 Бизнес-операции используют префикс `/api/v1` и MVC Controllers. MVC по умолчанию
 требует Bearer authentication; публичные actions явно помечены AllowAnonymous.
-Profile/password lifecycle API ещё не публикуются.
+
+## Профиль, пароль и деактивация
+
+GET/PATCH `/api/v1/users/me`, POST `/api/v1/auth/password/change` и
+POST `/api/v1/users/me/deactivate` требуют действующего Bearer. Владелец и текущая
+сессия берутся только из проверенных sub/sid; endpoints для чужого userId отсутствуют.
+
+```sh
+curl -i http://localhost:5080/api/v1/users/me -H "Authorization: Bearer <access-token>"
+curl -i http://localhost:5080/api/v1/users/me -X PATCH -H "Authorization: Bearer <access-token>" -H "Content-Type: application/json" --data '{"displayName":"Example"}'
+curl -i http://localhost:5080/api/v1/auth/password/change -H "Authorization: Bearer <access-token>" -H "Content-Type: application/json" --data '{"currentPassword":"<current-password>","newPassword":"<new-password>"}'
+curl -i http://localhost:5080/api/v1/auth/password/forgot -H "Content-Type: application/json" --data '{"email":"user@example.com"}'
+curl -i http://localhost:5080/api/v1/auth/password/reset -H "Content-Type: application/json" --data '{"token":"<reset-token-from-email>","newPassword":"<new-password>"}'
+curl -i http://localhost:5080/api/v1/users/me/deactivate -H "Authorization: Bearer <access-token>" -H "Content-Type: application/json" --data '{"password":"<current-password>"}'
+```
+
+GET/PATCH возвращают 200 и только `id`, `email`, `displayName`, `emailVerified`,
+`status` (`"active"`), `createdAt`, с no-store. PATCH принимает исключительно
+`displayName`: строку до 120 символов после Trim без control characters либо null
+для очистки. Пустая/whitespace строка, отсутствующее поле и неизвестные поля
+(включая email/userId) дают 400. Email неизменяемый.
+
+Change требует текущий пароль; неверный — generic 401 invalid_credentials.
+Новый пароль проходит ту же политику, что регистрация; NFKC и сохранение пробелов
+одинаковы при hash/verify. Неверный новый пароль даёт 400 validation_failed.
+
+Forgot — публичный запрос с одинаковым 202 и сообщением
+`If the request is eligible, a password reset email will be sent.` для неизвестного,
+pending/disabled/deactivated/active пользователя, а также при выключенном PasswordReset.
+Неверная форма email — 400; IP/account limit — 429. Письмо создаётся только для Active,
+включая временно заблокированного пользователя, на сохранённый адрес аккаунта.
+Новый запрос аннулирует предыдущие неистёкшие reset links. Recipient и URL не выбираются
+клиентом: template задаёт оператор, Identity вставляет только token.
+
+Reset link действует 30 минут и используется один раз. Token передаётся только в body;
+неверный, истёкший, consumed, token другой цели, token неактивного пользователя и
+выключенный reset дают одинаковый 400 invalid_password_reset_token. Нарушение политики
+нового пароля даёт 400 validation_failed без потребления пригодного token.
+Reset снимает временную login-блокировку; disabled/deactivated аккаунт не активируется.
+
+Успешные change/reset/deactivate дают пустой 204. Каждая операция атомарно отзывает
+**все** сессии и refresh tokens пользователя, включая текущую, и аннулирует остальные
+reset links. Автоматического login или новой пары токенов нет. Потребуется новый login;
+на Identity прежний JWT сразу отклоняется, в сторонних API действует до exp (+skew).
+Change/deactivate дополнительно ограничены локальным account limit по проверенному sub.
+Деактивация требует текущий пароль и является терминальным состоянием: login даёт
+generic 401, forgot — generic 202 без письма. Это не удаление PII: email, credential
+и audit сохраняются; endpoint восстановления/удаления данных не добавлен.
 
 ## Refresh, logout и собственные сессии
 
@@ -76,8 +123,8 @@ Refresh token обменивается один раз; клиент обяза�
 
 Access JWT содержит только sub/iss/aud/jti/sid/client_id/iat/nbf/exp/token_use=access,
 RS256 и kid. JWKS содержит только kty/use/alg/kid/n/e. Identity проверяет также
-активность user/session и сохранённую audience по БД. Bearer-защищены sessions API
-и logout-all. Refresh/logout передают непрозрачный токен только в JSON body.
+активность user/session и сохранённую audience по БД. Bearer-защищены sessions API,
+logout-all, профиль, change и deactivate. Refresh/logout передают непрозрачный токен только в JSON body.
 
 Пример для отдельного .NET API: загрузите JWKS из доверенного фиксированного HTTPS URL
 при старте и настройте стандартный JwtBearer. Пример использует только public keys;
@@ -132,6 +179,12 @@ builder.Services.AddAuthorization();
 | POST | `/api/v1/auth/refresh` | `200` / generic `401 invalid_refresh_token` | `{refreshToken}`; rotation, replay отзывает семейство |
 | POST | `/api/v1/auth/logout` | `204` | `{refreshToken}`; public, идемпотентно |
 | POST | `/api/v1/auth/logout-all` | `204` | Bearer; все собственные сессии, включая текущую |
+| GET | `/api/v1/users/me` | `200` | Bearer; собственный профиль |
+| PATCH | `/api/v1/users/me` | `200` | Bearer; только `{displayName}` (null очищает) |
+| POST | `/api/v1/users/me/deactivate` | `204` / generic `401` | Bearer; `{password}`, терминальная деактивация |
+| POST | `/api/v1/auth/password/change` | `204` / generic `401` | Bearer; `{currentPassword,newPassword}` |
+| POST | `/api/v1/auth/password/forgot` | `202` generic | Public; `{email}` |
+| POST | `/api/v1/auth/password/reset` | `204` / `400 invalid_password_reset_token` | Public; `{token,newPassword}` |
 | GET | `/api/v1/sessions` | `200` | Bearer; массив собственных активных сессий |
 | DELETE | `/api/v1/sessions/{id}` | `204` / `404 session_not_found` | Bearer; своя сессия, чужая/отсутствующая неразличимы |
 | GET | `/.well-known/jwks.json` | `200` | Публичный JWK Set; cache max-age=300 |

@@ -1,4 +1,19 @@
-# Запуск и конфигурация Identity — этапы 0–4
+# Запуск и конфигурация Identity — этапы 0–5
+
+## Обновление до этапа 5
+
+Новых migrations нет: остаются InitialIdentity и SessionAudienceBinding. Добавьте
+в существующий Compose `.env` `RESET_PASSWORD_URL_TEMPLATE` из `.env.example`:
+`http://localhost:3000/reset#token={token}`. Compose явно включает PasswordReset;
+SDK bootstrap оставляет его выключенным. Страница reset принадлежит оператору/BFF
+и не поставляется backend. Production требует фиксированный HTTPS template.
+
+PasswordReset независим от Registration: recovery можно включить при закрытой
+публичной регистрации. При включении нужны валидные Email/SMTP и AES key ring;
+production также требует Outbox:Enabled, SMTP TLS и ключи без dev-/test- IDs.
+Worker-only конфигурация требует транспорт/key ring, но не URL templates:
+письма уже содержат зашифрованные ссылки. При выключенном reset forgot даёт generic
+202 без письма, reset — generic 400. Change/profile/deactivate отдельного флага не имеют.
 
 ## Обновление до этапа 4 и cleanup refresh history
 
@@ -43,12 +58,15 @@ Batch ограничивает число **семейств**, а не token ro
 Локальная проверка всех уже реализованных операций (PowerShell 7.4+, Docker, Release build):
 
 ```powershell
-pwsh -NoProfile -File scripts/Test-Stage4Smoke.ps1
+pwsh -NoProfile -File scripts/Test-Stage5Smoke.ps1
 ```
 
 Скрипт повторно использует bootstrap этапа 3, создаёт отдельный Compose project,
 применяет обе миграции, проверяет rotation/restart/replay/revoke/logout-all/logout,
+profile update, password change, Mailpit reset (single-use), повторный login и deactivate,
 затем удаляет только свои контейнеры/network/volume/env/key files.
+Только в изолированном smoke лимиты повышены для последовательности запросов;
+обычный Compose сохраняет defaults 30/IP и 3/account за 60 секунд.
 
 ## Login, clients и RSA keys
 
@@ -122,6 +140,8 @@ Compose поднимает API, PostgreSQL 17 и Mailpit. PostgreSQL прове�
 | `Database__ConnectionString` | EF/Npgsql connection string | Обязательна для SDK/EF; Compose формирует из POSTGRES_PASSWORD |
 | `OUTBOX_KEY_FILE` | Локальный файл для Compose secret | `./secrets/outbox-dev.key`, 32 random raw bytes |
 | `EMAIL_VERIFICATION_URL_TEMPLATE` | Фиксированный server-side template | `.env.example`, один `{token}`, рекомендуемый fragment |
+| `RESET_PASSWORD_URL_TEMPLATE` | Фиксированный reset template, обязателен для Compose | `.env.example`, один `{token}`, рекомендуемый fragment |
+| `AUTH_IP_PERMIT_LIMIT`, `AUTH_ACCOUNT_PERMIT_LIMIT` | Локальные Compose rate limits | 30 / 3 за 60 секунд |
 | `API_PORT` | Порт API на хосте | `5080` |
 | `POSTGRES_PORT` | Порт БД на хосте | `54320` |
 | `MAILPIT_HTTP_PORT` | Mailpit UI | `8025` |
@@ -172,8 +192,8 @@ SMTP с TLS, backups PostgreSQL, отдельный запуск миграци�
 
 ## Регистрация и письма
 
-В appsettings регистрация и worker выключены: existing health/EF bootstrap не требует
-SMTP/key. Dev Compose включает оба, указывает Mailpit без TLS и монтирует отдельный
+В appsettings регистрация, password reset и worker выключены: existing health/EF bootstrap не требует
+SMTP/key. Dev Compose включает их, указывает Mailpit без TLS и монтирует отдельный
 raw 32-byte AES key в `/run/secrets/identity_outbox_key`. Генерация ключа описана в README;
 автоматической генерации при старте API нет. Не перезаписывайте ключ, пока есть backlog.
 
@@ -181,11 +201,13 @@ raw 32-byte AES key в `/run/secrets/identity_outbox_key`. Генерация к
 
 ```powershell
 $env:Registration__Enabled = 'true'
+$env:PasswordReset__Enabled = 'true'
 $env:Outbox__Enabled = 'true'
 $env:OutboxEncryption__ActiveKeyId = 'dev-outbox'
 Set-Item Env:OutboxEncryption__Keys__dev-outbox (Join-Path (Get-Location) 'secrets/outbox-dev.key')
 $env:Email__FromAddress = 'no-reply@identity.example'
 $env:Email__VerificationUrlTemplate = 'http://localhost:3000/verify#token={token}'
+$env:Email__ResetPasswordUrlTemplate = 'http://localhost:3000/reset#token={token}'
 $env:Email__Smtp__Host = '127.0.0.1'
 $env:Email__Smtp__Port = '1025'
 $env:Email__Smtp__Tls = 'None'
@@ -199,18 +221,20 @@ dotnet run --project src/Identity.Api --launch-profile Identity.Api
 | Options/env section | Настройки |
 | --- | --- |
 | `Registration__Enabled` | false по умолчанию; публичная регистрация/resend |
+| `PasswordReset__Enabled` | false по умолчанию; forgot/reset; Compose включает true |
 | `PasswordHash__IterationCount` | 600000, диапазон 600000–2000000 |
 | `Email__Smtp__Host`, `Port`, `Tls` | Tls: None (dev), StartTls или SslOnConnect |
 | `Email__Smtp__UserName`, `Password` | Только env/secret provider; оба заполнены либо оба пусты для trusted relay |
 | `Email__Smtp__TimeoutSeconds` | 10, диапазон 1–60 секунд |
-| `Email__FromAddress`, `Email__VerificationUrlTemplate` | Обязательны при включении registration/worker |
+| `Email__FromAddress` | Обязателен при включении registration/reset/worker |
+| `Email__VerificationUrlTemplate`, `Email__ResetPasswordUrlTemplate` | Обязателен template включённого producer; ровно один `{token}`, HTTPS в production, dev HTTP только loopback, без userinfo |
 | `OutboxEncryption__ActiveKeyId`, `OutboxEncryption__Keys__<id>` | ID активного ключа и абсолютные пути к raw key files; до 10 retained keys |
 | `Outbox__Enabled`, `BatchSize`, `PollSeconds` | false / 10 / 5; batch 1–100, poll 0.05–60 секунд |
 | `Outbox__MaxAttempts`, `BaseRetrySeconds` | 8 / 10; attempts 1–20, retry base 0.1–300 секунд, exponential cap 6 часов |
 | `AuthRateLimits__IpPermitLimit`, `AccountPermitLimit`, `WindowSeconds` | 30 / 3 / 60; локальные для экземпляра |
 
 При startup проверяются options и доступность/размер key files. Production с включённой
-регистрацией требует worker, HTTPS verification URL и TLS SMTP. ID с префиксами `dev-`/
+регистрацией или password reset требует worker, HTTPS URL и TLS SMTP. ID с префиксами `dev-`/
 `test-` не допускаются для используемого production key ring. Пустые/all-zero ключи
 отклоняются; оператор обязан предоставить криптографически случайные production keys.
 SMTP сертификаты проверяются стандартным MailKit/.NET способом, permissive callbacks нет.

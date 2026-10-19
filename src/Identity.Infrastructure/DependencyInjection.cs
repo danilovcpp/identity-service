@@ -23,6 +23,7 @@ public static class DependencyInjection
             options.UseNpgsql(provider.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString));
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ICredentialRepository, CredentialRepository>();
+        services.AddScoped<IProfileRepository, ProfileRepository>();
         services.AddScoped<ISessionRepository, SessionRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IDatabaseReadinessProbe, DatabaseReadinessProbe>();

@@ -1,11 +1,11 @@
 #requires -Version 7.4
 # Isolated local-only smoke. Requires a Release build, dotnet-ef and Docker Linux containers.
-param([switch] $Stage4)
+param([switch] $Stage4, [switch] $Stage5)
 $ErrorActionPreference = 'Stop'
 $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 Push-Location $root
 $suffix = [Guid]::NewGuid().ToString('N')
-$stage = if ($Stage4) { 4 } else { 3 }
+$stage = if ($Stage5) { 5 } elseif ($Stage4) { 4 } else { 3 }
 $project = "identity-stage$stage-smoke-$suffix"
 $environmentFile = Join-Path $root ".env.stage$stage-smoke-$suffix"
 $secretDirectory = Join-Path $root "secrets/stage$stage-smoke-$suffix"
@@ -47,7 +47,8 @@ try {
         "POSTGRES_PASSWORD=$databasePassword", "API_PORT=$apiPort", "POSTGRES_PORT=$postgresPort",
         "MAILPIT_HTTP_PORT=$mailpitPort", "MAILPIT_SMTP_PORT=$smtpPort",
         "OUTBOX_KEY_FILE=$($outboxPath.Replace('\', '/'))", "JWT_KEY_FILE=$($jwtPath.Replace('\', '/'))",
-        'JWT_ISSUER=https://identity.localhost', 'EMAIL_VERIFICATION_URL_TEMPLATE=http://localhost:3000/verify#token={token}'
+        'JWT_ISSUER=https://identity.localhost', 'EMAIL_VERIFICATION_URL_TEMPLATE=http://localhost:3000/verify#token={token}',
+        'RESET_PASSWORD_URL_TEMPLATE=http://localhost:3000/reset#token={token}', 'AUTH_IP_PERMIT_LIMIT=1000', 'AUTH_ACCOUNT_PERMIT_LIMIT=100'
     ))
     Invoke-Compose config --quiet
     $started = $true
@@ -106,7 +107,7 @@ try {
     Assert-True (($database -join '').Trim() -eq '2|2|t|t') 'Unexpected persisted session/token/outbox state.'
     $uid = Invoke-Compose exec -T api id -u
     Assert-True (($uid -join '').Trim() -ne '0') 'API runs as root.'
-    if ($Stage4) {
+    if ($Stage4 -or $Stage5) {
         $headers = @{ Authorization = "Bearer $($pair.accessToken)" }
         $sessions = Invoke-RestMethod "$api/api/v1/sessions" -Headers $headers
         Assert-True ($sessions.Count -eq 2 -and @($sessions | Where-Object isCurrent).Count -eq 1) 'Own session list invalid.'
@@ -154,6 +155,53 @@ try {
         Write-Output 'Stage 4 Docker smoke passed: registration/email/login/JWKS -> rotation -> restart -> rotation -> replay/family revoke -> own sessions/revoke -> logout-all -> login/logout -> failed refresh; non-root.'
     } else {
         Write-Output 'Stage 3 Docker smoke passed: register -> Mailpit -> verify -> login -> public JWKS -> restart -> login; persisted sessions/hashes, cleared outbox, non-root.'
+    }
+    if ($Stage5) {
+        $profilePair = Invoke-RestMethod "$api/api/v1/auth/login" -Method Post -ContentType 'application/json' -Body $body
+        $profileHeaders = @{ Authorization = "Bearer $($profilePair.accessToken)" }
+        $profile = Invoke-RestMethod "$api/api/v1/users/me" -Headers $profileHeaders
+        Assert-True ($profile.email -eq 'smoke@identity.example' -and $profile.emailVerified -and $profile.status -eq 'active') 'Profile invalid.'
+        $updated = Invoke-RestMethod "$api/api/v1/users/me" -Method Patch -ContentType 'application/json' -Headers $profileHeaders -Body '{"displayName":"Smoke Updated"}'
+        Assert-True ($updated.displayName -eq 'Smoke Updated' -and $updated.id -eq $profile.id) 'Profile update invalid.'
+        $changedPassword = 'Changed smoke passphrase ' + [Convert]::ToHexString([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(16))
+        $change = Invoke-WebRequest "$api/api/v1/auth/password/change" -Method Post -Headers $profileHeaders -ContentType 'application/json' -Body (@{ currentPassword = $password; newPassword = $changedPassword } | ConvertTo-Json -Compress)
+        Assert-True ($change.StatusCode -eq 204) 'Password change failed.'
+        $staleProfile = Invoke-WebRequest "$api/api/v1/users/me" -Headers $profileHeaders -SkipHttpErrorCheck
+        Assert-True ($staleProfile.StatusCode -eq 401) 'Password change retained old JWT session.'
+        $oldLogin = Invoke-WebRequest "$api/api/v1/auth/login" -Method Post -ContentType 'application/json' -Body $body -SkipHttpErrorCheck
+        Assert-True ($oldLogin.StatusCode -eq 401) 'Old password still works.'
+        $changedBody = @{ email = 'smoke@identity.example'; password = $changedPassword; clientId = 'native' } | ConvertTo-Json -Compress
+        $changedPair = Invoke-RestMethod "$api/api/v1/auth/login" -Method Post -ContentType 'application/json' -Body $changedBody
+        $ignored = Invoke-RestMethod "$mailpit/api/v1/messages" -Method Delete
+        $forgot = Invoke-WebRequest "$api/api/v1/auth/password/forgot" -Method Post -ContentType 'application/json' -Body '{"email":"smoke@identity.example"}'
+        Assert-True ($forgot.StatusCode -eq 202) 'Forgot password did not return generic 202.'
+        $resetEmail = $null
+        for ($attempt = 0; $attempt -lt 30; $attempt++) {
+            $messages = Invoke-RestMethod "$mailpit/api/v1/messages"
+            $resetEmail = @($messages.messages | Where-Object Subject -eq 'Reset your Identity password') | Select-Object -First 1
+            if ($null -ne $resetEmail) { break }
+            Start-Sleep -Seconds 1
+        }
+        Assert-True ($null -ne $resetEmail) 'Reset email was not delivered.'
+        $detail = Invoke-RestMethod "$mailpit/api/v1/message/$($resetEmail.ID)"
+        $resetMatch = [regex]::Match($detail.Text, '#token=([A-Za-z0-9_-]{43})')
+        Assert-True $resetMatch.Success 'Reset link missing.'
+        $resetPassword = 'Reset smoke passphrase ' + [Convert]::ToHexString([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(16))
+        $resetBody = @{ token = $resetMatch.Groups[1].Value; newPassword = $resetPassword } | ConvertTo-Json -Compress
+        $reset = Invoke-WebRequest "$api/api/v1/auth/password/reset" -Method Post -ContentType 'application/json' -Body $resetBody
+        $repeatReset = Invoke-WebRequest "$api/api/v1/auth/password/reset" -Method Post -ContentType 'application/json' -Body $resetBody -SkipHttpErrorCheck
+        Assert-True ($reset.StatusCode -eq 204 -and $repeatReset.StatusCode -eq 400) 'Password reset is not single-use.'
+        $staleRefresh = Invoke-WebRequest "$api/api/v1/auth/refresh" -Method Post -ContentType 'application/json' -Body (@{ refreshToken = $changedPair.refreshToken } | ConvertTo-Json -Compress) -SkipHttpErrorCheck
+        Assert-True ($staleRefresh.StatusCode -eq 401) 'Password reset retained old refresh session.'
+        $resetLoginBody = @{ email = 'smoke@identity.example'; password = $resetPassword; clientId = 'native' } | ConvertTo-Json -Compress
+        $resetPair = Invoke-RestMethod "$api/api/v1/auth/login" -Method Post -ContentType 'application/json' -Body $resetLoginBody
+        $deactivate = Invoke-WebRequest "$api/api/v1/users/me/deactivate" -Method Post -ContentType 'application/json' -Headers @{ Authorization = "Bearer $($resetPair.accessToken)" } -Body (@{ password = $resetPassword } | ConvertTo-Json -Compress)
+        Assert-True ($deactivate.StatusCode -eq 204) 'Deactivation failed.'
+        $disabledLogin = Invoke-WebRequest "$api/api/v1/auth/login" -Method Post -ContentType 'application/json' -Body $resetLoginBody -SkipHttpErrorCheck
+        Assert-True ($disabledLogin.StatusCode -eq 401) 'Deactivated account can log in.'
+        $state = Invoke-Compose exec -T postgres psql -U identity -d identity -t -A -c "SELECT (SELECT count(*) FROM sessions), (SELECT count(*) FROM refresh_tokens), (SELECT bool_and(revoked_at IS NOT NULL) FROM refresh_tokens), (SELECT bool_and(status = 3 AND display_name = 'Smoke Updated') FROM users), (SELECT bool_and(consumed_at IS NOT NULL) FROM one_time_tokens WHERE purpose = 1), (SELECT count(*) FROM security_audit_events WHERE event_type = 'password_changed'), (SELECT count(*) FROM security_audit_events WHERE event_type = 'password_reset'), (SELECT count(*) FROM security_audit_events WHERE event_type = 'account_deactivated');"
+        Assert-True (($state -join '').Trim() -eq '7|9|t|t|t|1|1|1') 'Stage 5 persisted state invalid.'
+        Write-Output 'Stage 5 Docker smoke passed: profile/update -> password change/all-session revoke -> Mailpit reset/single-use -> new login -> deactivation -> failed login; stage 3/4 checks included.'
     }
 } finally {
     [Environment]::SetEnvironmentVariable('Database__ConnectionString', $previousConnection)

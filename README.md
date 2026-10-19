@@ -3,10 +3,10 @@
 Самостоятельный self-hosted сервис учётных записей и аутентификации на .NET 10.
 Источник требований — [Identity_Codex_Spec.md](Identity_Codex_Spec.md).
 
-Реализованы **этапы 0–4**: каркас, Domain, EF Core/CQRS, регистрация и подтверждение
+Реализованы **этапы 0–5**: каркас, Domain, EF Core/CQRS, регистрация и подтверждение
 email через зашифрованный transactional outbox и SMTP, login с RS256 JWT/JWKS,
 сессиями и refresh rotation/replay protection, logout/logout-all, просмотр/отзыв
-собственных сессий и cleanup истории. Profile/password lifecycle — этап 5.
+собственных сессий и cleanup истории, профиль, смена/сброс пароля и деактивация.
 
 ## Требования
 
@@ -58,7 +58,7 @@ curl --fail http://localhost:5080/openapi/v1.json
 Production, URL настраивается через `ASPNETCORE_URLS`/`ASPNETCORE_HTTP_PORTS`.
 `/health/ready` проверяет подключение к PostgreSQL (200/503), не состояние схемы.
 Миграции выполняются отдельной командой, никогда автоматически при старте API.
-При запуске с SDK регистрация и worker по умолчанию выключены. Для включения
+При запуске с SDK регистрация, password reset и worker по умолчанию выключены. Для включения
 см. [конфигурацию доставки](docs/deployment.md#регистрация-и-письма).
 
 ## Локальный запуск через Compose
@@ -84,7 +84,9 @@ if (-not (Test-Path secrets/jwt-dev.pem)) {
 ```
 
 Это первоначальная настройка: при обычном запуске сохраняйте существующие `.env`
-и ключ. Не добавляйте их в Git. Сначала поднимите зависимости:
+и ключ. При обновлении добавьте из `.env.example` обязательную переменную
+`RESET_PASSWORD_URL_TEMPLATE` (локально `http://localhost:3000/reset#token={token}`).
+Не добавляйте секреты в Git. Сначала поднимите зависимости:
 
 ```sh
 docker compose config --quiet
@@ -122,14 +124,15 @@ Worker доставляет письма в Mailpit; успешная доста
 Compose предназначен для разработки: Development и Mailpit без SMTP-аутентификации.
 
 Сценарий register → Mailpit → verify → login, resend и curl-команды описаны в [docs/api.md](docs/api.md).
-Страница `localhost:3000/verify` из dev-шаблона не входит в Identity: скопируйте токен
-из fragment ссылки в Mailpit и отправьте POST verify либо настройте собственную страницу/BFF.
+Страницы `localhost:3000/verify` и `/reset` из dev-шаблонов не входят в Identity:
+скопируйте токен из fragment ссылки в Mailpit и отправьте POST verify/reset
+либо настройте собственную страницу/BFF. Профиль и password lifecycle описаны в [API](docs/api.md#профиль-пароль-и-деактивация).
 
 ## Структура и проверки
 
 ```text
 src/Identity.Domain          сущности, инварианты и переходы состояний
-src/Identity.Application     CQRS, Register/VerifyEmail/RequestEmailVerification/Login handlers/validators
+src/Identity.Application     CQRS, auth/session/profile/password handlers и validators
 src/Identity.Infrastructure  EF/Npgsql, PBKDF2, AES-GCM, RS256/JWKS, SMTP, outbox worker
 src/Identity.Api             composition root, диспетчеры, MVC Controllers, ProblemDetails
 tests/Identity.UnitTests         Domain, CQRS, конфигурация и архитектура
@@ -147,8 +150,8 @@ dotnet build Identity.slnx --no-restore --configuration Release
 dotnet test Identity.slnx --no-build --no-restore --configuration Release
 dotnet format Identity.slnx --no-restore --verify-no-changes
 docker build --tag identity:local .
-# PowerShell 7.4+: изолированный end-to-end smoke этапа 4 (временные ресурсы удаляются)
-pwsh -NoProfile -File scripts/Test-Stage4Smoke.ps1
+# PowerShell 7.4+: изолированный end-to-end smoke этапа 5 (временные ресурсы удаляются)
+pwsh -NoProfile -File scripts/Test-Stage5Smoke.ps1
 ```
 
 Настройки компилятора общие: nullable, warnings-as-errors, C# 14; версии NuGet

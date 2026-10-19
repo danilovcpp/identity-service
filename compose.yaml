@@ -9,6 +9,9 @@ services:
       ASPNETCORE_HTTP_PORTS: 8080
       Database__ConnectionString: Host=postgres;Port=5432;Database=identity;Username=identity;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       Registration__Enabled: "true"
+      PasswordReset__Enabled: "true"
+      AuthRateLimits__IpPermitLimit: "${AUTH_IP_PERMIT_LIMIT:-30}"
+      AuthRateLimits__AccountPermitLimit: "${AUTH_ACCOUNT_PERMIT_LIMIT:-3}"
       Jwt__Enabled: "true"
       Jwt__Issuer: "${JWT_ISSUER:-https://identity.localhost}"
       Jwt__ActiveKeyId: dev-jwt
@@ -28,6 +31,7 @@ services:
       OutboxEncryption__Keys__dev-outbox: /run/secrets/identity_outbox_key
       Email__FromAddress: no-reply@identity.example
       Email__VerificationUrlTemplate: "${EMAIL_VERIFICATION_URL_TEMPLATE:?Set EMAIL_VERIFICATION_URL_TEMPLATE in .env}"
+      Email__ResetPasswordUrlTemplate: "${RESET_PASSWORD_URL_TEMPLATE:?Set RESET_PASSWORD_URL_TEMPLATE in .env}"
       Email__Smtp__Host: mailpit
       Email__Smtp__Port: 1025
       Email__Smtp__Tls: None
