@@ -5,11 +5,16 @@ import { describe, expect, it } from 'vitest';
 import { AppProviders } from '@/app/AppProviders';
 import { App } from '@/app/App';
 import { queryKeys } from '@/api/queryKeys';
+import { MemoryRouter } from 'react-router-dom';
 
 function Probe({ capture }: { capture: (client: QueryClient) => void }) {
   const client = useQueryClient();
   useEffect(() => capture(client), [capture, client]);
-  return <App />;
+  return (
+    <MemoryRouter initialEntries={['/admin']}>
+      <App />
+    </MemoryRouter>
+  );
 }
 
 describe('AppProviders', () => {

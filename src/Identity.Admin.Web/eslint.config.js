@@ -27,8 +27,12 @@ export default defineConfig([
     languageOptions: { globals: globals.browser },
   },
   {
-    files: ['*.js', 'scripts/*.mjs', 'vite.config.ts'],
+    files: ['*.js', 'scripts/*.mjs', 'vite.config.ts', 'playwright.config.ts'],
     extends: [js.configs.recommended],
     languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['e2e/*.ts'],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
 ]);

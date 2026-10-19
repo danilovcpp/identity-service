@@ -1,10 +1,10 @@
 # Identity Console
 
 Frontend самостоятельного продукта Identity. Выполнены **11.1 — bootstrap** и
-**11.2 — HTTP-клиент, OpenAPI, CSRF** из
+**11.2 — HTTP-клиент, OpenAPI, CSRF**, **11.3 — тема и App Shell** из
 [дополнения v1.2](../../Identity_Admin_Codex_Addendum_v1.2.md).
-На стартовой странице только название приложения. API-инфраструктура готова,
-экраны и feature hooks появятся в следующих отдельных подэтапах; bootstrap не делает запросов.
+Оболочка содержит стартовую страницу консоли и NotFound. API-инфраструктура готова,
+бизнес-экраны появятся в следующих подэтапах; оболочка не делает запросов.
 
 ## Требования и запуск
 
@@ -29,6 +29,9 @@ npm run dev
 
 Все команды выполняются из этой директории:
 
+Shell/theme/navigation и keyboard/browser checks: [UI foundation](docs/shell.md).
+`npm run test:e2e` собирает production dist и выполняет Chromium smoke на отдельном preview5174.
+
 | Команда                | Назначение                                                    |
 | ---------------------- | ------------------------------------------------------------- |
 | `npm ci`               | Воспроизводимая установка из lockfile                         |
@@ -46,18 +49,17 @@ npm run dev
 
 Тесты проверяют реальный рендер `App`, Query provider/cache isolation и
 HTTP-клиент через injected fake-fetch (только в тестах, не runtime fallback).
-Playwright установлен как инструмент будущих сценариев; E2E-конфигурация и сценарии
-появятся вместе с пользовательскими потоками. Login/E2E в 11.2 не реализуются.
+Playwright проверяет shell в production build. Login и authenticated E2E пока не реализованы.
 
 ## Структура и границы
 
 ```text
 src/
-  app/          App, AppProviders, QueryClient factory; позже theme/routing
+  app/          App, providers, QueryClient factory, theme, routes, layout CSS
   api/          typed HTTP-клиент, ошибки, query keys, generated schema.d.ts
-  components/   будущие общие UI-компоненты (11.3)
+  components/   layouts, PageHeader, states, confirmation, StatusTag
   features/     будущие вертикальные срезы с API/hooks/UI
-  pages/        страницы, если потребуются
+  pages/        ConsolePage, NotFoundPage; бизнес-страницы в следующих этапах
   test/         общий setup Vitest/RTL и очистка DOM между тестами
 ```
 
@@ -65,9 +67,9 @@ src/
 относительный путь. Alias одинаков в TypeScript и Vite/Vitest. `strict` и
 `noUncheckedIndexedAccess` включены и для app/tests, и для Vite config. Тесты
 используют явные импорты Vitest, globals не включены. Бизнес-данных, заглушек входа,
-провайдеров авторизации и маршрутов пока нет. Ant Design 6 используется
-без второго UI kit; централизованные theme tokens и App Shell — отдельный этап 11.3.
-TanStack Query подключён через AppProviders; React Router пока не подключён.
+провайдеров авторизации пока нет. Ant Design 6 используется без второго UI kit;
+theme tokens находятся в app/theme.ts. TanStack Query, ConfigProvider и Ant Design App
+подключены через AppProviders; BrowserRouter находится в main.tsx.
 Отдельного .NET проекта, backend-зависимостей и изменений solution нет.
 
 ## Dev proxy и HTTPS

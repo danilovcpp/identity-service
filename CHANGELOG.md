@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10, 11.1–11.2
+## Unreleased — v1.1, stages 8–10, 11.1–11.3
+
+- Identity Console light theme, responsive sidebar/mobile drawer, public/admin layout
+  branches and NotFound, shared loading/empty/error/confirmation/status components.
+- Keyboard/focus recovery, render error boundary, RTL and production Chromium shell
+  checks. Future sections remain disabled; no authentication or business screens added.
 
 - Generated OpenAPI types, typed same-origin Fetch client with memory-only CSRF,
   cancellation, normalized errors and no automatic command retries.

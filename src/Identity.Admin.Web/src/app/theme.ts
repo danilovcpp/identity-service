@@ -1,0 +1,47 @@
+import type { ThemeConfig } from 'antd';
+
+export const consoleTheme: ThemeConfig = {
+  cssVar: { key: 'identity-console' },
+  token: {
+    colorPrimary: '#176b78',
+    colorPrimaryBg: '#eaf4f5',
+    colorPrimaryBgHover: '#dbecee',
+    colorInfo: '#176b78',
+    colorBgLayout: '#f5f7fa',
+    colorBgContainer: '#ffffff',
+    colorText: '#182b3a',
+    colorTextSecondary: '#526477',
+    colorBorder: '#dce4ec',
+    colorBorderSecondary: '#e7edf3',
+    colorSuccess: '#16734a',
+    colorWarning: '#986500',
+    colorError: '#b42318',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontSize: 14,
+    fontSizeHeading1: 28,
+    fontSizeHeading2: 22,
+    fontSizeHeading3: 18,
+    borderRadius: 8,
+    controlHeight: 36,
+    sizeUnit: 4,
+    boxShadow: 'none',
+    boxShadowSecondary: 'none',
+  },
+  components: {
+    Layout: {
+      headerBg: '#ffffff',
+      siderBg: '#ffffff',
+      headerHeight: 72,
+      headerPadding: 0,
+    },
+    Menu: {
+      itemHeight: 44,
+      itemMarginInline: 12,
+      itemBorderRadius: 8,
+      activeBarBorderWidth: 0,
+    },
+    Button: { fontWeight: 500, primaryShadow: 'none', dangerShadow: 'none' },
+    Typography: { titleMarginTop: 0, titleMarginBottom: 8 },
+    Card: { headerFontSize: 16 },
+  },
+};

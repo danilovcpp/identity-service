@@ -1,4 +1,167 @@
-# Текущий статус: этап 11.2 завершён
+# Текущий статус: этап 11.3 завершён
+
+**Completed: 11.3**
+
+**Next: 11.4 — только по отдельному запросу пользователя.**
+
+## 1. Этап
+
+**11.3 — UI-тема, навигация и адаптивный App Shell**, 2026-10-19.
+Изучены AGENTS.md, Identity_Codex_Spec.md, Identity_Admin_Codex_Addendum_v1.2.md,
+текущий frontend/API status, UserStatus и Git. Начальное дерево чистое;
+11.2 подтверждён commit **600159a**, 11.1 — **b296d60**.
+Реализован только11.3, без authentication, backend данных и форм действий.
+
+## 2. Реализовано
+
+- `app/theme.ts`, AppProviders: единый Ant Design ConfigProvider, светлая тема,
+  нейтральные поверхности, бирюзовый accent, системный шрифт, tokens цветов/типографики/
+  размеров/радиусов. Ant Design App context для будущих context-aware notifications.
+  CSS variables имеют фиксированный key identity-console, включая portal overlays.
+- `components/layout/AdminLayout`: sticky sidebar240px, collapsed80px на768–991px,
+  ручной desktop toggle; mobile<768 — drawer280px. Topbar/headerContent/headerActions
+  slots, main content max80rem и единые token-based отступы в `app/styles.css`.
+  Профиль/роль/logout не имитируются. `Brand`, `Navigation`, `PublicLayout` отдельные.
+- `app/routes.tsx`, main.tsx: BrowserRouter, `/` replace ->`/admin`; ConsolePage index,
+  admin wildcard404 внутри shell, global/public wildcard404 в PublicLayout.
+  Единственный активный пункт — Console. Users/Audit disabled, без href/бизнес-страниц.
+  `/admin/login` и `/account/*` не активированы до соответствующих этапов.
+- Общие PageHeader (h1, breadcrumb/description/actions slots), LoadingState (status),
+  EmptyState (optional action), ErrorState (safe messages/trace/manual retry),
+  controlled ConfirmAction Modal (explicit title/text/pending/Cancel), StatusTag.
+  StatusTag сопоставляет только пять реальных backend states; неизвестное значение
+  отображается нейтральным escaped текстом, не новым доменным состоянием.
+- AppErrorBoundary: render fallback/manual retry без сырой ошибки; production root
+  onCaughtError не печатает caught exception в console. Backend error adapter сохранён.
+- Skip-to-content, landmarks, icon button labels, декоративные menu icons скрыты
+  от screen reader, видимый focus в app/portals, reduced-motion CSS.
+  `containTabFocus` закрывает boundary Tab внутри overlays; initial focus — Ant Design.
+  Drawer close возвращает focus на trigger после release lock; resize не восстанавливает
+  stale open state. Ограниченные DOM reads/focus нужны только accessibility.
+- `e2e/shell.spec.ts`, playwright.config.ts, test:e2e script: Chromium production
+  preview на отдельном loopback5174, build перед тестом, no server reuse, no trace/video.
+  tsconfig.node/ESLint включают config и E2E source; jsdom media/scrollbar shims в test/.
+- Vite vendor chunks React/Ant Design/UI primitives после наблюдённого816kB warning;
+  максимум336kB, warning limit500kB не повышен. Это cache boundaries, не уменьшение
+  суммарной загрузки. Новых dependencies нет, lockfile/версии сохранены.
+- README/CHANGELOG/frontend README и `docs/shell.md` обновлены.
+  `.gitkeep` из components/pages удалены. API client/generated types/backend/API/DB/
+  migrations/security policies/env samples/Docker/CI не менялись.
+
+## 3. Решения
+
+Полезная основа без фиктивного Dashboard: индекс содержит branding/empty workspace,
+без статистики, сетевых запросов, demo accounts и мутаций. Shell пока анонимный,
+потому что содержит только публичный каркас. Это не авторизация и не обещание готовых
+protected pages. Настоящие login/logout/guards/session cache cleanup —11.4.
+
+Router branches подготовлены, будущие страницы не включены ради navigation demo.
+Header identity/logout подключаются через slots после real auth; shared components
+не импортируют feature hooks и не вызывают fetch. ConfirmAction — presentation,
+permissions/mutation/error/timeout остаются у будущей feature. State локальный.
+
+Стили централизованы: Ant tokens для paint/design values, общая CSS для geometry/
+responsive/focus; нет второго UI kit, внешних шрифтов/изображений или page overrides.
+Native React refs и DOM focus используются только для keyboard accessibility.
+Drawer без destroyOnHidden: быстрое закрытие до конца enter иначе прерывало callback
+и теряло return focus. Подробности и контракты компонентов — `docs/shell.md`.
+
+## 4. Проверки
+
+### Commands run
+
+Из `src/Identity.Admin.Web`:
+
+```powershell
+npm run dev
+npm run format
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test:run
+npm run test -- --run
+npm run build
+npm run test:e2e
+```
+
+Из корня:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage11-3'
+dotnet tool restore
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet format Identity.slnx --no-restore --verify-no-changes
+node TestResults/stage11-3-visual.mjs
+node TestResults/stage11-3-focus.mjs
+node TestResults/stage11-3-drawer.mjs
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+### Observed results
+
+- typecheck/lint/format:check/build exit0. **69 frontend unit/component tests passed**,
+  0 failed/skipped (48 прежних +21 UI/routes); six files. Проверены states, real status
+  labels/escaping, safe errors, explicit retry/confirm/pending/cancel, render fallback,
+  navigation/collapse/mobile close, disabled links,404/back и QueryClient isolation.
+- **6 Playwright Chromium tests passed**, production dist, без retry:
+  360/768/1280px, overflow/storage/API-call checks; menu/collapse/drawer; keyboard
+  skip link/Tab trap/Escape/return focus; resize; admin/public404 и SPA возврат без reload.
+  Визуально просмотрены все три размера и открытый mobile drawer. Screenshots в ignored
+  test-results; dev diagnostic scripts/images в ignored TestResults.
+- Final build chunks: app82.19kB, React218.76kB, Antd336.14kB, primitives179.42kB;
+  Vite chunk warnings отсутствуют. Runner выводит косметический warning среды
+  FORCE_COLOR/NO_COLOR; тесты exit0, runtime page errors отсутствуют.
+- .NET restore/build/test/format exit0: **0 warnings/0 errors**, **470 passed**, 0
+  failed/skipped: Unit147 + API45 + Integration278, реальные PostgreSQL/Mailpit/Docker.
+  EF model check exit0, pending model changes отсутствуют; новых миграций нет.
+- Secret guard self-tests/current tracked+untracked tree и diff --check проходят.
+  Новых package versions нет; npm install/ci/audit в11.3 не повторялись.
+
+Промежуточные ошибки не скрыты: первый unit run —2 failures (декоративные icon names
+и jsdom animation visibility); затем оставался Modal visibility. Исправлены aria-hidden,
+ByRole query typing и test-only motion override; production motion не отключался.
+Первые browser runs ловили boundary Tab ->browser chrome и lost return focus при
+быстром Escape. Добавлены Tab boundary, trigger ref, return-focus после release,
+удалён преждевременный drawer unmount; все проверки в окончательном run прошли.
+Первый bundle816kB (затем514kB после двух chunks) давал warning; третья vendor group
+устранила предупреждение, порог не повышался.
+Во время перезаписи Vite config форматтером наблюдались transient HMR reload errors;
+свежий запуск окончательного config проверен: ready206ms. Временные dev/preview
+серверы после проверок остановлены.
+
+## 5. Безопасность
+
+Нет backend данных, passwords/tokens/roles из фиктивного источника или новых API calls.
+Shared ErrorState/boundary не показывают произвольные exception details; JSX экранирует
+текст статусов. API cookie/CSRF/role checks сохранены. Tokens не попадают в storage,
+query keys, screenshots или DOM; тесты проверяют пустой storage и отсутствие API calls.
+Navigation не даёт доступа к будущим sections; backend остаётся источником authorization.
+
+## 6. Ограничения / Known issues
+
+Блокеров11.3 нет. Auth/guards/identity/logout/Forbidden и бизнес-экраны — последующие
+этапы. Текущая оболочка сама по себе не является готовой защищённой админкой.
+Полная проверка Modal focus с реальными actions относится к будущим feature E2E;
+здесь Modal callbacks/pending проверены component tests, drawer — реальным browser.
+Automated axe/Lighthouse, production HTTPS/CSP/VPN/MFA/SMTP, full account E2E и remote CI
+не запускались. Separate Docker image smoke не повторялся: backend/container configs
+не менялись; frontend hosting/Docker/CI —12. Реальный Docker использован integration suite.
+
+Config/env/API/migrations compatibility сохранена, требований backend не расширено.
+Commit/tag/publish/deploy/внешние accounts/messages не выполнялись.
+
+## 7. Следующий этап
+
+**Next: 11.4 — административные Login / Logout / Route Guards.**
+Не начат; продолжение только по отдельному запросу пользователя.
+
+---
+
+# Исторический отчёт: этап 11.2
 
 **Completed: 11.2**
 

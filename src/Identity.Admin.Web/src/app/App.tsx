@@ -1,12 +1,10 @@
-import { Typography } from 'antd';
+import { AppErrorBoundary } from '@/components/AppErrorBoundary';
+import { AppRoutes } from '@/app/routes';
 
 export function App() {
   return (
-    <main className="bootstrap-page">
-      <Typography.Title>Identity Console</Typography.Title>
-      <Typography.Paragraph type="secondary">
-        Administration for Identity.
-      </Typography.Paragraph>
-    </main>
+    <AppErrorBoundary>
+      <AppRoutes />
+    </AppErrorBoundary>
   );
 }

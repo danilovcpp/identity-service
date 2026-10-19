@@ -19,6 +19,10 @@ dashboard, users/details/sessions и audit с pagination/filters.
 in-memory CSRF, безопасными ошибками/отменой и TanStack Query provider/key factories.
 Стартовая страница по-прежнему не вызывает API; auth и экраны — следующие подэтапы.
 
+**Этап 11.3**: светлая Ant Design тема, адаптивная оболочка, React Router/404 и общие
+UI-компоненты. [Shell и browser checks](src/Identity.Admin.Web/README.md).
+Users/Audit пока disabled, авторизация и бизнес-данные не подключены.
+
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):
 registration/verification, RS256 JWT/JWKS, refresh rotation/replay, собственные sessions/

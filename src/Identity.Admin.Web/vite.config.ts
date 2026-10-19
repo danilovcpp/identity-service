@@ -42,6 +42,31 @@ export default defineConfig(({ mode }) => {
       },
     },
     preview: { host: '127.0.0.1', port: 4173, strictPort: true },
+    build: {
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: [
+              {
+                name: 'react',
+                priority: 30,
+                test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+              },
+              {
+                name: 'ui-primitives',
+                test: /node_modules[\\/]@rc-component[\\/]/,
+                priority: 20,
+              },
+              {
+                name: 'antd',
+                test: /node_modules[\\/]antd[\\/]/,
+                priority: 10,
+              },
+            ],
+          },
+        },
+      },
+    },
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
