@@ -106,7 +106,7 @@ export function RegistrationChart({ data }: { data: Dashboard }) {
                     borderColor: token.colorBorder,
                     background: token.colorBgContainer,
                     color: token.colorText,
-                    boxShadow: 'none',
+                    boxShadow: token.boxShadowSecondary,
                   }}
                 />
                 <Line

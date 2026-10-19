@@ -23,7 +23,8 @@ No new browser environment settings are added; frontend `.env.example` stays unc
 
 ## Form, confirmation and feedback
 
-The Ant Design modal validates required email (up to320 characters) and optional display
+The default Ant Design Modal footer submits its vertical Form through a generated form id.
+The modal validates required email (up to320 characters) and optional display
 name (up to120), rejecting control characters. Submitted values are trimmed; an empty
 optional name becomes null. The recipient sets their own password. **Send invitation**
 explicitly confirms the request after that explanation; opening the modal sends nothing.

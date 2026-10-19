@@ -18,7 +18,9 @@ export function EmptyState({
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         description={
           <>
-            <Typography.Title level={2}>{title}</Typography.Title>
+            <Typography.Text strong role="heading" aria-level={2}>
+              {title}
+            </Typography.Text>
             {description && (
               <Typography.Paragraph type="secondary">
                 {description}

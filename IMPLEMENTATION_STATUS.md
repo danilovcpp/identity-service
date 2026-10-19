@@ -1,4 +1,163 @@
-# Текущий статус: этап 11.9 завершён
+# Текущий статус: UI alignment с официальным Ant Design завершён
+
+**Completed: 11.9 + UI alignment (отдельный запрос20.10.2026)**
+
+**Next: 11.10 — только по отдельному запросу пользователя.**
+
+## 1. Задача
+
+Стандартное оформление Ant Design для существующей Identity Console, без новой темы
+и без функциональности следующих этапов. Начальное дерево чистое, последний commit
+**723097a Block, Unblock**. Прочитаны AGENTS.md/основной Spec/addendum v1.2/status,
+текущие React sources и приложенный запрос. Новое указание пользователя заменяет
+прежнюю teal theme; архитектура/backend/security contracts не изменяются.
+
+## 2. Реализовано
+
+- `app/theme.ts`: удалены все global/component token overrides и custom palette.
+  Только стабильный cssVar scope; установленный Ant Design6.6.6 использует default light
+  algorithm автоматически. Стандартные blue/radius/fonts/control32/shadows/state colors.
+  Нет dark/compact algorithm, global size override, новой библиотеки/обновления пакетов.
+- `app/styles.css`: удалены brand badge, metric border, дублирующий layout CSS,
+  aggressive email wrapping, Ant internal class overrides и global motion!important.
+  Остались page geometry/overflow/chart fallback/accessibility. Generated appCSS4.02kB
+  вместо6.51kB. Свойств цветов в hex/самодельной палитры нет.
+- `AdminLayout.tsx`, `PageHeader.tsx`, `Brand.tsx`: стандартные Flex/Space/Typography
+  композиции при сохранении Layout/Sider/Header/Content/Menu/Drawer. Header64px/light
+  default container surface, content24px/16px mobile/max90rem, прежние navigation states.
+  Menu отвечает за selected/hover/icons; собственных component tokens нет.
+- `DashboardMetrics.tsx`: Row/Col и стандартные Card/Statistic, без собственной CSS-grid
+  системы/size small/акцентной границы. `RegistrationChart.tsx`: tooltip shadow по default
+  token вместо none, chart primary/state colors происходят из стандартной темы.
+- `UsersPage.tsx`: Form.Item labels и Row/Col для controlled filters, Space/Flex для
+  действий/footer. URL/debounce/filters/sort/page boundaries остаются источником состояния.
+- `UsersTable.tsx`: стандартный default size/hover/header/sort; email/name ellipsis/native
+  title, достаточная ширина110px и nowrap для Details, keyboard scroll min920px.
+  Стандартные Pagination/Select остаются вне scroll region для mobile accessibility;
+  Empty тоже снаружи, чтобы не центрировать empty внутри широкой невидимой таблицы.
+- `InviteUser.tsx`: стандартный Modal footer вместо custom body buttons. Default520px,
+  Form vertical/default spacing, native form association через React useId/okButtonProps.
+  Enter/validation/submit/double guard/pending/form clearing/roles/CSRF/202/409 сохранены.
+- `ErrorState.tsx`: Ant Result вместо custom icon/title layout с прежними safe messages,
+  trace reference и ручным GET retry. EmptyState использует обычный Ant Text в Empty
+  description с semantic heading, без oversized display heading.
+- `e2e/antDesign.spec.ts`:3 real-backend visual cases, каждый снимает Dashboard/Users/
+  Invite на360/768/1280px. Проверяются computed default blue/control32/button radius6,
+  email ellipsis, default Modal footer, focus return и page overflow. Visual project
+  после прежних lifecycle suites, workers4/retries0; тестовых данных в production нет.
+- Новая docs/ant-design-alignment.md содержит UI audit, ссылки на official docs,
+  принятые решения и повторение visual checks. README/root README/CHANGELOG и docs shell/
+  users/invitations актуализированы. Новых settings нет, env samples сохранены.
+- Business API/httpClient/CQRS/security policy/schema/DB/migrations/solution/dependencies/
+  lockfile/production Docker/CI не менялись. Этапы11.10+ не начаты.
+
+## 3. Решения
+
+Installed antd6.6.6 соответствует версии, указанной официальным сайтом на момент работы.
+ConfigProvider/Ant App/reset.css уже были корректны, Bootstrap/Tailwind/сторонних resets
+не было. Визуальные отличия создавали token overrides, а не отсутствие Ant CSS.
+Поэтому изменены только theme/composition, без замены рабочих форм/запросов.
+Для светлого header используется стандартный colorBgContainer локально; это выбор
+surface в Layout, не override theme. Внешняя Ant Pagination сохраняет int32 offset,
+custom pageSize и доступность mobile Rows per page; никакой собственной пагинации нет.
+
+Изучены official Overview/Layout/Modal/Table/Customize Theme; в браузере просмотрены
+страница Layout и Basic Modal. В каталоге вложения только Pasted text.txt, изображения
+референса нет; сравнение выполнялось с официальными примерами, без утверждения pixel match.
+Ссылки и описание — docs/ant-design-alignment.md.
+
+## 4. Проверки
+
+### Commands run
+
+Из frontend:
+
+```powershell
+npm run format
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test:run
+npm run test:run -- src/app/App.test.tsx src/app/routes.test.tsx src/features/auth/auth.test.tsx
+npm run api:check
+npm run build
+npm run test:e2e
+```
+
+Последние3 команды выполнены smoke harness (test:e2e также вызывает build/typecheck).
+Из корня:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=ant-design'
+dotnet tool restore
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet format Identity.slnx --no-restore --verify-no-changes
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+### Observed results
+
+- TypeScript/lint/Prettier exit0; **215 frontend tests passed**,0failed/skipped,13files,
+  последний полный прогон9.50s. Existing business/transport/auth/modal/navigation cases
+  не удалялись и assertion timeout/retries не повышались.
+- Итоговый HTTPS smoke exit0: **46 Chromium scenarios passed**,0retry,4workers,1.4m
+  (43 прежних+3 visual). Реальные
+  PostgreSQL17/Mailpit/API/Vite HTTPS, обе роли, все прежние login/logout/catalog/details/
+  invite/resend/disable/enable сценарии. OpenAPI types match,6 migrations применены;
+  processes/Compose volumes/temporary secrets очищены harness finally. Dist проверен
+  на отсутствие disposable secrets. Production build exit0, max chunk357.43kB,
+  warning500kB не менялся. Details11.64kB/users10.82kB/app103.15kB.
+- Девять итоговых PNG Dashboard/Users/Invite на360/768/1280 просмотрены вручную и
+  сопоставлены с official default components. Исправлены View details wrapping,
+  tablet filter widths и capture до завершения enter animation. Snapshot-файлы —
+  ignored test-results/antDesign-*; screenshot capture ожидает stable opacity/конец
+  enter classes, production animations сохранены. Это не axe/Lighthouse/pixel diff.
+- Backend restore/build exit0,0warnings/0errors. **470 tests passed**,0failed/skipped:
+  Unit147/API45/Integration278 с настоящими PostgreSQL/Mailpit; integration1m33s.
+  EF: No changes have been made to the model since the last migration; .NET format exit0.
+- Secret guard и whitespace check exit0. npm ci, API Docker image build и production
+  frontend image не повторялись: пакеты/backend неизменны, production hosting — этап12.
+
+Первый полный frontend run:212passed/3failed на1s RTL wait lazy Dashboard, duration76.90s
+с необычно медленной загрузкой modules. Причина связана с cold import/resource pressure
+по наблюдаемому timing, это inference. Те же3 файла отдельно30passed; затем два полных
+прогона215passed (9.74s/9.50s), без ослабления assertions/timeout. Browser smoke все сценарии
+проходил, но manual visual review нашёл capture enter frame (одна mask без Modal) на
+некоторых снимках: capture animations disabled сам по себе недостаточен в prepare frame.
+Добавлено явное ожидание завершения rc-motion enter/opacity1, затем smoke повторён.
+Первые два browser runs также46passed; повторение необходимо для verification PNG.
+NO_COLOR/FORCE_COLOR warnings runner косметические; SELECT migration history до создания
+пустой DB ожидаем. API бизнес-логика ради тестов не менялась.
+
+## 5. Безопасность
+
+Не изменены cookie/CSRF/authorization/global401/403, confirmations, dangerous actions,
+AbortSignal/timeout/duplicate guards. Нет secrets в UI/URL/storage/logging/bundle.
+Modal footer связан с формой, а не обходит validation; permissions всё ещё решает сервер.
+Email эллипсис не скрывает полный адрес из accessible cell/title или details. Тестовые
+изображения содержат только disposable accounts/blank fields, не credentials/tokens.
+
+## 6. Ограничения / Known issues
+
+- Пользовательский reference screenshot отсутствовал; использовались live official docs.
+- Только Chromium; Firefox/WebKit/axe/Lighthouse/production deployment не проверялись.
+  Local visual review не является pixel-identical копией documentation website.
+- PNG находятся в ignored test-results и перезаписываются следующим smoke; воспроизведение
+  описано в docs. Бизнес-этап11.10 и дальнейшие остаются впереди. MFA/network ограничения
+  прежние. Новых блокеров не обнаружено; commit/push/deploy не выполнялись.
+
+## 7. Следующий этап
+
+**11.10 — Запрос сброса пароля администратором**, только по отдельному запросу. Не начат.
+
+---
+
+# История: этап 11.9 завершён
 
 **Completed: 11.9**
 

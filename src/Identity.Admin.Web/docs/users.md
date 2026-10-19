@@ -83,3 +83,8 @@ ResizeObserver stub есть только в users.test.tsx: jsdom не изме
 прокрутка проверяются реальным Chromium. Нет fixtures в production или новых зависимостей.
 Playwright ограничен четырьмя workers и retries=0: suite не запускает по браузеру
 на половину логических CPU, сохраняя ресурсный запас локальному API и БД.
+
+UI alignment20.10: default Ant Table size и ellipsis для email/name (полное значение в
+cell title), Form/Row/Col filters, Space/Flex actions/footer. Pagination/Select и Ant Empty
+сохранены вне горизонтального scroll region для мобильной доступности. Custom palette,
+геометрия контролов и overrides удалены; см. [разбор](ant-design-alignment.md).

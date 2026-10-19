@@ -26,7 +26,17 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: ['**/invitations.spec.ts', '**/accountStatus.spec.ts'],
+      testIgnore: [
+        '**/invitations.spec.ts',
+        '**/accountStatus.spec.ts',
+        '**/antDesign.spec.ts',
+      ],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'chromium-visual',
+      testMatch: '**/antDesign.spec.ts',
+      dependencies: ['chromium-account-status'],
       use: { ...devices['Desktop Chrome'] },
     },
     {

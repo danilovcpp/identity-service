@@ -1,4 +1,10 @@
-import { Breadcrumb, Typography, type BreadcrumbProps } from 'antd';
+import {
+  Breadcrumb,
+  Flex,
+  Space,
+  Typography,
+  type BreadcrumbProps,
+} from 'antd';
 import type { ReactNode } from 'react';
 
 type PageHeaderProps = {
@@ -17,17 +23,15 @@ export function PageHeader({
   return (
     <header className="page-header">
       {breadcrumbs && <Breadcrumb items={breadcrumbs} />}
-      <div className="page-header-row">
-        <div>
+      <Flex align="start" justify="space-between" gap="middle" wrap>
+        <div className="page-heading">
           <Typography.Title level={1}>{title}</Typography.Title>
           {description && (
-            <Typography.Paragraph type="secondary">
-              {description}
-            </Typography.Paragraph>
+            <Typography.Text type="secondary">{description}</Typography.Text>
           )}
         </div>
-        {actions && <div className="page-header-actions">{actions}</div>}
-      </div>
+        {actions && <Space wrap>{actions}</Space>}
+      </Flex>
     </header>
   );
 }

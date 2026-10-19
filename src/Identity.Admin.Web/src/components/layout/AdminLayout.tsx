@@ -6,6 +6,7 @@ import {
 import {
   Button,
   Drawer,
+  Flex,
   Grid,
   Layout,
   Tooltip,
@@ -48,9 +49,9 @@ export function AdminLayout({
           }}
           className="admin-sidebar"
         >
-          <div className="sidebar-brand">
+          <Flex align="center" className="sidebar-brand">
             <Brand compact={collapsed} />
-          </div>
+          </Flex>
           <div id="desktop-navigation">
             <Navigation />
           </div>
@@ -63,7 +64,7 @@ export function AdminLayout({
       )}
       <Layout className="admin-workspace">
         <Layout.Header className="admin-topbar">
-          <div className="topbar-context">
+          <Flex align="center" gap="small" className="topbar-context">
             {mobile ? (
               <Button
                 type="text"
@@ -93,11 +94,15 @@ export function AdminLayout({
               </Tooltip>
             )}
             {headerContent ?? (
-              <Typography.Text type="secondary">Administration</Typography.Text>
+              <Typography.Text type="secondary" className="topbar-label">
+                Administration
+              </Typography.Text>
             )}
-          </div>
+          </Flex>
           {headerActions && (
-            <div className="topbar-actions">{headerActions}</div>
+            <Flex align="center" gap="small" className="topbar-actions">
+              {headerActions}
+            </Flex>
           )}
         </Layout.Header>
         <Layout.Content

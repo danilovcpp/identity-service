@@ -1,5 +1,4 @@
-import { ExclamationCircleOutlined } from '@ant-design/icons';
-import { Button, Typography } from 'antd';
+import { Button, Result, Typography } from 'antd';
 import { ApiError, ClientError } from '@/api/errors';
 
 export function ErrorState({
@@ -19,20 +18,22 @@ export function ErrorState({
       role="alert"
       aria-label="Unable to display content"
     >
-      <ExclamationCircleOutlined
-        className="state-error-icon"
-        aria-hidden="true"
+      <Result
+        status="error"
+        title="Unable to display content"
+        subTitle={
+          <>
+            {message}
+            {error instanceof ApiError && error.traceId && (
+              <Typography.Paragraph type="secondary">
+                Reference:{' '}
+                <Typography.Text code>{error.traceId}</Typography.Text>
+              </Typography.Paragraph>
+            )}
+          </>
+        }
+        extra={onRetry && <Button onClick={onRetry}>Try again</Button>}
       />
-      <div>
-        <Typography.Title level={2}>Unable to display content</Typography.Title>
-        <Typography.Paragraph type="secondary">{message}</Typography.Paragraph>
-        {error instanceof ApiError && error.traceId && (
-          <Typography.Paragraph type="secondary">
-            Reference: <Typography.Text code>{error.traceId}</Typography.Text>
-          </Typography.Paragraph>
-        )}
-      </div>
-      {onRetry && <Button onClick={onRetry}>Try again</Button>}
     </section>
   );
 }

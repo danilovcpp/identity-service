@@ -2,6 +2,13 @@
 
 ## Unreleased — v1.1, stages 8–10, 11.1–11.9
 
+- Restore Ant Design6.6.6 default light theme and standard control geometry, typography,
+  shadows and blue palette. Remove custom component tokens and conflicting CSS.
+- Standard Flex/Space/Grid layouts, vertical filter forms, Modal footer/Form association,
+  default Table sizing/ellipsis and Ant Result errors. Existing business/API behavior retained.
+- Real-backend Dashboard/Users/Invite visual checks at360/768/1280, including default
+  computed styles, keyboard focus and responsive overflow.
+
 - Administrator Disable/Enable confirmations in user details, required disable reason,
   state/role gating and explicit session/link revocation consequences.
 - Existing CSRF-protected commands with204-only feedback, last-administrator/state

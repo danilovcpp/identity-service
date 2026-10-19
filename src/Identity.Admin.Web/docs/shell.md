@@ -1,10 +1,10 @@
 # Identity Console: UI foundation (11.3)
 
-Светлая тема, системный шрифт, нейтральные поверхности и один бирюзовый brand accent.
-Цвета/шрифты/радиусы/spacing scale задаются через Ant Design tokens в `src/app/theme.ts`.
-`cssVar` имеет фиксированный ключ identity-console; `app/styles.css` использует токены,
-включая focus ring в порталах. Semantic state colors отделены от brand accent.
-Нет тяжёлых теней, внешних шрифтов/изображений и другого UI kit. Ant Design App context
+По отдельному запросу20.10 UI приведён к **стандартной светлой теме Ant Design6.6.6**:
+стандартный синий, typography/radius/control geometry/shadows/status colors.
+`app/theme.ts` содержит только cssVar scope identity-console, без overrides/algorithm.
+`app/styles.css` описывает геометрию/overflow/accessibility, без Ant class overrides.
+[Аудит, изменения и visual checks](ant-design-alignment.md). Ant Design App context
 подготовлен для контекстных message/notification/modal, static APIs не используются.
 
 ## Layout и маршруты
@@ -12,7 +12,7 @@
 AdminLayout: sticky sidebar240px, автоматическое сворачивание до80px на768–991px,
 ручной toggle на desktop. До768px — drawer280px с закрытием по выбору меню, Escape
 и mask click. Resize закрывает mobile drawer; возврат к mobile не открывает его снова.
-Контейнеры ограничены80rem, spacing берётся из tokens. Есть headerContent/headerActions
+Header64px, content max90rem, spacing24px/16px mobile из default tokens. Есть headerContent/headerActions
 slots для account/logout/breadcrumb, PageHeader с optional breadcrumbs/
 description/actions и h1 страницы. С11.4 topbar показывает серверный профиль и выход.
 
@@ -52,7 +52,7 @@ Login/logout/profile/Forbidden/cache cleanup: [authentication](authentication.md
 ## Клавиатура и фокус
 
 Skip-to-content, semantic landmarks, aria labels у icon buttons, видимый focus,
-reduced-motion media rule. Ant Design управляет первоначальным фокусом overlay;
+штатное оформление Ant controls. Ant Design управляет первоначальным фокусом overlay;
 `containTabFocus` предотвращает граничный Tab в browser chrome. Это ограниченное
 использование DOM для focus management, без ручного изменения DOM/UI-состояния.
 Возврат к mobile trigger выполняется после release focus lock. Drawer остаётся mounted

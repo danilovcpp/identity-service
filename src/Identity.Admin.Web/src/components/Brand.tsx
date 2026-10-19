@@ -1,5 +1,6 @@
 import { IdcardOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
+import { Space, Typography } from 'antd';
 
 export function Brand({
   compact = false,
@@ -15,14 +16,12 @@ export function Brand({
       aria-label="Identity Console home"
       onClick={onNavigate}
     >
-      <span className="brand-mark" aria-hidden="true">
-        <IdcardOutlined />
-      </span>
-      {!compact && (
-        <span className="brand-name">
-          Identity <span>Console</span>
+      <Space>
+        <span className="brand-mark" aria-hidden="true">
+          <IdcardOutlined />
         </span>
-      )}
+        {!compact && <Typography.Text strong>Identity Console</Typography.Text>}
+      </Space>
     </Link>
   );
 }

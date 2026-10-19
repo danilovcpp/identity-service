@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { UserAddOutlined } from '@ant-design/icons';
 import { App, Button, Form, Input, Modal, Typography } from 'antd';
 import { ApiError } from '@/api/errors';
@@ -18,6 +18,7 @@ function InviteDialog({
   onClose: () => void;
 }) {
   const [form] = Form.useForm<Values>();
+  const formId = useId();
   const command = useInvitationCommand();
   const { message } = App.useApp();
   async function submit(values: Values) {
@@ -63,7 +64,16 @@ function InviteDialog({
       destroyOnHidden
       afterClose={command.reset}
       title="Invite user"
-      footer={null}
+      okText="Send invitation"
+      cancelText="Cancel"
+      confirmLoading={command.pending}
+      okButtonProps={{
+        form: formId,
+        htmlType: 'submit',
+        disabled: command.pending,
+        'aria-label': 'Send invitation',
+      }}
+      cancelButtonProps={{ disabled: command.pending }}
       onCancel={command.pending ? undefined : onClose}
       closable={!command.pending}
       keyboard={!command.pending}
@@ -79,6 +89,7 @@ function InviteDialog({
       <InvitationError error={command.error} />
       <Form
         form={form}
+        id={formId}
         clearOnDestroy
         layout="vertical"
         requiredMark={false}
@@ -132,20 +143,6 @@ function InviteDialog({
         >
           <Input maxLength={120} autoComplete="off" />
         </Form.Item>
-        <div className="invitation-dialog-actions">
-          <Button onClick={onClose} disabled={command.pending}>
-            Cancel
-          </Button>
-          <Button
-            aria-label="Send invitation"
-            type="primary"
-            htmlType="submit"
-            loading={command.pending}
-            disabled={command.pending}
-          >
-            Send invitation
-          </Button>
-        </div>
       </Form>
     </Modal>
   );

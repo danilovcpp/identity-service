@@ -26,18 +26,17 @@ export function UsersTable({
       dataIndex: 'email',
       key: 'email',
       width: 220,
+      ellipsis: true,
       sorter: true,
       sortOrder: order('email'),
-      render: (value: string) => <span className="user-text">{value}</span>,
     },
     {
       title: 'Display name',
       dataIndex: 'displayName',
       key: 'displayName',
       width: 140,
-      render: (value: string | null) => (
-        <span className="user-text">{value || 'Not provided'}</span>
-      ),
+      ellipsis: true,
+      render: (value: string | null) => value || 'Not provided',
     },
     {
       title: 'Status',
@@ -67,9 +66,10 @@ export function UsersTable({
     {
       title: 'Details',
       key: 'details',
-      width: 90,
+      width: 110,
       render: (_, item) => (
         <Link
+          className="user-details-link"
           to={{
             pathname: `/admin/users/${item.id}`,
             search: usersSearchParameters(parameters).toString(),
@@ -108,8 +108,7 @@ export function UsersTable({
         columns={columns}
         dataSource={items}
         pagination={false}
-        style={{ minWidth: 900 }}
-        size="middle"
+        style={{ minWidth: 920 }}
         tableLayout="fixed"
         sortDirections={['ascend', 'descend', 'ascend']}
         onChange={change}

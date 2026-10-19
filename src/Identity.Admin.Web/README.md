@@ -13,6 +13,10 @@ Frontend самостоятельного продукта Identity. Выпол�
 Приглашение пользователя и повторная отправка для Administrator: [Invitations](docs/invitations.md).
 Блокировка/разблокировка с подтверждением, последствия и проверки: [Account status](docs/account-status.md).
 
+По отдельному запросу20.10 UI приведён к стандартному Ant Design6.6.6 light:
+без overrides палитры/контролов/теней; штатные Form/Grid/Modal/Table patterns.
+[Аудит и визуальная проверка](docs/ant-design-alignment.md). Функциональный scope — до11.9.
+
 ## Требования и запуск
 
 Node.js **22.13+ в ветке 22**, 24.x либо 26+; npm 10+. Проверено с Node.js 22.16.0

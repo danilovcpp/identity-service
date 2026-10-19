@@ -49,6 +49,10 @@ dashboard либо detail/audit; UI сообщает принятие в обр�
 в карточке: подтверждение, обязательная причина, обработка last-admin/state409 и обновление
 данных после204. ReadOnly не видит действий; восстановленный статус определяет backend.
 
+**UI maintenance20.10**: [стандартная светлая тема Ant Design](src/Identity.Admin.Web/docs/ant-design-alignment.md),
+штатные layout/forms/table/modal, без авторской палитры и component overrides.
+Бизнес-логика и API сохраняются; следующий функциональный этап остаётся11.10.
+
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):
 registration/verification, RS256 JWT/JWKS, refresh rotation/replay, собственные sessions/

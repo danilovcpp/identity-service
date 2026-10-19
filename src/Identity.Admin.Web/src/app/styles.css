@@ -1,14 +1,12 @@
+/* Ant Design owns component appearance. App CSS only handles page geometry,
+   overflow, chart markup and keyboard accessibility. */
 body {
   margin: 0;
 }
-
 .identity-app {
   min-height: 100dvh;
-  color: var(--ant-color-text);
   background: var(--ant-color-bg-layout);
-  font-family: var(--ant-font-family);
 }
-
 .admin-layout {
   min-height: 100dvh;
 }
@@ -16,121 +14,71 @@ body {
   position: sticky;
   top: 0;
   height: 100dvh;
-  border-inline-end: 1px solid var(--ant-color-border-secondary);
 }
 .sidebar-brand {
-  display: flex;
-  align-items: center;
-  height: 72px;
+  height: 64px;
   padding-inline: var(--ant-padding-lg);
-  margin-bottom: var(--ant-margin-md);
 }
 .brand {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ant-margin-sm);
-  color: var(--ant-color-text);
   white-space: nowrap;
 }
 .brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--ant-border-radius);
   color: var(--ant-color-primary);
-  background: var(--ant-color-primary-bg);
   font-size: 20px;
-}
-.brand-name {
-  font-size: var(--ant-font-size-lg);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-.brand-name > span {
-  font-weight: 400;
-  color: var(--ant-color-text-secondary);
 }
 .sidebar-caption {
   display: block;
   padding: var(--ant-padding-lg);
-  font-size: var(--ant-font-size-sm);
 }
 .admin-workspace {
   min-width: 0;
 }
 .admin-topbar {
-  height: auto;
-  min-height: 72px;
-  line-height: normal;
-  padding-block: var(--ant-padding-sm);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--ant-margin-md);
   padding-inline: var(--ant-padding-lg);
-  border-bottom: 1px solid var(--ant-color-border-secondary);
+  background: var(--ant-color-bg-container);
 }
 .topbar-context,
 .topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--ant-margin-sm);
   min-width: 0;
 }
 .admin-content {
   width: 100%;
-  max-width: 80rem;
+  max-width: 90rem;
   margin-inline: auto;
-  padding: var(--ant-padding-xl);
+  padding: var(--ant-padding-lg);
 }
 .page-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ant-margin-sm);
   margin-bottom: var(--ant-margin-lg);
 }
-.page-header-row {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: var(--ant-margin-md);
-  flex-wrap: wrap;
+.page-header > nav {
+  margin-bottom: var(--ant-margin-md);
 }
-.page-header-row > div {
+.page-heading {
   min-width: 0;
 }
-.page-header-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ant-margin-sm);
+.page-heading > h1 {
+  margin-top: 0;
 }
 .content-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--ant-margin-md);
-  padding: var(--ant-padding-xl) var(--ant-padding-md);
+  padding-block: var(--ant-padding-lg);
   text-align: center;
   overflow-wrap: anywhere;
 }
-.state-error-icon {
-  color: var(--ant-color-error);
-  font-size: 28px;
-}
 .public-layout {
   min-height: 100dvh;
-  padding: var(--ant-padding-xl);
+  padding: var(--ant-padding-lg);
 }
 .public-brand {
-  padding-bottom: var(--ant-padding-xl);
+  padding-bottom: var(--ant-padding-lg);
 }
 .public-content {
   max-width: 40rem;
   margin: auto;
-  padding: var(--ant-padding-xl) var(--ant-padding-md);
+  padding: var(--ant-padding-lg) var(--ant-padding-md);
 }
 .skip-link {
   position: fixed;
@@ -172,9 +120,6 @@ body {
   max-width: 14rem;
   line-height: 1.5;
 }
-.session-controls > .ant-alert {
-  flex-basis: 100%;
-}
 .session-name {
   width: 100%;
   overflow: hidden;
@@ -182,19 +127,10 @@ body {
   white-space: nowrap;
 }
 .dashboard-metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--ant-margin-md);
   margin-bottom: var(--ant-margin-lg);
-}
-.dashboard-total {
-  grid-column: span 2;
 }
 .dashboard-metric-card {
   height: 100%;
-}
-.dashboard-total .dashboard-metric-card {
-  border-color: var(--ant-color-primary-border);
 }
 .dashboard-trend {
   min-width: 0;
@@ -228,58 +164,24 @@ body {
   color: var(--ant-color-text-secondary);
   padding-block: var(--ant-padding-sm);
 }
-.users-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: var(--ant-margin-md);
-  margin-bottom: var(--ant-margin-lg);
-}
-.users-filters > div {
-  flex: 1 1 11rem;
-  min-width: 0;
-}
-.users-filters > .users-search {
-  flex: 2 1 16rem;
-}
-.users-filters label {
-  display: block;
-  margin-bottom: var(--ant-margin-xs);
-}
-.users-filters .ant-select {
-  width: 100%;
-}
 .users-table-scroll {
   min-width: 0;
   overflow-x: auto;
 }
-.user-text {
-  overflow-wrap: anywhere;
+.user-details-link {
+  white-space: nowrap;
 }
 .users-pagination {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--ant-margin-md);
   margin-top: var(--ant-margin-lg);
 }
 .users-page-size {
-  display: flex;
-  align-items: center;
-  gap: var(--ant-margin-sm);
-}
-.users-page-size .ant-select {
   min-width: 7rem;
-}
-.users-pagination .ant-pagination {
-  display: flex;
-  flex-wrap: wrap;
-  row-gap: var(--ant-margin-sm);
 }
 .user-details-refresh {
   display: flex;
+  flex-wrap: wrap;
   justify-content: end;
+  gap: var(--ant-margin-sm);
   margin-bottom: var(--ant-margin-md);
 }
 .user-activity {
@@ -289,20 +191,6 @@ body {
   display: grid;
   gap: var(--ant-margin-md);
   overflow-wrap: anywhere;
-}
-.user-actions,
-.invitation-dialog-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--ant-margin-sm);
-}
-.invitation-dialog-actions {
-  justify-content: end;
-}
-.user-details-refresh {
-  flex-wrap: wrap;
-  gap: var(--ant-margin-sm);
 }
 .user-profile {
   overflow-wrap: anywhere;
@@ -341,17 +229,14 @@ body {
 .user-events time {
   color: var(--ant-color-text-secondary);
 }
-@media (min-width: 1200px) {
-  .dashboard-metrics {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-.identity-console :where(a, button, summary, [tabindex]):focus-visible {
+/* Keep a keyboard ring for plain router links and scroll regions; Ant Design
+   provides its own focus treatment for its controls. */
+.identity-console :where(a, summary, [tabindex='0']):focus-visible {
   outline: 2px solid var(--ant-color-primary);
   outline-offset: 3px;
 }
 @media (max-width: 767px) {
-  .topbar-context > .ant-typography {
+  .topbar-label {
     display: none;
   }
   .session-identity {
@@ -363,18 +248,5 @@ body {
   }
   .admin-topbar {
     padding-inline: var(--ant-padding-sm);
-  }
-  .content-state {
-    padding-inline: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
   }
 }
