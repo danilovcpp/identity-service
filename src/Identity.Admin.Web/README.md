@@ -1,10 +1,12 @@
 # Identity Console
 
 Frontend самостоятельного продукта Identity. Выполнены **11.1 — bootstrap** и
-**11.2 — HTTP-клиент, OpenAPI, CSRF**, **11.3 — тема и App Shell** из
+**11.2 — HTTP-клиент, OpenAPI, CSRF**, **11.3 — тема и App Shell**,
+**11.4 — Login / Logout / Route Guards** из
 [дополнения v1.2](../../Identity_Admin_Codex_Addendum_v1.2.md).
-Оболочка содержит стартовую страницу консоли и NotFound. API-инфраструктура готова,
-бизнес-экраны появятся в следующих подэтапах; оболочка не делает запросов.
+Вход, выход, профиль и защита маршрутов работают через реальные cookie/CSRF API.
+Консоль пока содержит стартовую страницу и NotFound; бизнес-экраны — следующие подэтапы.
+Подробности: [authentication](docs/authentication.md), [UI foundation](docs/shell.md).
 
 ## Требования и запуск
 
@@ -23,14 +25,16 @@ npm run dev
 
 Копируйте env-файл только при первом запуске, сохраняя свои локальные настройки.
 Открыть [http://127.0.0.1:5173](http://127.0.0.1:5173). Vite слушает IPv4 loopback и не
-выбирает другой порт молча. Для стартовой страницы backend/БД/Docker не требуются.
+выбирает другой порт молча. Для административного входа необходимы backend/БД,
+включённый AdminAccess и HTTPS на обоих концах proxy (см. ниже).
 
 ## Команды
 
 Все команды выполняются из этой директории:
 
 Shell/theme/navigation и keyboard/browser checks: [UI foundation](docs/shell.md).
-`npm run test:e2e` собирает production dist и выполняет Chromium smoke на отдельном preview5174.
+Для реального HTTPS smoke запустите из корня `pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1`.
+Скрипт сам вызывает `npm run api:check` и `npm run test:e2e` в изолированном окружении.
 
 | Команда                | Назначение                                                    |
 | ---------------------- | ------------------------------------------------------------- |
@@ -49,7 +53,8 @@ Shell/theme/navigation и keyboard/browser checks: [UI foundation](docs/shell.md
 
 Тесты проверяют реальный рендер `App`, Query provider/cache isolation и
 HTTP-клиент через injected fake-fetch (только в тестах, не runtime fallback).
-Playwright проверяет shell в production build. Login и authenticated E2E пока не реализованы.
+Playwright проверяет login/logout/refresh/roles и shell с настоящим backend через HTTPS.
+Production dist собирается отдельно; browser smoke использует dev server с API proxy.
 
 ## Структура и границы
 
@@ -58,7 +63,7 @@ src/
   app/          App, providers, QueryClient factory, theme, routes, layout CSS
   api/          typed HTTP-клиент, ошибки, query keys, generated schema.d.ts
   components/   layouts, PageHeader, states, confirmation, StatusTag
-  features/     будущие вертикальные срезы с API/hooks/UI
+  features/auth/ session API, auth context/provider, login, guards, session controls
   pages/        ConsolePage, NotFoundPage; бизнес-страницы в следующих этапах
   test/         общий setup Vitest/RTL и очистка DOM между тестами
 ```
@@ -67,7 +72,7 @@ src/
 относительный путь. Alias одинаков в TypeScript и Vite/Vitest. `strict` и
 `noUncheckedIndexedAccess` включены и для app/tests, и для Vite config. Тесты
 используют явные импорты Vitest, globals не включены. Бизнес-данных, заглушек входа,
-провайдеров авторизации пока нет. Ant Design 6 используется без второго UI kit;
+фиктивных провайдеров авторизации нет. Ant Design 6 используется без второго UI kit;
 theme tokens находятся в app/theme.ts. TanStack Query, ConfigProvider и Ant Design App
 подключены через AppProviders; BrowserRouter находится в main.tsx.
 Отдельного .NET проекта, backend-зависимостей и изменений solution нет.
@@ -91,7 +96,7 @@ Development на `/openapi/v1.json`. Описание существующих A
 [admin access](../../docs/admin-access.md), [read](../../docs/admin-read-api.md),
 [write](../../docs/admin-write-api.md). HTTP operations остаются в существующем API.
 
-Для последующих cookie-сценариев нужен **HTTPS на браузерном origin**, даже в dev:
+Для cookie-сценариев нужен **HTTPS на браузерном origin**, даже в dev:
 backend требует Secure `__Host-` cookies и HTTPS для admin endpoints. Для локального
 HTTPS укажите обе переменные файлов и откройте `https://127.0.0.1:5173`. Сертификат
 должен быть доверен ОС/браузером и содержать IP SAN `127.0.0.1`; генерация/установка сертификатов
@@ -224,7 +229,8 @@ sessions/audit с параметрами фильтрации и prefix keys д�
 Не помещайте credentials, CSRF/one-time tokens или пароли в keys, query data,
 mutation variables, persisted cache или devtools. Sensitive account/login calls должны
 передавать секреты напрямую через клиент, а кешировать можно лишь безопасный результат.
-Providers сами не выполняют запросы и не реализуют auth/route guards.
+AppProviders отвечает за Query/Ant Design; AuthProvider в routing branch выполняет
+`/auth/me`, управляет auth state и очисткой кеша. См. [authentication](docs/authentication.md).
 
 Ссылки на официальные инструменты:
 [openapi-typescript Node API](https://openapi-ts.dev/node),

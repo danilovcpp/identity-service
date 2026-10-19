@@ -6,7 +6,9 @@ import {
   within,
 } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as authApi from '@/features/auth/api';
+import { testProfile } from '@/test/auth';
 import { App } from '@/app/App';
 import { AppProviders } from '@/app/AppProviders';
 import { setTestViewport } from '@/test/viewport';
@@ -22,22 +24,29 @@ function renderApp(path = '/admin') {
 }
 
 describe('console shell and routes', () => {
-  it('redirects the public index to the console and does not fetch data or invent a user', () => {
+  beforeEach(() => {
+    vi.spyOn(authApi, 'getSession').mockResolvedValue(testProfile);
+  });
+  it('redirects the public index to the authenticated console without business data requests', async () => {
     const fetch = vi.spyOn(globalThis, 'fetch');
     renderApp('/');
     expect(
-      screen.getByRole('heading', { level: 1, name: 'Identity Console' }),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Identity Console',
+      }),
     ).toBeVisible();
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content');
     expect(screen.queryByText(/Dashboard/)).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /logout|sign out/i }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
     expect(fetch).not.toHaveBeenCalled();
   });
 
   it('only enables the console link and supports desktop collapse/expand', async () => {
     renderApp();
+    await screen.findByRole('heading', { name: 'Identity Console' });
     expect(
       screen.getByRole('navigation', { name: 'Primary navigation' }),
     ).toBeVisible();
@@ -69,6 +78,7 @@ describe('console shell and routes', () => {
   it('opens mobile navigation and closes it when navigating to the console', async () => {
     setTestViewport(360);
     renderApp('/admin/missing');
+    await screen.findByRole('heading', { name: 'Page not found' });
     expect(
       screen.queryByRole('navigation', { name: 'Primary navigation' }),
     ).not.toBeInTheDocument();
@@ -86,18 +96,15 @@ describe('console shell and routes', () => {
     ).toBeVisible();
   });
 
-  it.each([
-    '/missing',
-    '/account/activate',
-    '/admin/users',
-    '/admin/login',
-    '/admin/audit',
-  ])(
+  it.each(['/missing', '/account/activate', '/admin/users', '/admin/audit'])(
     'shows a real not-found state for the unimplemented route %s',
     async (path) => {
       renderApp(path);
       expect(
-        screen.getByRole('heading', { level: 1, name: 'Page not found' }),
+        await screen.findByRole('heading', {
+          level: 1,
+          name: 'Page not found',
+        }),
       ).toBeVisible();
       expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'Back to console' }));

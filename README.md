@@ -23,6 +23,10 @@ in-memory CSRF, безопасными ошибками/отменой и TanSta
 UI-компоненты. [Shell и browser checks](src/Identity.Admin.Web/README.md).
 Users/Audit пока disabled, авторизация и бизнес-данные не подключены.
 
+**Этап 11.4**: [административные login/logout и route guards](src/Identity.Admin.Web/docs/authentication.md),
+серверный профиль/роль, 401/403 и очистка кеша сессии. Добавлен локальный HTTPS
+Playwright smoke с настоящими PostgreSQL/Mailpit и CLI bootstrap. Бизнес-экраны — далее.
+
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):
 registration/verification, RS256 JWT/JWKS, refresh rotation/replay, собственные sessions/

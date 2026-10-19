@@ -1,3 +1,165 @@
+# Текущий статус: этап 11.4 завершён
+
+**Completed: 11.4**
+
+**Next: 11.5 — только по отдельному запросу пользователя.**
+
+## 1. Этап
+
+**11.4 — Administrative Login / Logout / Route Guards**, 2026-10-19.
+Прочитаны AGENTS.md, Identity_Codex_Spec.md, дополнение v1.2, текущие API/controllers,
+frontend и status. Начальное дерево чистое;11.3 подтверждён commit **ade6b81**.
+Реализован только11.4. Backend0–10 и архитектура11.1–11.3 сохранены.
+
+## 2. Реализовано
+
+- `src/Identity.Admin.Web/src/features/auth/api.ts`: реальные typed login/logout/me,
+  безопасная проекция профиля, fail-closed для неизвестных ролей. После login GET me
+  подтверждает cookie и даёт актуальные capabilities.
+- `AuthProvider.tsx`, `authContext.ts`: Query session, loading/authenticated/
+  unauthenticated/forbidden/error, server profile, canWrite только Administrator.
+  Начальная проверка, refetch при возврате фокуса; нет самодельного таймера срока cookie.
+  Reads отменяются перед сменой личности, Query/Mutation cache и CSRF очищаются при
+  logout/401; при forbidden business cache удаляется. Login/logout не Query mutations:
+  password не попадает в mutation variables/cache/devtools. Timeout30s, unmount abort.
+- `LoginPage.tsx`: Ant Form email/password, validation, generic login failures,
+  safe network/503/429/CSRF errors, pending/ref double-submit guard, очистка password
+  после каждой попытки. Нет новых правил сложности пароля для входа.
+- `AuthGate.tsx`, `returnPath.ts`, routing: все admin paths, включая404, закрыты
+  session guard; login публичный. Loading/error/Forbidden не монтируют shell.
+  401 redirect с безопасным pathname в router state;403 без redirect loop с GET retry.
+  Absolute URL/query/fragment/backslash/encoded return targets/login loops запрещены.
+- `SessionControls.tsx`, styles: настоящий displayName/email, роль и CSRF logout.
+  Network/CSRF failure выхода не считается успехом; явная ошибка/ручной повтор.
+  Существующие headerActions slots использованы без переписывания AdminLayout.
+  Адаптация шапки360px, CSS ellipsis без дополнительного observer/state.
+- `api/httpClient.ts`: минимальная подписка владельца сессии на admin401/403;
+  login/me обрабатываются отдельно, csrf_invalid не становится Forbidden, поздний
+ 401 отменённого запроса не завершает новую сессию. Fetch остаётся централизованным.
+- Unit/component/transport tests; прежние shell tests теперь ждут настоящий auth state.
+  Test fixtures только в test/e2e; production mock responses отсутствуют.
+- `scripts/Test-AdminWebSmoke.ps1`, Playwright config, authFixture/auth/shell specs:
+  disposable PostgreSQL17/Mailpit, шесть миграций, TLS Vite/API, временные secrets,
+  REST registration + delivered email verification + CLI bootstrap двух ролей.
+  OpenAPI drift/build/browser checks; cleanup своих процессов/Compose/keys и restore env.
+  Сертификат доверяется Node через NODE_EXTRA_CA_CERTS, глобальный trust не меняется.
+- README/CHANGELOG/frontend README, docs/shell.md и новый docs/authentication.md.
+  Новых dependencies, package/lockfile, API/DTO/OpenAPI/backend/security policy/DB
+  изменений нет. Миграции, production Docker/CI, версии продукта и env samples прежние.
+
+## 3. Решения
+
+Сессия хранится в серверной HttpOnly cookie; Query содержит только безопасный профиль.
+Auth context — производное состояние Query и capability, не отдельная копия identity.
+Пароль живёт в Form и параметре короткой async операции, затем очищается; никакой
+persisted state, token parsing или client-side expiry timer. Ошибка сети при logout
+оставляет session UI до подтверждения сервера;401 завершает уже недействующую сессию.
+
+По обычному login переход на /admin. После guard redirect возвращается сохранённый
+внутренний pathname (требование11.4 п.2); query/hash намеренно не переносятся до
+появления соответствующих фильтров и allowlist. Users/Audit по-прежнему disabled;
+Dashboard и CRUD не реализованы. Неизвестный admin path после auth показывает404.
+
+Browser smoke теперь требует настоящий backend: build проверяется отдельно, Chromium
+работает с Vite dev HTTPS proxy. Это локальная тестовая инфраструктура11.4, не
+production packaging этапа12. Browser ignoreHTTPSErrors ограничен disposable fixture;
+проверка TLS proxy к API остаётся включённой. Ручной dev run требует доверенный cert.
+
+## 4. Проверки
+
+### Commands run
+
+Из frontend:
+
+```powershell
+npm run format
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test -- --run
+npm run api:check
+npm run build
+npm run test:e2e
+```
+
+Последние три команды запускались внутри HTTPS fixture (build — через test:e2e).
+Из корня:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage11-4'
+dotnet tool restore
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet format Identity.slnx --no-restore --verify-no-changes
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+Fixture дополнительно выполняет `docker compose up --detach --wait postgres mailpit`,
+`dotnet ef database update`, existing AdminCli grant для двух ролей, HTTPS API process,
+Vite dev server и в finally `docker compose down --volumes --remove-orphans`.
+
+### Observed results
+
+- TypeScript/lint/Prettier/build exit0. **94 frontend tests passed**,0failed/skipped,
+ 7files. Auth success/errors/validation/double submit,401/403/readOnly/unknown role,
+  cache cleanup/logout failure/manual GET retry, safe return targets, memory-only CSRF,
+  listener unsubscribe/late cancelled response, прежние transport/shell/components.
+- **10 Chromium tests passed**, без retries: реальные login/logout обеих ролей,
+  cookie refresh после reload, generic invalid credentials, anonymous redirect,
+  server revocation с повторным предъявлением прежнего cookie,360/768/1280 shell/login,
+  keyboard skip link/Tab trap/Escape/return focus, resize,404/SPA navigation.
+  Browser API проверяет HttpOnly/Secure/Strict; JS cookie/storage не содержит auth.
+- OpenAPI types match Identity.Api. Шесть существующих миграций применены к пустой
+  disposable DB, pending model changes отсутствуют; новых миграций нет.
+- Production build: app101.27kB, React218.76kB, Antd406.99kB, primitives182.01kB;
+  chunk warning отсутствует. Проверка dist на временные password/DB/PFX secrets проходит.
+  Косметический NO_COLOR/FORCE_COLOR warning среды runner остаётся.
+- .NET restore/build/format exit0,0warnings/0errors; **470 tests passed**,0failed/skipped:
+  Unit147 + API45 + Integration278 с настоящими PostgreSQL/Mailpit/Docker.
+- Визуально просмотрены login360/1280 и shell360; Chromium проверяет также768 и1280.
+  Login snapshots сняты до credentials, trace/video/storage export выключены.
+- Secret guard self-tests и tracked/untracked tree, git diff --check проходят.
+  Secrets/fixture containers/volumes/API/dev server очищены после прогонов.
+
+Промежуточные ошибки исправлены: sandbox EPERM требовал повторного запуска tool вне
+sandbox; после split context исправлены type/lint ошибки. Unit tests выявили
+ResizeObserver dependency у Typography ellipsis (заменено CSS), accessible icon/loading
+names и слишком общий status selector. Первый smoke не выбирал уже доставленное
+Mailpit письмо; fixture теперь последовательно использует и очищает свой mailbox.
+Keyboard smoke ждал Tab раньше async session check; добавлено ожидание shell.
+Визуально обнаружено переполнение мобильной шапки по высоте — layout исправлен.
+Все окончательные команды выше проходят; непрошедшие попытки не выдаются за успех.
+
+## 5. Безопасность
+
+Без JWT/localStorage/sessionStorage/persisted Query cache, чтения cookie в production JS,
+новых ролей/серверных проверок. Login/logout используют прежние secure cookies/CSRF.
+Passwords не кешируются/не логируются/не передаются через URL; default accounts только
+в disposable тестах со случайным паролем. Rate limiting и server revocation сохранены.
+Unknown role fail-closed;401 очищает данные,403 не зацикливает redirect; return paths
+не позволяют open redirect. Backend остаётся единственным источником прав.
+
+## 6. Ограничения / Known issues
+
+Блокеров11.4 нет. Бизнес-метрики, Users/Audit/actions и публичные account forms — будущие
+подэтапы. Browser tests пока Chromium, dev HTTPS proxy; production dist собран, но
+production proxy/Docker frontend/TLS/CSP/CI/axe/Lighthouse не проверялись и относятся
+к дальнейшей приёмке. Docker image API smoke отдельно не повторялся: backend/image
+не менялись; Docker integration + реальный HTTPS API/frontend smoke выполнены.
+Новых dependencies нет, npm ci/audit в11.4 не повторялись. До MFA доступ ограниченным
+сетевым контуром обязателен. При crash runner ephemeral resources требуют ручной очистки.
+
+## 7. Следующий этап
+
+**11.5 — Dashboard со статистикой**, только по отдельному запросу. Не начат.
+
+---
+
+# Предыдущий отчёт: этап 11.3
 # Текущий статус: этап 11.3 завершён
 
 **Completed: 11.3**

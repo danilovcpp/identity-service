@@ -3,18 +3,12 @@ import { render, screen } from '@testing-library/react';
 import { useEffect } from 'react';
 import { describe, expect, it } from 'vitest';
 import { AppProviders } from '@/app/AppProviders';
-import { App } from '@/app/App';
 import { queryKeys } from '@/api/queryKeys';
-import { MemoryRouter } from 'react-router-dom';
 
 function Probe({ capture }: { capture: (client: QueryClient) => void }) {
   const client = useQueryClient();
   useEffect(() => capture(client), [capture, client]);
-  return (
-    <MemoryRouter initialEntries={['/admin']}>
-      <App />
-    </MemoryRouter>
-  );
+  return <h1>Provider probe</h1>;
 }
 
 describe('AppProviders', () => {
@@ -29,7 +23,7 @@ describe('AppProviders', () => {
       </AppProviders>,
     );
     expect(
-      screen.getByRole('heading', { name: 'Identity Console' }),
+      screen.getByRole('heading', { name: 'Provider probe' }),
     ).toBeVisible();
     const first = clients[0];
     expect(first).toBeDefined();

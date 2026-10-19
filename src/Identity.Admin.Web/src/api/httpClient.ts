@@ -79,6 +79,7 @@ export function createApiClient(
 ) {
   let csrfToken: string | undefined;
   let csrfFlight: CsrfFlight | undefined;
+  const accessListeners = new Set<(error: ApiError) => void>();
 
   function clearCsrfToken() {
     csrfToken = undefined;
@@ -209,6 +210,17 @@ export function createApiClient(
       ) {
         clearCsrfToken();
       }
+      if (
+        admin &&
+        !options.signal?.aborted &&
+        path !== '/api/v1/admin/auth/login' &&
+        path !== '/api/v1/admin/auth/me' &&
+        error instanceof ApiError &&
+        (error.status === 401 ||
+          (error.status === 403 && error.code !== 'csrf_invalid'))
+      ) {
+        accessListeners.forEach((listener) => listener(error));
+      }
       throw error;
     }
   }
@@ -216,6 +228,12 @@ export function createApiClient(
   return {
     request,
     clearCsrfToken,
+    onAccessError(listener: (error: ApiError) => void) {
+      accessListeners.add(listener);
+      return () => {
+        accessListeners.delete(listener);
+      };
+    },
     async prepareCsrf(options: { signal?: AbortSignal } = {}): Promise<void> {
       await getCsrfToken(options.signal);
     },

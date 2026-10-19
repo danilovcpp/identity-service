@@ -34,6 +34,55 @@ function deferredResponse() {
 }
 
 describe('typed API client', () => {
+  it.each([401, 403])(
+    'notifies session owner on admin HTTP %s and supports unsubscription',
+    async (status) => {
+      const { fetch, client } = setup();
+      fetch.mockImplementation(() =>
+        Promise.resolve(json({ code: 'forbidden' }, status)),
+      );
+      const listener = vi.fn();
+      const unsubscribe = client.onAccessError(listener);
+      await expect(
+        client.request('get', '/api/v1/admin/dashboard', {}),
+      ).rejects.toBeInstanceOf(ApiError);
+      expect(listener).toHaveBeenCalledTimes(1);
+      unsubscribe();
+      await client
+        .request('get', '/api/v1/admin/dashboard', {})
+        .catch(() => undefined);
+      expect(listener).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('does not end a newer session for a cancelled request returning a late 401', async () => {
+    const { fetch, client } = setup();
+    const response = deferredResponse();
+    fetch.mockReturnValue(response.promise);
+    const listener = vi.fn();
+    client.onAccessError(listener);
+    const controller = new AbortController();
+    const request = client.request('get', '/api/v1/admin/dashboard', {
+      signal: controller.signal,
+    });
+    controller.abort();
+    response.resolve(json({}, 401));
+    await request.catch(() => undefined);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('CSRF failures remain command errors rather than session permission failures', async () => {
+    const { fetch, client } = setup();
+    fetch
+      .mockResolvedValueOnce(csrf())
+      .mockResolvedValueOnce(json({ code: 'csrf_invalid' }, 403));
+    const listener = vi.fn();
+    client.onAccessError(listener);
+    await client
+      .request('post', '/api/v1/admin/auth/logout', {})
+      .catch(() => undefined);
+    expect(listener).not.toHaveBeenCalled();
+  });
   it.each(['network', 'unauthorized', 'csrf'])(
     'never retries DELETE after %s failure',
     async (failure) => {

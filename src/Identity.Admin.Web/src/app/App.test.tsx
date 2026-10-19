@@ -1,11 +1,14 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import * as authApi from '@/features/auth/api';
+import { testProfile } from '@/test/auth';
 import { App } from '@/app/App';
 import { MemoryRouter } from 'react-router-dom';
 import { AppProviders } from '@/app/AppProviders';
 
 describe('App', () => {
-  it('renders the Identity Console application', () => {
+  it('renders the authenticated Identity Console application', async () => {
+    vi.spyOn(authApi, 'getSession').mockResolvedValue(testProfile);
     render(
       <AppProviders>
         <MemoryRouter initialEntries={['/admin']}>
@@ -16,7 +19,10 @@ describe('App', () => {
 
     expect(screen.getByRole('main')).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { level: 1, name: 'Identity Console' }),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Identity Console',
+      }),
     ).toBeVisible();
   });
 });

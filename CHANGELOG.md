@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10, 11.1–11.3
+## Unreleased — v1.1, stages 8–10, 11.1–11.4
+
+- Administrative login/logout, cookie-backed session checks, protected routing and
+  explicit Forbidden state, server profile/role and session cache cleanup.
+- Password-free Query cache, CSRF-protected commands and safe internal return paths.
+- Disposable HTTPS browser smoke using PostgreSQL/Mailpit, REST verification and CLI
+  bootstrap for both administrative roles; no backend contract or policy changes.
 
 - Identity Console light theme, responsive sidebar/mobile drawer, public/admin layout
   branches and NotFound, shared loading/empty/error/confirmation/status components.

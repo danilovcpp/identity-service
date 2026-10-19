@@ -13,8 +13,8 @@ AdminLayout: sticky sidebar240px, автоматическое сворачив�
 ручной toggle на desktop. До768px — drawer280px с закрытием по выбору меню, Escape
 и mask click. Resize закрывает mobile drawer; возврат к mobile не открывает его снова.
 Контейнеры ограничены80rem, spacing берётся из tokens. Есть headerContent/headerActions
-slots для будущих account/logout/breadcrumb, PageHeader с optional breadcrumbs/
-description/actions и h1 страницы. Topbar не имитирует вошедшего администратора.
+slots для account/logout/breadcrumb, PageHeader с optional breadcrumbs/
+description/actions и h1 страницы. С11.4 topbar показывает серверный профиль и выход.
 
 | Route      | Текущее поведение                               |
 | ---------- | ----------------------------------------------- |
@@ -24,10 +24,9 @@ description/actions и h1 страницы. Topbar не имитирует во�
 | Прочие URL | NotFound в PublicLayout с тем же branding       |
 
 Console — единственный активный пункт. Users/Audit disabled и не имеют ссылок.
-`/admin/login`, user details и `/account/*` пока не реализованы.
-Shell доступен анонимно: он содержит только публичный branding и основу UI, не admin
-данные. Это не auth guard и не обход backend. Login/logout/profile/guards/Forbidden — 11.4.
-Никаких фиктивных accounts, сессий, метрик или полей, которых нет в API.
+С11.4 `/admin/login` доступен публично; остальные admin paths закрыты AuthGate.
+Login/logout/profile/Forbidden/cache cleanup: [authentication](authentication.md).
+User details и `/account/*` ещё не реализованы. Нет фиктивных метрик/сессий.
 
 ## Общие компоненты
 
@@ -68,13 +67,13 @@ npm exec playwright install chromium
 npm run test:e2e
 ```
 
-`test:e2e` собирает production dist и запускает Playwright с отдельным loopback preview
-на5174, который завершается после тестов. Backend/PostgreSQL не нужны для shell smoke.
-reuseExistingServer=false не подменяет тесты чужим сервером. Проверяются360/768/1280px,
-collapse/drawer, no overflow/storage/API calls, skip link, trap/Escape/return focus,
-resize, admin/public404 и SPA возврат. Скриншоты только несекретной оболочки пишутся
-в ignored test-results; trace/video выключены. Это не authenticated/API+UI E2E.
-
+С11.4 browser smoke требует настоящий backend и cookie session. Из корня запустите
+`pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1`: disposable PostgreSQL/Mailpit,
+CLI bootstrap, HTTPS Vite/API, OpenAPI check, production build и Chromium.
+Проверяются360/768/1280px, collapse/drawer, overflow/storage/no business requests,
+skip link, trap/Escape/return focus, resize,404 и SPA возврат. Login/logout/roles/
+refresh/revocation входят в тот же прогон. Trace/video выключены, login screenshots
+только до ввода credentials. Подробности и ограничения — [authentication](authentication.md).
 `src/test/viewport.ts` — только jsdom shim для media queries; настоящую адаптивность
 проверяет Chromium. В одном Modal unit test motion отключён тестовым ConfigProvider,
 потому что jsdom не выполняет CSS animation. Production motion/focus checks не отключены.
@@ -85,4 +84,4 @@ resize, admin/public404 и SPA возврат. Скриншоты только �
 TypeScript/ESLint проверяют также Playwright config и e2e sources.
 
 Настройки dev proxy, HTTPS, OpenAPI и безопасности описаны в [README](../README.md).
-Production Docker/Compose/CI/CSP и authenticated browser scenarios — последующие этапы.
+Production Docker/Compose/CI/CSP — этап12. Authenticated browser smoke реализован в11.4.

@@ -1,4 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { signIn } from './authFixture';
+
+test.beforeEach(async ({ page }) => {
+  await signIn(page);
+});
 
 for (const width of [360, 768, 1280]) {
   test(`shell at ${width}px has usable navigation and no data requests`, async ({
@@ -8,7 +13,10 @@ for (const width of [360, 768, 1280]) {
     const apiRequests: string[] = [];
     page.on('pageerror', (error) => errors.push(error.name));
     page.on('request', (request) => {
-      if (new URL(request.url()).pathname.startsWith('/api/'))
+      if (
+        new URL(request.url()).pathname.startsWith('/api/') &&
+        !new URL(request.url()).pathname.startsWith('/api/v1/admin/auth/')
+      )
         apiRequests.push(request.method());
     });
     await page.setViewportSize({ width, height: 900 });
@@ -71,12 +79,16 @@ test('keyboard skip link, drawer trap, Escape and focus restoration', async ({
 }) => {
   await page.setViewportSize({ width: 360, height: 900 });
   await page.goto('/admin');
+  await expect(
+    page.getByRole('heading', { name: 'Identity Console', exact: true }),
+  ).toBeVisible();
   await page.keyboard.press('Tab');
   await expect(
     page.getByRole('link', { name: 'Skip to content' }),
   ).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('main')).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
   await page.keyboard.press('Shift+Tab');
   const open = page.getByRole('button', { name: 'Open navigation' });
   await expect(open).toBeFocused();
@@ -99,12 +111,7 @@ test('keyboard skip link, drawer trap, Escape and focus restoration', async ({
 test('admin/public unknown paths return safely to the console without a document reload', async ({
   page,
 }) => {
-  for (const route of [
-    '/admin/users',
-    '/admin/login',
-    '/account/activate',
-    '/missing',
-  ]) {
+  for (const route of ['/admin/users', '/account/activate', '/missing']) {
     await page.goto(route);
     await expect(
       page.getByRole('heading', { level: 1, name: 'Page not found' }),
