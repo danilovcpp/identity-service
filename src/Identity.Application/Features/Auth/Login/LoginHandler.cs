@@ -32,7 +32,7 @@ public sealed class LoginHandler(IUserRepository users, ICredentialRepository cr
                 if (user!.LockedUntil is not null) { user.ResetLoginFailures(now); }
                 user!.RecordFailedLogin(now, user.FailedLoginCount >= settings.FailureLimit - 1 ? now + settings.LockoutDuration : null);
             }
-            login.Add(SecurityAuditEvent.Create(SecurityEventType.LoginFailed, user?.Id, command.ClientId,
+            login.Add(SecurityAuditEvent.Create(SecurityEventType.LoginFailed, user?.Id, audience is null ? null : command.ClientId,
                 operation.CorrelationId, new AuditMetadata(), now));
             await work.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);

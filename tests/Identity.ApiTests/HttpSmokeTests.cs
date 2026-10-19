@@ -24,7 +24,11 @@ public sealed class HttpSmokeTests : IAsyncLifetime
                 ["Database:ConnectionString"] = "Host=localhost;Database=identity_http_smoke;Username=identity"
             })));
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public Task InitializeAsync()
+    {
+        _factory.ClientOptions.BaseAddress = new Uri("https://localhost");
+        return Task.CompletedTask;
+    }
 
     public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 

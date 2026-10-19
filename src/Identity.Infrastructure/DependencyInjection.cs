@@ -1,6 +1,7 @@
 using Identity.Application.Abstractions.Persistence;
 using Identity.Infrastructure.Email;
 using Identity.Infrastructure.Maintenance;
+using Identity.Infrastructure.Observability;
 using Identity.Infrastructure.Persistence;
 using Identity.Infrastructure.Persistence.Repositories;
 using Identity.Infrastructure.Security;
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IProfileRepository, ProfileRepository>();
         services.AddScoped<ISessionRepository, SessionRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddSingleton<AuthMetrics>();
         services.AddScoped<IDatabaseReadinessProbe, DatabaseReadinessProbe>();
         // Validate/load JWT and outbox key rings before starting the email worker.
         services.AddLogin();
@@ -35,6 +37,10 @@ public static class DependencyInjection
                 && options.RetentionSeconds is >= 3600 and <= 604800, "Session cleanup limits are invalid.").ValidateOnStart();
         services.AddScoped<SessionCleanupProcessor>();
         services.AddHostedService<SessionCleanupWorker>();
+        services.AddOptions<SecurityMaintenanceOptions>().BindConfiguration("SecurityMaintenance")
+            .Validate(SecurityMaintenanceOptions.IsValid, "Security maintenance limits are invalid.").ValidateOnStart();
+        services.AddScoped<SecurityMaintenanceProcessor>();
+        services.AddHostedService<SecurityMaintenanceWorker>();
         return services;
     }
 }

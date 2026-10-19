@@ -8,7 +8,19 @@ using Identity.Application.Abstractions.Cqrs;
 using Identity.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 
+Activity.DefaultIdFormat = ActivityIdFormat.W3C;
+Activity.ForceDefaultIdFormat = true;
 var builder = WebApplication.CreateBuilder(args);
+
+// Framework diagnostics may include raw URLs, binding values or exception details.
+builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting", LogLevel.None);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Mvc", LogLevel.None);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Authentication", LogLevel.None);
+builder.Logging.AddFilter("Microsoft.AspNetCore.HttpOverrides", LogLevel.None);
+builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.None);
+builder.Logging.AddFilter("Npgsql", LogLevel.None);
+builder.Services.AddTransportSecurity();
+builder.Services.AddSingleton<RequestMetrics>();
 
 builder.Host.UseDefaultServiceProvider(options =>
 {
@@ -51,18 +63,22 @@ builder.Services.AddRateLimiter(options =>
             .WriteAsync(new ProblemDetailsContext { HttpContext = context.HttpContext, ProblemDetails = problem });
     };
 });
-builder.Services.AddControllers(options => options.Filters.Add(new Microsoft.AspNetCore.Mvc.Authorization.AuthorizeFilter()))
+builder.Services.AddSingleton<IProblemDetailsWriter, JsonProblemDetailsWriter>();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add(new Microsoft.AspNetCore.Mvc.Authorization.AuthorizeFilter());
+})
     .ConfigureApiBehaviorOptions(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
     {
-        var problem = new ValidationProblemDetails(context.ModelState)
+        var problem = new ValidationProblemDetails(new Dictionary<string, string[]> { ["request"] = ["The request value is invalid."] })
         {
             Status = StatusCodes.Status400BadRequest,
             Title = "Validation failed"
         };
         problem.Extensions["code"] = "validation_failed";
-        problem.Extensions["traceId"] = Activity.Current?.Id ?? context.HttpContext.TraceIdentifier;
+        problem.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
         return new BadRequestObjectResult(problem) { ContentTypes = { "application/problem+json" } };
     };
 });
@@ -72,7 +88,7 @@ builder.Services.AddProblemDetails(options =>
     options.CustomizeProblemDetails = context =>
     {
         context.ProblemDetails.Extensions["traceId"] =
-            Activity.Current?.Id ?? context.HttpContext.TraceIdentifier;
+            context.HttpContext.TraceIdentifier;
         context.ProblemDetails.Extensions.TryAdd("code", context.ProblemDetails.Status switch
         {
             StatusCodes.Status404NotFound => "not_found",
@@ -86,6 +102,9 @@ builder.Services.AddProblemDetails(options =>
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
+app.UseMiddleware<RequestSecurityMiddleware>();
+if (!app.Environment.IsDevelopment()) { app.UseHsts(); }
 app.UseExceptionHandler(new ExceptionHandlerOptions { SuppressDiagnosticsCallback = _ => true });
 app.UseStatusCodePages();
 app.UseRouting();

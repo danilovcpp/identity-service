@@ -25,7 +25,7 @@ public sealed class BootstrapTests
                 {
                     ["Database:ConnectionString"] = "Host=localhost;Database=identity_bootstrap;Username=identity"
                 })));
-        using var client = factory.CreateClient();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
 
         using var response = await client.GetAsync("/openapi/v1.json");
 

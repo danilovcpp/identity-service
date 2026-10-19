@@ -1,4 +1,28 @@
-# HTTP API Identity — этапы 0–5
+# HTTP API Identity — этапы 0–6
+
+## Транспорт и ошибки
+
+Production business API требует HTTPS: HTTP даёт 400 `https_required` без redirect.
+HTTP `/health/live` и `/health/ready` разрешён для внутренних probes; readiness должен
+быть закрыт на proxy/firewall. За TLS terminator используйте только явные trusted
+proxy IP и оба X-Forwarded-For/X-Forwarded-Proto (см. deployment). CORS выключен.
+
+Ответы содержат `X-Correlation-ID`, совпадающий с ProblemDetails.traceId и audit
+CorrelationId операции. Входной X-Correlation-ID игнорируется; используется W3C trace
+или созданный сервером ID. Корреляция не является средством аутентификации.
+`X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, no-store для business
+API; production HTTPS также возвращает HSTS max-age=31536000 без preload/includeSubDomains.
+
+JSON errors сохраняют `application/problem+json` также при Accept text/html/XML.
+400: validation_failed / invalid_request / invalid_*_token / https_required;
+401: unauthorized / invalid_credentials / invalid_refresh_token; 403: forbidden;
+404: not_found / session_not_found; 405: method_not_allowed; 413: request_too_large;
+429: rate_limited с Retry-After; 500: request_failed. Existing 409 concurrency_conflict
+и 503 feature-disabled/readiness сохраняются. У malformed JSON/model binding
+`errors.request` содержит постоянное безопасное сообщение без отражения входа;
+CQRS validation возвращает постоянные сообщения по известным полям.
+Auth/profile body ограничен 16 KiB, включая chunked запросы без Content-Length;
+oversized input отклоняется до model binding. Поля дополнительно ограничены validators.
 
 Бизнес-операции используют префикс `/api/v1` и MVC Controllers. MVC по умолчанию
 требует Bearer authentication; публичные actions явно помечены AllowAnonymous.

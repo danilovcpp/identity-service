@@ -3,10 +3,11 @@
 Самостоятельный self-hosted сервис учётных записей и аутентификации на .NET 10.
 Источник требований — [Identity_Codex_Spec.md](Identity_Codex_Spec.md).
 
-Реализованы **этапы 0–5**: каркас, Domain, EF Core/CQRS, регистрация и подтверждение
+Реализованы **этапы 0–6**: каркас, Domain, EF Core/CQRS, регистрация и подтверждение
 email через зашифрованный transactional outbox и SMTP, login с RS256 JWT/JWKS,
 сессиями и refresh rotation/replay protection, logout/logout-all, просмотр/отзыв
-собственных сессий и cleanup истории, профиль, смена/сброс пароля и деактивация.
+собственных сессий и cleanup истории, профиль, смена/сброс пароля и деактивация,
+security hardening, безопасные метрики/логи и ограниченные retention batches.
 
 ## Требования
 
@@ -119,6 +120,10 @@ PostgreSQL использует именованный volume; `docker compose d
 с сохранением данных. `docker compose down --volumes` также **удаляет локальные данные БД**.
 Изменение пароля в `.env` не меняет пароль уже инициализированного PostgreSQL volume.
 API получает настройки БД/SMTP через env, ключ — через secret mount.
+При обновлении до этапа 6 сначала примените новую миграцию `SecurityMaintenanceIndex`.
+В production business API принимает только HTTPS; proxy trust задаётся явно.
+Настройки, retention и метрики описаны в [deployment](docs/deployment.md#этап-6-транспорт-retention-и-наблюдаемость),
+матрица проверок и ограничения — в [security checklist](docs/security.md#checklist-этапа-6).
 Внутри Compose используются `postgres:5432` и `mailpit:1025`.
 Worker доставляет письма в Mailpit; успешная доставка очищает encrypted payload.
 Compose предназначен для разработки: Development и Mailpit без SMTP-аутентификации.
@@ -150,8 +155,8 @@ dotnet build Identity.slnx --no-restore --configuration Release
 dotnet test Identity.slnx --no-build --no-restore --configuration Release
 dotnet format Identity.slnx --no-restore --verify-no-changes
 docker build --tag identity:local .
-# PowerShell 7.4+: изолированный end-to-end smoke этапа 5 (временные ресурсы удаляются)
-pwsh -NoProfile -File scripts/Test-Stage5Smoke.ps1
+# PowerShell 7.4+: изолированный end-to-end smoke этапа 6 (временные ресурсы удаляются)
+pwsh -NoProfile -File scripts/Test-Stage6Smoke.ps1
 ```
 
 Настройки компилятора общие: nullable, warnings-as-errors, C# 14; версии NuGet

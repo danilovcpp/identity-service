@@ -25,5 +25,6 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
         builder.Property(message => message.LastError).HasMaxLength(80);
         builder.Property<uint>("Version").IsRowVersion();
         builder.HasIndex(message => message.NextAttemptAt).HasFilter("processed_at IS NULL").HasDatabaseName("ix_outbox_pending");
+        builder.HasIndex(message => message.ProcessedAt).HasFilter("processed_at IS NOT NULL").HasDatabaseName("ix_outbox_processed_at");
     }
 }

@@ -1,18 +1,26 @@
 using Identity.Application.Abstractions.Persistence;
 using Identity.Application.Common;
+using Identity.Domain.Entities;
+using Identity.Infrastructure.Observability;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 
 namespace Identity.Infrastructure.Persistence;
 
-internal sealed class UnitOfWork(IdentityDbContext context) : IUnitOfWork
+internal sealed class UnitOfWork(IdentityDbContext context, AuthMetrics metrics) : IUnitOfWork
 {
+    private readonly List<SecurityAuditEvent> _pending = [];
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken)
     {
         try
         {
-            return await context.SaveChangesAsync(cancellationToken);
+            var events = context.ChangeTracker.Entries<SecurityAuditEvent>().Where(entry => entry.State == EntityState.Added)
+                .Select(entry => entry.Entity).ToArray();
+            var count = await context.SaveChangesAsync(cancellationToken);
+            if (context.Database.CurrentTransaction is null) { metrics.Committed(events); }
+            else { _pending.AddRange(events); }
+            return count;
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -26,12 +34,25 @@ internal sealed class UnitOfWork(IdentityDbContext context) : IUnitOfWork
     }
 
     public async Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken cancellationToken) =>
-        new UnitOfWorkTransaction(await context.Database.BeginTransactionAsync(cancellationToken));
+        new UnitOfWorkTransaction(await context.Database.BeginTransactionAsync(cancellationToken), _pending, metrics);
 
-    private sealed class UnitOfWorkTransaction(IDbContextTransaction transaction) : IUnitOfWorkTransaction
+    private sealed class UnitOfWorkTransaction(IDbContextTransaction transaction, List<SecurityAuditEvent> pending, AuthMetrics metrics) : IUnitOfWorkTransaction
     {
-        public Task CommitAsync(CancellationToken cancellationToken) => transaction.CommitAsync(cancellationToken);
-        public Task RollbackAsync(CancellationToken cancellationToken) => transaction.RollbackAsync(cancellationToken);
-        public ValueTask DisposeAsync() => transaction.DisposeAsync();
+        public async Task CommitAsync(CancellationToken cancellationToken)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            metrics.Committed(pending);
+            pending.Clear();
+        }
+        public async Task RollbackAsync(CancellationToken cancellationToken)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            pending.Clear();
+        }
+        public async ValueTask DisposeAsync()
+        {
+            pending.Clear();
+            await transaction.DisposeAsync();
+        }
     }
 }

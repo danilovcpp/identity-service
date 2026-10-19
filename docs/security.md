@@ -1,4 +1,43 @@
-# Безопасность Identity — этапы 0–5
+# Безопасность Identity — этапы 0–6
+
+## Checklist этапа 6
+
+| Угроза / требование | Контроль и проверяемое свидетельство |
+| --- | --- |
+| Перехват credentials, spoofed proxy/IP | Production HTTPS guard до auth/model binding, HSTS на success/error, exact trusted proxies, bounded/symmetric forwarding; SecurityBoundaryTests |
+| Открытый CORS / Host injection | CORS выключен, explicit AllowedHosts в production, X-Forwarded-Host игнорируется; SecurityBoundaryTests |
+| Отражение token/email/JSON в errors/logs | Generic ProblemDetails writer перед MVC, постоянная binding error, без exception message, raw URL/query/body/auth/SQL diagnostics; SecurityBoundaryTests, SecurityObservabilityTests |
+| Oversized/chunked/nested/invalid input | 16 KiB до binding с Content-Length и без, строгая политика размера/Unicode/длин полей, generic 400/413; API tests, AccountValidationTests, RegistrationSecurityTests |
+| User enumeration / timing shortcuts | Одинаковые статусы login/forgot/register/resend, реальный/dummy PBKDF2 на отказах login, RNG/encryption для ineligible recovery; LoginTests, RegistrationTests, SecurityObservabilityTests |
+| Brute force / обход по X-Forwarded-For | IP + hashed account buckets, DB lockout под user lock, trusted forwarding перед limiter; LoginTests и SecurityBoundaryTests |
+| JWT tampering / wrong issuer/audience/key/type/lifetime | Microsoft IdentityModel RS256/kid/iss/aud/nbf/exp/token_use и DB active checks; LoginTests (14 негативных token cases) |
+| Disabled/deactivated/revoked access / IDOR | Проверенный sub/sid, repeat authorization под locks, own projections, immutable email, no foreign resources; LoginTests, SessionTests, AccountLifecycleTests |
+| Refresh replay / double rotation / lost response | Strict user→session→token lock, family revoke, audit commit до generic 401, history до family retention; SessionTests, SessionCleanupTests |
+| Partial auth state / concurrent reset/register | Общая UoW и явные transactions, DB uniqueness/xmin/locks; RegistrationTests, AccountLifecycleTests, PersistenceTests |
+| Outbox disclosure / worker races | AES-256-GCM whole message, keys вне БД, SKIP LOCKED/retry, clear payload on success; RegistrationTests/AccountLifecycleTests |
+| Небезопасный production startup | test-/dev- key IDs, missing/zero keys, SMTP TLS/templates, unsafe connection diagnostics, wildcard hosts/trust-all, invalid limits отклоняются; LoginTests, AccountLifecycleTests, API tests |
+| Secret/PII metric labels, false success after rollback | Committed Domain audit whitelist, no ID labels, trace correlation, best-effort telemetry failures не ломают auth; SecurityObservabilityTests |
+| Неограниченное накопление audit/token/outbox | Bounded retention worker с default audit 90 дней, SKIP LOCKED, strict cutoffs/rollback; SecurityMaintenanceTests, SessionCleanupTests |
+
+Тесты используют реальный PostgreSQL, Mailpit и действительную криптографию, а не
+InMemory evidence. Проверяется факт выполнения verifier в разных отказных путях;
+проверка wall-clock «одинакового времени» намеренно не используется: она нестабильна
+и не доказывает отсутствие side channel. Пять локальных login/refresh samples дают
+минимальные измерения; на целевой машине требуются отдельные performance measurements.
+
+Границы доверия: публичный HTTP ввод → TLS terminator с сетевым доступом к backend →
+Controllers/CQRS → PostgreSQL; отдельно SMTP и секретные RSA/AES mounts. Proxy обязан
+перезаписывать недоверенные forwarding headers; health/ready и metrics collector
+должны оставаться внутри операторского периметра. API не публикует новый metrics endpoint.
+Ключи и SMTP credentials доступны только процессу/оператору; потребителям выдаётся JWKS.
+
+Остаточные ограничения: собственный REST protocol без OAuth2/OIDC/SSO/MFA, public
+clientId не является аутентификацией приложения, downstream JWT revocation lag до exp
+(+skew), локальные rate limits, at-least-once SMTP, сохранение PII после деактивации.
+Изменение client config/key rollout и согласование лимитов replicas — обязанности
+оператора. Framework/bootstrap logs до построения pipeline и логи внешнего proxy/
+collector требуют отдельной защищённой конфигурации. Generic responses не обещают
+постоянное сетевое время. Этап 7 (CI/release/product packaging) не выполнялся.
 
 Профиль доступен только владельцу из проверенных sub/sid. GET отдаёт явную projection,
 PATCH допускает только displayName; email, userId и неизвестные поля отклоняются.
@@ -110,7 +149,7 @@ AES-256-GCM реализован через System.Security.Cryptography.AesGcm 
 Ключи читаются из отдельных файлов вне БД/репозитория, старые key ID поддерживаются
 до отправки backlog. Исходные массивы plaintext и key buffers очищаются по окончании использования.
 Audit metadata ограничен числовым attemptCount; произвольные
-email/IP/password/token поля не принимаются. Retention audit/outbox относится к следующим этапам;
+email/IP/password/token поля не принимаются. Retention audit/outbox/one-time tokens реализован на этапе 6;
 cleanup refresh-семейств реализован на этапе 4.
 
 Пароли обрабатываются Microsoft PasswordHasher (PBKDF2, IdentityV3, 600000 iterations
@@ -125,11 +164,11 @@ Registration всегда выполняет password hash и построени
 при дубле email. API возвращает одинаковый 202, уникальность гарантирует PostgreSQL.
 Resend для неизвестного/неактивного пользователя не отправляет письмо и даёт тот же 202.
 Полное постоянство времени ответа не гарантируется: DB/SMTP scheduler и workload
-могут влиять на latency; полная timing-hardening матрица относится к этапу 6.
+могут влиять на latency; этап 6 проверяет выполнение общих crypto paths, не constant-time SLA.
 IP/account rate limits локальны процессу, обнуляются при restart и не суммируются между
 репликами; на публичном proxy также нужны согласованные лимиты. Счётчики email используют
 SHA-256 от нормализованного адреса, без email в логах/metric labels. Forwarded headers
-не доверяются автоматически. Auth body ограничен 16 KiB, oversized request получает 413.
+доверяются только явно настроенным proxy IP. Auth body ограничен 16 KiB, oversized request получает 413.
 
 Register и verify сохраняют свои состояния с audit events в одной транзакции.
 Для verify/resend используется user row lock; разные токены одного user не могут
@@ -137,11 +176,10 @@ Register и verify сохраняют свои состояния с audit event
 в таблице token hash, в outbox зашифрованы recipient/subject/body целиком.
 SMTP protocol logging отсутствует. Message-Id стабилен, но delivery остаётся at-least-once.
 
-Полная версия продукта ещё не завершена. HTTPS/reverse proxy hardening,
-дополнительные security checks и продуктовая поставка относятся к этапам 6–7.
+Полная версия продукта ещё не завершена: продуктовая поставка относится к этапу 7.
 Не публикуйте текущее dev-окружение в Интернет.
 
-Будущие ограничения продукта по ТЗ:
+Ограничения продукта по ТЗ:
 
 - REST token protocol не является OAuth 2.0/OIDC и не предоставляет стандартный SSO.
 - `clientId` — публичный селектор audience, а не доказательство подлинности клиента.

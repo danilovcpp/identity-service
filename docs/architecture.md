@@ -1,4 +1,27 @@
-# Архитектура Identity — этапы 0–5
+# Архитектура Identity — этапы 0–6
+
+Этап 6 добавляет API transport options/allowlist, RequestSecurityMiddleware с единым
+OperationContext/trace/header/scope и безопасными HTTP metrics. Forwarded headers
+обрабатываются до HTTPS-проверки и IP limiter. В production HTTP business requests
+отклоняются; health endpoints оставлены для internal probes. HSTS/security/correlation
+headers восстанавливаются OnStarting даже после Response.Clear при исключении.
+JsonProblemDetailsWriter регистрируется **до MVC writers** и обеспечивает один
+контракт независимо от Accept; model binding не отражает входные значения/JSON paths.
+Business endpoints по-прежнему MVC, бизнес-логика не перенесена в middleware.
+
+Infrastructure AuthMetrics получает только сохранённые SecurityAuditEvent: UoW
+откладывает публикацию до успешного CommitAsync, rollback/dispose очищают pending.
+Implicit SaveChanges публикует после commit EF. Метрики и безопасные logs best-effort,
+не являются источником истины и не изменяют результат committed auth operation.
+Источник истины — транзакционный PostgreSQL audit; user/client/trace IDs не labels.
+Domain/Application не зависят от ILogger, Meter, ASP.NET или EF.
+
+SecurityMaintenanceWorker создаёт scope на итерацию и выполняет три bounded batches
+с SKIP LOCKED: audit по occurred_at, one-time tokens по expiry, processed outbox по
+processed_at. Затем обновляет sampled gauge активных DB-сессий. Pending/dead-letter
+outbox и refresh history не затрагиваются. Refresh cleanup остаётся отдельным механизмом
+с прежней гарантией replay evidence. Новая миграция SecurityMaintenanceIndex добавляет
+только partial index processed_at; существующие audit/expiry indexes используются повторно.
 
 Этап 5 добавляет GetCurrentUser, UpdateProfile, ChangePassword, RequestPasswordReset,
 ResetPassword и DeactivateAccount с отдельными handlers/validators и явной DI.

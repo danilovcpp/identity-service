@@ -1,4 +1,88 @@
-# Запуск и конфигурация Identity — этапы 0–5
+# Запуск и конфигурация Identity — этапы 0–6
+
+## Этап 6: транспорт, retention и наблюдаемость
+
+Перед обновлением примените третью миграцию `20261019012922_SecurityMaintenanceIndex`
+обычной EF deployment-командой. Она добавляет partial index processed_at к outbox;
+данные не удаляет. API не выполняет migration автоматически.
+
+В production HTTPS обязателен для business API; HTTP получает 400 без redirect,
+health/live и ready допускают внутренний HTTP. На публичном edge отвергайте HTTP
+**до** передачи чувствительного тела приложению. Health/readiness ограничьте сетью;
+их доступность не должна раскрывать детали PostgreSQL. HSTS 365 дней, без preload/
+includeSubDomains; заголовки nosniff/no-referrer и correlation сохраняются на ошибках.
+Dev Compose остаётся loopback HTTP и не является production topology.
+
+При TLS termination задайте в окружении API:
+
+```text
+AllowedHosts=identity.example
+TransportSecurity__ForwardedHeadersEnabled=true
+TransportSecurity__KnownProxies__0=10.0.0.10
+TransportSecurity__ForwardLimit=1
+```
+
+Адрес — пример: укажите фактический **exact IP** своего proxy (до 16 адресов,
+IPv4/IPv6, включая корректную форму IPv4-mapped при её использовании). CIDR и
+trust-all не поддерживаются. ForwardLimit 1–5, по умолчанию 1. Proxy должен заменить
+недоверенные входные headers, передавать симметричные X-Forwarded-For и X-Forwarded-Proto;
+X-Forwarded-Host не используется. Backend ограничьте доступом только от proxy.
+При выключенной опции forwarded headers игнорируются. Пустая allowlist при включении,
+0.0.0.0/::, wildcard AllowedHosts в production и автоматический trust-all switch
+ASPNETCORE_FORWARDEDHEADERS_ENABLED/FORWARDEDHEADERS_ENABLED блокируют startup.
+Механизм опирается на [ASP.NET Core forwarding middleware](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-10.0).
+Rate limiting использует IP после доверенного forwarding. На edge нужны суммарные
+лимиты между replicas: встроенные лимиты локальны процессу.
+
+| Options/env | Default / пределы |
+| --- | --- |
+| `SecurityMaintenance__Enabled` | true; Compose SECURITY_MAINTENANCE_ENABLED |
+| `SecurityMaintenance__BatchSize` | 100 **на каждую из трёх таблиц**, 1–1000 |
+| `SecurityMaintenance__PollSeconds` | 300, 1–3600 |
+| `SecurityMaintenance__AuditRetentionDays` | 90, 1–3650; Compose AUDIT_RETENTION_DAYS |
+| `SecurityMaintenance__TokenRetentionDays` | 1 после expiry, 1–30 |
+| `SecurityMaintenance__ProcessedOutboxRetentionDays` | 7 после success, 1–365 |
+
+Worker запускается только если maintenance и хотя бы одна JWT/registration/reset/
+outbox функция включены. Bootstrap с выключенными функциями не делает maintenance IO.
+Одна итерация удаляет максимум 3×BatchSize записей, с фиксированной задержкой между
+итерациями. Границы строгие (< cutoff); заблокированные записи пропускаются.
+Сбой до commit откатывает все три batches. Audit не хранит email/IP/password/token,
+но содержит user UUID; политика 90 дней ограничивает его хранение. Backups имеют
+отдельную операторскую retention-политику. Пользовательские PII/credentials не удаляются.
+Pending/failed encrypted outbox остаётся для доставки/операторского разбора; AES keys
+нужно сохранять до обработки backlog. Refresh history очищается только прежним
+SessionCleanupWorker. Очистку и последнюю успешную выборку gauges нужно мониторить.
+
+Встроенные `System.Diagnostics.Metrics` meters (exporter/collector не устанавливается):
+
+| Meter / instrument | Значение / labels |
+| --- | --- |
+| `Identity.Auth` / `identity.auth.events` | Counter committed audit events; только `event` из whitelist (login_success/login_failed/refresh_replay_detected и др.) |
+| `Identity.Auth` / `identity.auth.sessions.active` | Sampled DB-сессии Active users: unrevoked, audience bound, created <= now < absolute expiry; без labels |
+| `Identity.Auth` / `identity.auth.sessions.sampled_at` | Unix seconds последней успешной выборки; 0 до первой/при выключенном worker |
+| `Identity.Http` / `identity.http.requests`, `identity.http.duration` | Counter и histogram ms; route **template** и status, без raw URL/ID/query |
+| `Identity.Email` / `identity.email.outbox.pending`, `identity.email.outbox.failed` | Backlog gauges, существующий email worker |
+| `Identity.Email` / `identity.email.delivered`, `identity.email.delivery_failures` | Delivery counters без PII |
+
+Auth counters per-process и best-effort: rollback не публикуется, crash после DB commit
+до публикации может потерять measurement. Audit остаётся источником истины.
+Sessions gauge не применяет текущую client configuration и временный login-lockout;
+он показывает DB lifecycle, а не число JWT, принятых конкретным consumer.
+Если maintenance выключен/сломался, gauge устаревает: проверяйте sampled_at.
+Каждая replica видит глобальные DB counts: их нельзя суммировать между replicas.
+
+Безопасные logs содержат event type/trace либо route template/status/duration.
+Framework URL/auth/model-binding/EF/Npgsql diagnostics подавлены, чтобы не раскрывать
+сырой вход и DB errors; ошибки приложения логируют тип и trace без exception object.
+Не включайте request/response body logging, SMTP protocol logging, IdentityModel PII
+или raw proxy access logs. При подключении стороннего exporter явно исключите raw
+URL/query/header/body/user-agent и SQL; API очищает стандартные URL/agent tags своей
+request Activity перед завершением. Security metrics не имеют user/client/trace labels.
+
+Локальные проверки: `pwsh -NoProfile -File scripts/Test-Stage6Smoke.ps1`, полный
+`dotnet test` (PostgreSQL/Mailpit). Test SecurityObservabilityTests выводит пять локальных
+login/refresh samples с production PBKDF2; это не production SLA и не saturation benchmark.
 
 ## Обновление до этапа 5
 
@@ -53,16 +137,16 @@ Batch ограничивает число **семейств**, а не token ro
 Удаление одного большого семейства атомарно и может занять дольше; мониторьте размер
 таблицы/длительность maintenance и настройте batch/poll для своего потока.
 При отключённом worker корректность rotation/replay сохраняется, растёт только история.
-Очистка audit/outbox/one-time tokens не добавлялась в этап 4.
+Очисткой audit/outbox/one-time tokens теперь занимается SecurityMaintenanceWorker этапа 6.
 
 Локальная проверка всех уже реализованных операций (PowerShell 7.4+, Docker, Release build):
 
 ```powershell
-pwsh -NoProfile -File scripts/Test-Stage5Smoke.ps1
+pwsh -NoProfile -File scripts/Test-Stage6Smoke.ps1
 ```
 
 Скрипт повторно использует bootstrap этапа 3, создаёт отдельный Compose project,
-применяет обе миграции, проверяет rotation/restart/replay/revoke/logout-all/logout,
+применяет все три миграции, проверяет rotation/restart/replay/revoke/logout-all/logout,
 profile update, password change, Mailpit reset (single-use), повторный login и deactivate,
 затем удаляет только свои контейнеры/network/volume/env/key files.
 Только в изолированном smoke лимиты повышены для последовательности запросов;

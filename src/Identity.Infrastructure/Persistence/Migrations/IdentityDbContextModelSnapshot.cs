@@ -164,6 +164,10 @@ namespace Identity.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_outbox_pending")
                         .HasFilter("processed_at IS NULL");
 
+                    b.HasIndex("ProcessedAt")
+                        .HasDatabaseName("ix_outbox_processed_at")
+                        .HasFilter("processed_at IS NOT NULL");
+
                     b.ToTable("outbox_messages", null, t =>
                         {
                             t.HasCheckConstraint("ck_outbox_error", "last_error IS NULL OR last_error ~ '^[a-z0-9_]{1,80}$'");

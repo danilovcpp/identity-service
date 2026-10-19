@@ -69,6 +69,7 @@ public sealed class RegistrationFixture : IAsyncLifetime
             ["Registration:Enabled"] = "true",
             ["Outbox:Enabled"] = "false",
             ["SessionCleanup:Enabled"] = "false",
+            ["SecurityMaintenance:Enabled"] = "false",
             ["Outbox:PollSeconds"] = "0.05",
             ["Outbox:BaseRetrySeconds"] = "1",
             ["Outbox:MaxAttempts"] = "2",

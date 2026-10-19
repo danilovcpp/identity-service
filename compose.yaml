@@ -10,6 +10,8 @@ services:
       Database__ConnectionString: Host=postgres;Port=5432;Database=identity;Username=identity;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       Registration__Enabled: "true"
       PasswordReset__Enabled: "true"
+      SecurityMaintenance__Enabled: ${SECURITY_MAINTENANCE_ENABLED:-true}
+      SecurityMaintenance__AuditRetentionDays: ${AUDIT_RETENTION_DAYS:-90}
       AuthRateLimits__IpPermitLimit: "${AUTH_IP_PERMIT_LIMIT:-30}"
       AuthRateLimits__AccountPermitLimit: "${AUTH_ACCOUNT_PERMIT_LIMIT:-3}"
       Jwt__Enabled: "true"

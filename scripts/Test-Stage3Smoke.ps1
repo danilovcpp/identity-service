@@ -1,11 +1,12 @@
 #requires -Version 7.4
 # Isolated local-only smoke. Requires a Release build, dotnet-ef and Docker Linux containers.
-param([switch] $Stage4, [switch] $Stage5)
+param([switch] $Stage4, [switch] $Stage5, [switch] $Stage6)
 $ErrorActionPreference = 'Stop'
 $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 Push-Location $root
 $suffix = [Guid]::NewGuid().ToString('N')
-$stage = if ($Stage5) { 5 } elseif ($Stage4) { 4 } else { 3 }
+if ($Stage6) { $Stage5 = $true }
+$stage = if ($Stage6) { 6 } elseif ($Stage5) { 5 } elseif ($Stage4) { 4 } else { 3 }
 $project = "identity-stage$stage-smoke-$suffix"
 $environmentFile = Join-Path $root ".env.stage$stage-smoke-$suffix"
 $secretDirectory = Join-Path $root "secrets/stage$stage-smoke-$suffix"
@@ -202,6 +203,15 @@ try {
         $state = Invoke-Compose exec -T postgres psql -U identity -d identity -t -A -c "SELECT (SELECT count(*) FROM sessions), (SELECT count(*) FROM refresh_tokens), (SELECT bool_and(revoked_at IS NOT NULL) FROM refresh_tokens), (SELECT bool_and(status = 3 AND display_name = 'Smoke Updated') FROM users), (SELECT bool_and(consumed_at IS NOT NULL) FROM one_time_tokens WHERE purpose = 1), (SELECT count(*) FROM security_audit_events WHERE event_type = 'password_changed'), (SELECT count(*) FROM security_audit_events WHERE event_type = 'password_reset'), (SELECT count(*) FROM security_audit_events WHERE event_type = 'account_deactivated');"
         Assert-True (($state -join '').Trim() -eq '7|9|t|t|t|1|1|1') 'Stage 5 persisted state invalid.'
         Write-Output 'Stage 5 Docker smoke passed: profile/update -> password change/all-session revoke -> Mailpit reset/single-use -> new login -> deactivation -> failed login; stage 3/4 checks included.'
+    }
+    if ($Stage6) {
+        $invalid = Invoke-WebRequest "$api/api/v1/auth/password/reset" -Method Post -ContentType 'application/json' -Body '{"token":"invalid","newPassword":"x"}' -SkipHttpErrorCheck
+        Assert-True ($invalid.StatusCode -eq 400) 'Expected generic invalid reset response.'
+        Assert-True ($invalid.Headers['X-Correlation-ID'].Count -eq 1) 'Missing correlation header.'
+        Assert-True ($invalid.Headers['X-Content-Type-Options'] -contains 'nosniff') 'Missing security headers.'
+        $indexes = Invoke-Compose exec -T postgres psql -U identity -d identity -tAc "SELECT count(*) FROM pg_indexes WHERE indexname = 'ix_outbox_processed_at';"
+        Assert-True (($indexes -join '').Trim() -eq '1') 'Missing security maintenance index.'
+        Write-Output 'Stage 6 Docker smoke passed: security headers/correlation, generic error contract, maintenance migration; stage 3/4/5 flows included.'
     }
 } finally {
     [Environment]::SetEnvironmentVariable('Database__ConnectionString', $previousConnection)
