@@ -1,4 +1,140 @@
-# Текущий статус: UI alignment с официальным Ant Design завершён
+# Текущий статус: этап 11.10 — запрос сброса пароля администратором
+
+**Completed: 11.10**
+
+**Next: 11.11 — только по отдельному запросу пользователя.**
+
+## 1. Этап
+
+11.10 из Identity_Admin_Codex_Addendum_v1.2.md, 20.10.2026. Прочитаны AGENTS.md,
+основной Spec, дополнение v1.2, текущий status, Git и существующие API/frontend.
+Начальное дерево чистое, предыдущий commit **484a7b0** (Ant Design alignment).
+Сохранены backend0–10, frontend11.1–11.9, стандартная Ant Design тема и архитектура.
+
+## 2. Реализовано
+
+- `features/users/passwordReset/api.ts`: typed existing POST
+  `/api/v1/admin/users/{userId}/password-reset`, без body, через общий API client.
+- `usePasswordResetCommand.ts`: TanStack mutation, немедленный ref guard против
+  duplicate submit, timeout30s, AbortController/unmount cancellation. Прежние
+  retry=false/networkMode=always/gcTime=0; успех только после ответа, без optimistic UI.
+  После202 инвалидируется audit family, включая scoped UserActivity.
+- `RequestPasswordReset.tsx` + `UserDetailsPage.tsx`: действие только Administrator
+  для Active + emailVerified; окончательную eligibility/credentials проверяет сервер.
+  Общий Ant ConfirmAction с получателем и объяснением: пароль выбирает пользователь,
+  старые reset links становятся недействительными, сессии отзываются при завершении
+  reset. Открытие/Cancel не отправляют запрос. Pending блокирует закрытие/повтор.
+- Пустой202 → закрытие и «Password reset request accepted for processing.», без
+  обещания доставки. Обработаны403/409/network/timeout/CSRF/503 и прочие safe errors.
+  Global401/403 по существующему AuthProvider, без login loop или оставшихся данных.
+- `passwordReset.test.tsx`:23 component/hook cases, confirmation/cancel, обе роли,
+  состояния, отсутствие password form, CSRF/no body, pending/double, audit-only
+  invalidation, safe errors, unmount cancellation/storage.
+- `e2e/passwordReset.spec.ts`:8 сценариев: реальные202/audit/Mailpit envelope receipt,
+  backend ReadOnly403, concurrent disable →409, network failure, global403 и
+  keyboard/focus/overflow/screenshot360/768/1280. Без чтения email body/reset token.
+  Playwright project после account-status и до visual, workers4/retries0 сохранены.
+- `scripts/Test-AdminWebSmoke.ps1`: включён существующий PasswordReset только внутри
+  disposable fixture, с тестовым HTTPS fragment email template; production defaults
+  неизменны. Старый details E2E обновлён: reset есть у Administrator, отсутствует ReadOnly.
+- `docs/password-reset.md`, User details docs, frontend/root README и CHANGELOG
+  описывают поведение, настройки оператора, проверки и границы этапа.
+
+## 3. Решения / API / конфигурация / миграции
+
+Требования11.10 совместимы с фактическим backend:202 без DTO, Active+verified+
+credentials, transactional encrypted outbox + admin_requested_password_reset.
+Новые API/DTO/CQRS/security policies/EF migrations не нужны; backend не менялся.
+Новых зависимостей, env variables или production settings нет. Для smoke используются
+существующие PasswordReset__Enabled и Email__ResetPasswordUrlTemplate. Никакого
+generic command framework: простой feature slice по образцу предыдущих команд.
+Запрос ссылки не меняет статус/сессии, поэтому инвалидируется только audit.
+
+## 4. Проверки
+
+### Commands run
+
+Из frontend:
+
+```powershell
+npx prettier --write src/features/users/passwordReset src/features/users/UserDetailsPage.tsx e2e/passwordReset.spec.ts playwright.config.ts
+npx prettier --write e2e/userDetails.spec.ts docs/password-reset.md docs/user-details.md README.md
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test:run
+npm run api:check
+npm run test:e2e
+```
+
+Последние две команды выполняет smoke harness; test:e2e вызывает npm run build.
+Из корня:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet tool restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage-11-10'
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet format Identity.slnx --no-restore --verify-no-changes
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+### Observed results
+
+- TypeScript/ESLint/Prettier exit0. **238 frontend tests passed**,14files,0failed/skipped,
+ 9.88s. Исправлена первоначальная TS ошибка в тесте: RTL getByRole не имеет exact option.
+- .NET restore/build exit0,0warnings/0errors; **470 tests passed**,0failed/skipped:
+ 147Unit/45API/278Integration, настоящие PostgreSQL/Mailpit, integration1m27s.
+- EF pending-model check: No changes have been made to the model since the last migration.
+  .NET format exit0. OpenAPI types match; production frontend build exit0,
+  UserDetails chunk14.16kB, максимальный chunk357.43kB, warning limit500kB неизменён.
+- Итоговый HTTPS browser smoke exit0: **54 Chromium scenarios passed**,0failed/skipped,
+  0retry,4workers,1.8m:46 прежних+8 новых. Подтверждены202 без body/response secrets,
+  актуальный audit event, реальное письмо Mailpit, серверный ReadOnly403 и concurrent
+  disable →409, injected network/forbidden responses и keyboard/focus/overflow.
+  Три PNG reset confirmation360/768/1280 просмотрены вручную; диалог читаем и помещается
+  на всех размерах. Стандартные Ant Design controls/theme сохранены.
+  Все6 existing migrations применены на пустой БД; dist secret check прошёл;
+  fixture API/Vite/Compose volumes/temporary secrets очищены harness finally.
+- Repository secret guard (с self-test и untracked) и Git whitespace check exit0.
+
+Первый browser smoke:27passed/1failed/26not run из-за устаревшего assertion11.7,
+запрещавшего любую кнопку со словом password. Он заменён точной проверкой роли для
+нового reset action; прочие отсутствующие действия и отсутствие незапрошенных команд
+по-прежнему проверяются. Полный smoke повторён с новой БД и без retries.
+Sandbox не позволил dotnet запуск и Vite helper spawn (EPERM); команды выполнены
+повторно с разрешением вне sandbox. Серверные проверки безопасности не отключались.
+
+## 5. Безопасность
+
+Пароль/token/link не вводятся администратором и не возвращаются в UI/DTO, не пишутся
+в console, browser storage, analytics или Query cache. Mutation variables — только UUID.
+Cookie/CSRF/authorizations прежние, backend решает права и eligibility транзакционно.
+UI не повторяет unsafe POST автоматически при сетевом сбое/таймауте/403/CSRF.
+Raw server detail/extra secret fields не отображаются; pending не считается успехом.
+Mailpit тесты читают только envelope metadata, screenshots не содержат credentials/tokens.
+
+## 6. Ограничения / Known issues
+
+Публичная reset-страница намеренно не реализована (11.13). Запрос ссылки не доказывает
+SMTP-доставку и не меняет пароль/сессии. Credentials не входят в admin detail DTO:
+последнюю проверку выполняет сервер, а UI корректно принимает409. Только Chromium;
+Firefox/WebKit/axe/Lighthouse и production deploy/image не выполнялись. npm ci не
+повторяется: package/lockfile не менялись. MFA/network ограничения прежние.
+
+## 7. Следующий этап
+
+**11.11 — Управление пользовательскими сессиями**, только по отдельному запросу. Не начат.
+Git summary и commit — на английском, согласно явному запросу пользователя; push/deploy
+не выполняются.
+
+---
+
+# История: UI alignment с официальным Ant Design завершён
 
 **Completed: 11.9 + UI alignment (отдельный запрос20.10.2026)**
 

@@ -13,6 +13,7 @@ import { UserProfile } from './UserProfile';
 import { UserActivity } from './UserActivity';
 import { ResendInvitation } from './invitations/ResendInvitation';
 import { AccountStatusAction } from './accountStatus/AccountStatusAction';
+import { RequestPasswordReset } from './passwordReset/RequestPasswordReset';
 
 function Details({ userId }: { userId: string }) {
   const query = useUserDetails(userId);
@@ -41,6 +42,12 @@ function Details({ userId }: { userId: string }) {
           status={query.data.status}
         />
         <ResendInvitation userId={userId} status={query.data.status} />
+        <RequestPasswordReset
+          userId={userId}
+          email={query.data.email}
+          status={query.data.status}
+          emailVerified={query.data.emailVerified}
+        />
         <Button
           icon={<ReloadOutlined aria-hidden="true" />}
           aria-label="Refresh user details"

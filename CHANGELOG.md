@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10, 11.1–11.9
+## Unreleased — v1.1, stages 8–10, 11.1–11.10
+
+- Confirmed administrator password reset requests from eligible user details via
+  the existing cookie/CSRF API; pending/double-submit guards and202 processing feedback.
+- Refresh account audit after acceptance; explain state conflicts, unavailable reset
+  and uncertain network results without assigning passwords or exposing reset tokens.
+- Component and real HTTPS/PostgreSQL/Mailpit browser coverage, including read-only
+  permissions, concurrent-state409, delivery receipt and responsive keyboard checks.
 
 - Restore Ant Design6.6.6 default light theme and standard control geometry, typography,
   shadows and blue palette. Remove custom component tokens and conflicting CSS.

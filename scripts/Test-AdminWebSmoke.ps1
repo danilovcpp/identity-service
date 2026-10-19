@@ -81,6 +81,7 @@ try {
         Jwt__Enabled='true'; Jwt__Issuer='https://identity.example'; Jwt__ActiveKeyId='smoke-jwt'; Jwt__PrivateKeyPath=$jwtKey
         Registration__Enabled='true'; Outbox__Enabled='true'; Outbox__PollSeconds='0.1'
         Invitations__Enabled='true'; Email__InvitationUrlTemplate='https://localhost/account/activate#token={token}'
+        PasswordReset__Enabled='true'; Email__ResetPasswordUrlTemplate='https://localhost/account/reset-password#token={token}'
         IDENTITY_E2E_MAILPIT_URL="http://127.0.0.1:$mailPort"
         OutboxEncryption__ActiveKeyId='smoke'; OutboxEncryption__Keys__smoke=$outbox
         Email__FromAddress='no-reply@identity.example'; Email__VerificationUrlTemplate='https://localhost/verify#token={token}'
