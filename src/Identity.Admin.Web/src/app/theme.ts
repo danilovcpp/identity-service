@@ -43,5 +43,6 @@ export const consoleTheme: ThemeConfig = {
     Button: { fontWeight: 500, primaryShadow: 'none', dangerShadow: 'none' },
     Typography: { titleMarginTop: 0, titleMarginBottom: 8 },
     Card: { headerFontSize: 16 },
+    Statistic: { contentFontSize: 28 },
   },
 };

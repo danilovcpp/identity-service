@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10, 11.1–11.4
+## Unreleased — v1.1, stages 8–10, 11.1–11.5
+
+- Live administrative dashboard with seven server counters, snapshot time and UTC
+  30-day registration chart, keyboard tooltip and accessible daily-value table.
+- ReadOnly/Administrator access, explicit loading/empty/error/GET refresh states,
+  safe numeric normalization and isolated dashboard loading with Recharts3.10.1.
+- Real-backend browser verification of refreshed counts after public registration.
 
 - Administrative login/logout, cookie-backed session checks, protected routing and
   explicit Forbidden state, server profile/role and session cache cleanup.

@@ -63,7 +63,7 @@ for (const readOnly of [false, true]) {
     ).toBe(false);
     await page.reload();
     await expect(
-      page.getByRole('heading', { name: 'Identity Console', exact: true }),
+      page.getByRole('heading', { name: 'Dashboard', exact: true }),
     ).toBeVisible();
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(

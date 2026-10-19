@@ -66,7 +66,7 @@ loopback ports. Скрипт создаёт уникальный Compose project
 назначает Administrator/ReadOnly существующим CLI. Все секреты только в окружении и
 Git-ignored временном secrets directory; настройки окружения восстанавливаются.
 
-Затем проверяет OpenAPI drift, production build и 10 Chromium tests через отдельный
+Затем проверяет OpenAPI drift, production build и Chromium tests через отдельный
 Vite HTTPS dev server. Cookie HttpOnly/Secure/Strict проверяется browser API, не JS;
 refresh/login/logout/revocation, generic errors, routes, keyboard и360/768/1280 layout.
 Проверяется отсутствие тестовых секретов в dist. Trace/video и storage export выключены;
@@ -82,6 +82,6 @@ profile projection, 401/403, unknown role/readOnly, cache cleanup, logout failur
 safe return paths и late aborted responses. `npm run test -- --run`, typecheck/lint/
 format:check/build остаются самостоятельными командами. Нет production fixtures.
 
-Dashboard, users/audit/actions/account pages — последующие11.x; production hosting,
+Dashboard реализован в [11.5](dashboard.md); users/audit/actions/account pages — последующие11.x; production hosting,
 Docker image frontend, proxy/CSP/CI и unrestricted internet access — отдельный этап12.
 До MFA требуется ограниченный сетевой контур. Никаких новых backend API/миграций.

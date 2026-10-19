@@ -27,6 +27,10 @@ Users/Audit пока disabled, авторизация и бизнес-данны
 серверный профиль/роль, 401/403 и очистка кеша сессии. Добавлен локальный HTTPS
 Playwright smoke с настоящими PostgreSQL/Mailpit и CLI bootstrap. Бизнес-экраны — далее.
 
+**Этап 11.5**: [Dashboard](src/Identity.Admin.Web/docs/dashboard.md) — семь серверных
+счётчиков, Recharts-график регистраций за30 UTC дней, loading/empty/error/refresh,
+одинаковый read доступ для Administrator/ReadOnly. Users/Audit ещё не подключены.
+
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):
 registration/verification, RS256 JWT/JWKS, refresh rotation/replay, собственные sessions/

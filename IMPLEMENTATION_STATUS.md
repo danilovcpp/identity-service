@@ -1,3 +1,161 @@
+# Текущий статус: этап 11.5 завершён
+
+**Completed: 11.5**
+
+**Next: 11.6 — только по отдельному запросу пользователя.**
+
+## 1. Этап
+
+**11.5 — Dashboard со статистикой**, 2026-10-19.
+Изучены AGENTS.md, основной Spec, дополнение v1.2, status, Git и реальные dashboard
+DTO/query/repository. Начальное дерево чистое;11.4 — commit **af8180d**.
+Реализован только11.5; Users/Audit/actions остаются следующими подэтапами.
+
+## 2. Реализовано
+
+- `src/Identity.Admin.Web/src/features/dashboard/api.ts`: typed GET через существующий
+  API client, DTO из generated OpenAPI, безопасная проекция/нормализация number|string.
+  Невалидные, отрицательные, дробные и неточные counts отклоняются, а не заменяются0.
+- `useDashboard.ts`: существующий queryKeys.dashboard(), AbortSignal, staleTime30s,
+  networkMode always и прежний retry=false. Ручной Refresh GET, без interval polling.
+- `DashboardPage.tsx`, `DashboardMetrics.tsx`: семь настоящих счётчиков — Total/Active/
+  Pending verification/Invited/Disabled/Deactivated/Active sessions; время снимка
+  локальное, UTC ISO tooltip. Active sessions явно исключает admin-cookie sessions.
+- `RegistrationChart.tsx`, `format.ts`: Recharts line chart с30 UTC daily values,
+  подписями дат, integer Y axis, tooltip с датой/единицами, периодом From inclusive /
+  To exclusive и пояснением partial today. Intl en-US согласован с текущим app locale;
+  DateOnly остаётся UTC днём. Доступная native details/table с30 строками и keyboard
+  exploration через accessibilityLayer, без анимации линии.
+- Loading, настоящие0/empty period, отдельно отсутствующий ряд, safe errors/manual
+  GET retry. При refresh остаётся прежний snapshot с asOf и pending; при failure
+  stale карточки скрываются. Нет fallback counters/fixtures в production.
+- Routes: `/admin` Dashboard вместо удалённого пустого ConsolePage. React.lazy/Suspense
+  отделяет dashboard/Recharts от login chunk; прежние guard/error boundary сохранены.
+  Пункт меню переименован в Dashboard; Users/Audit disabled. Ant Design Statistic
+  token и общая responsive CSS; новых page color/font overrides/UI kits нет.
+- `package.json`/lockfile: точный **recharts3.10.1**, проверенный по official release;
+  зависимости установлены без force/legacy peers. Другие прямые версии прежние.
+- `dashboard.test.tsx`, shared test/dashboard fixture; существующие auth/shell tests
+  адаптированы под dashboard, feature transport mock используется только в старых
+  изолированных auth/layout tests. Новые dashboard tests используют настоящий client
+  и Recharts, fake fetch только на network boundary.
+- `e2e/dashboard.spec.ts`: реальные метрики для двух ролей, keyboard tooltip/table,
+  actual registration через public API и изменение Total/Pending после Refresh.
+  Три dashboard-сценария serial, остальные smoke parallel; одна disposable DB на run.
+  Shell checks разрешают только auth/dashboard reads, ждут график/ResizeObserver
+  после sidebar transition, проверяют overflow360/768/1280 и сохраняют snapshots.
+- README/CHANGELOG/frontend README, docs/authentication/shell и новый docs/dashboard.md.
+  IMPLEMENTATION_STATUS обновлён. Backend/CQRS/API/OpenAPI schema/DB/миграции/solution/
+  production Docker/CI/security policies/env samples и версии продукта сохранены.
+
+## 3. Решения
+
+Данные берутся из готового snapshot DTO, не из users list. Суммы/UTC buckets не
+пересчитываются на клиенте; нет фиктивных процентов роста или новой аналитики.
+Период chart явно UTC, время asOf локальное; последний серверный bucket частичный.
+Active sessions — native/BFF, не число вошедших администраторов. Обе admin роли читают
+одинаковый экран; сервер остаётся источником authorization, существующий401/403 flow
+не дублируется. Sensitive transport/session cache cleanup этапа11.4 сохранён.
+
+Recharts — единственная новая прямая библиотека, предусмотрена11.5. Использован обычный
+React lazy route, без новой системы загрузчиков/глобального state. Карточки/график/API/
+Query отделены по ответственности. Нет дополнительных hooks/abstractions без кейса.
+ResponsiveContainer initialDimension300x280 — стартовая geometry, не фиктивные данные;
+при реальном layout размер меняется через ResizeObserver. В jsdom реальных размеров нет,
+поэтому responsive/keyboard/tooltip проверяются настоящим Chromium.
+
+## 4. Проверки
+
+### Commands run
+
+Из frontend:
+
+```powershell
+npm install --save-exact recharts@3.10.1
+npm ci
+npm run format
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test -- --run
+npm run build
+npm run api:check
+npm run test:e2e
+```
+
+Последние две команды также выполнены внутри существующего HTTPS smoke script.
+Из корня:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage11-5'
+dotnet tool restore
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet format Identity.slnx --no-restore --verify-no-changes
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+### Observed results
+
+- npm install и отдельный успешный npm ci:371 audited packages,0vulnerabilities.
+  TypeScript/lint/Prettier/build exit0. **112 frontend tests passed**,0failed/skipped,
+  8files:94 прежних +18 dashboard. Проверены7 метрик,0users/empty/no-series, safe errors,
+  manual GET retry/refetch/pending/failure, cancellation, string counts, invalid values/
+  dates, projection, period end-exclusive, local snapshot/UTC title и таблица30 значений.
+- **13 Playwright Chromium scenarios passed**,0retry:10 прежних auth/shell и3 dashboard.
+  Реальные PostgreSQL17/Mailpit/HTTPS API/Vite proxy, REST verification/CLI roles;
+  Administrator и ReadOnly читают все7 фактических метрик, keyboard tooltip/table,
+  public registration увеличивает Total/Pending после refresh. Cookies/storage guards
+  прежние. На360/768/1280 нет overflow после загрузки chart/sidebar ResizeObserver.
+- Production build с отдельным DashboardPage358.75kB/gzip104.68; app101.18kB,
+  React218.76kB, Antd412.88kB, UI primitives182.01kB. Chunk warning отсутствует,
+  warning threshold не повышался. Final build проверен повторно внутри HTTPS smoke.
+- OpenAPI types match Identity.Api; model pending changes отсутствуют. Smoke применяет
+  шесть существующих миграций к пустой DB; новых миграций нет. Проверка dist на временные
+  password/DB/PFX secrets проходит; fixture containers/volumes/keys/processes очищены.
+- .NET restore/build/format exit0:0warnings/0errors. **470 backend tests passed**,
+  0failed/skipped — Unit147 + API45 + Integration278 с реальными PostgreSQL/Mailpit.
+  TRX stage11-5 сохранены в ignored test outputs.
+- Все3 размера dashboard визуально просмотрены. Снимки — ignored test-results.
+  Secret guard/self-tests и git diff --check проходят.
+
+Промежуточные проблемы исправлены: первая npm install была недоступна в sandbox и
+повторена с разрешённым доступом. Ошибочно параллельно запущенные npm ci и frontend
+checks конфликтовали в node_modules (ENOTEMPTY/missing package); после их завершения
+последовательный npm ci и все проверки успешны. Исправлен неверный ByRole exact option.
+Первый desktop screenshot мог захватить промежуточную ширину chart при sidebar resize;
+smoke теперь ждёт измерение и проверяет viewport после data load. Последующие PNG
+имеют точные360/768/1280px. NO_COLOR/FORCE_COLOR warning runner косметический.
+
+## 5. Безопасность
+
+Только GET read screen и ручной GET refresh. Нет account actions/новых прав или server
+policy changes. Query key не содержит secrets; fetch same-origin/no-store/redirect:error,
+signal до network. Unknown response fields не кешируются. Невалидные значения не
+превращаются в ложные метрики. Password/tokens/cookies не передаются chart/query,
+storage и console; прежние session/CSRF/401/403 механизмы сохранены.
+
+## 6. Ограничения / Known issues
+
+Блокеров11.5 нет. Dashboard отображает safe integers до Number.MAX_SAFE_INTEGER;
+большие int64 отклоняются явно, не округляются молча. Browser smoke Chromium/dev HTTPS;
+production bundle собран отдельно. Production frontend hosting/proxy/Docker/CSP/CI,
+axe/Lighthouse и другие браузеры не проверялись. Отдельный API Docker image smoke
+не повторялся: image/backend не менялись; настоящие Docker integration и HTTPS API/UI
+проверки выполнены. Users/search/detail/actions/audit/account pages — следующие11.x.
+Существующее требование restricted admin network до MFA остаётся.
+
+## 7. Следующий этап
+
+**11.6 — Пользователи: таблица и поиск**, только по отдельному запросу. Не начат.
+
+---
+
+# Предыдущий отчёт: этап 11.4
 # Текущий статус: этап 11.4 завершён
 
 **Completed: 11.4**

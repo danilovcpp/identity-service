@@ -181,7 +181,59 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.identity-console :where(a, button, [tabindex]):focus-visible {
+.dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ant-margin-md);
+  margin-bottom: var(--ant-margin-lg);
+}
+.dashboard-total {
+  grid-column: span 2;
+}
+.dashboard-metric-card {
+  height: 100%;
+}
+.dashboard-total .dashboard-metric-card {
+  border-color: var(--ant-color-primary-border);
+}
+.dashboard-trend {
+  min-width: 0;
+}
+.registration-chart {
+  min-width: 0;
+  margin-block: var(--ant-margin-lg);
+}
+.registration-values summary {
+  cursor: pointer;
+  color: var(--ant-color-primary);
+  padding-block: var(--ant-padding-sm);
+}
+.registration-values table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--ant-margin-sm);
+}
+.registration-values th,
+.registration-values td {
+  padding: var(--ant-padding-sm);
+  text-align: start;
+  border-bottom: 1px solid var(--ant-color-border-secondary);
+  font-weight: normal;
+}
+.registration-values thead th {
+  font-weight: 600;
+}
+.registration-values caption {
+  text-align: start;
+  color: var(--ant-color-text-secondary);
+  padding-block: var(--ant-padding-sm);
+}
+@media (min-width: 1200px) {
+  .dashboard-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.identity-console :where(a, button, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--ant-color-primary);
   outline-offset: 3px;
 }

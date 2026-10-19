@@ -14,6 +14,8 @@ import { createQueryClient } from '@/app/queryClient';
 import { apiClient } from '@/api/httpClient';
 import { queryKeys } from '@/api/queryKeys';
 import { testProfile } from '@/test/auth';
+import * as dashboardApi from '@/features/dashboard/api';
+import { testDashboard } from '@/test/dashboard';
 import { safeReturnPath } from './returnPath';
 
 const json = (data: unknown, status = 200) =>
@@ -66,6 +68,7 @@ async function fillLogin() {
 
 describe('administrative authentication', () => {
   beforeEach(() => {
+    vi.spyOn(dashboardApi, 'getDashboard').mockResolvedValue(testDashboard);
     apiClient.clearCsrfToken();
   });
 
@@ -102,7 +105,7 @@ describe('administrative authentication', () => {
     });
     const client = mount('/admin/login', { returnTo: '//evil.example' });
     await fillLogin();
-    await screen.findByRole('heading', { name: 'Identity Console' });
+    await screen.findByRole('heading', { name: 'Dashboard' });
     expect(screen.getByLabelText('Current path')).toHaveTextContent(
       /^\/admin$/,
     );
@@ -271,9 +274,7 @@ describe('administrative authentication', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Sign out failed',
     );
-    expect(
-      screen.getByRole('heading', { name: 'Identity Console' }),
-    ).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     expect(screen.queryByText('raw secret')).not.toBeInTheDocument();
   });
 
@@ -286,7 +287,7 @@ describe('administrative authentication', () => {
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
     fetch.mockImplementation(() => Promise.resolve(json(testProfile)));
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
-    await screen.findByRole('heading', { name: 'Identity Console' });
+    await screen.findByRole('heading', { name: 'Dashboard' });
     expect(screen.queryByText('private diagnostic')).not.toBeInTheDocument();
   });
 

@@ -10,7 +10,7 @@ const items: MenuProps['items'] = [
   {
     key: 'console',
     icon: <AppstoreOutlined aria-hidden="true" />,
-    label: <Link to="/admin">Console</Link>,
+    label: <Link to="/admin">Dashboard</Link>,
   },
   {
     key: 'users',

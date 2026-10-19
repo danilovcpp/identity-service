@@ -1,12 +1,19 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { PublicLayout } from '@/components/layout/PublicLayout';
-import { ConsolePage } from '@/pages/ConsolePage';
+import { LoadingState } from '@/components/LoadingState';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { AuthProvider } from '@/features/auth/AuthProvider';
 import { AuthGate } from '@/features/auth/AuthGate';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { SessionControls } from '@/features/auth/SessionControls';
+
+const DashboardPage = lazy(() =>
+  import('@/features/dashboard/DashboardPage').then((module) => ({
+    default: module.DashboardPage,
+  })),
+);
 
 export function AppRoutes() {
   return (
@@ -17,7 +24,16 @@ export function AppRoutes() {
             path="/admin"
             element={<AdminLayout headerActions={<SessionControls />} />}
           >
-            <Route index element={<ConsolePage />} />
+            <Route
+              index
+              element={
+                <Suspense
+                  fallback={<LoadingState title="Loading dashboard…" />}
+                >
+                  <DashboardPage />
+                </Suspense>
+              }
+            />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Route>

@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const width of [360, 768, 1280]) {
-  test(`shell at ${width}px has usable navigation and no data requests`, async ({
+  test(`shell at ${width}px has usable navigation and only dashboard reads`, async ({
     page,
   }, info) => {
     const errors: string[] = [];
@@ -15,14 +15,15 @@ for (const width of [360, 768, 1280]) {
     page.on('request', (request) => {
       if (
         new URL(request.url()).pathname.startsWith('/api/') &&
-        !new URL(request.url()).pathname.startsWith('/api/v1/admin/auth/')
+        !new URL(request.url()).pathname.startsWith('/api/v1/admin/auth/') &&
+        new URL(request.url()).pathname !== '/api/v1/admin/dashboard'
       )
         apiRequests.push(request.method());
     });
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/admin');
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Identity Console' }),
+      page.getByRole('heading', { level: 1, name: 'Dashboard' }),
     ).toBeVisible();
     expect(
       await page.evaluate(
@@ -37,7 +38,9 @@ for (const width of [360, 768, 1280]) {
       await expect(
         dialog.getByRole('menuitem', { name: 'Users' }),
       ).toHaveAttribute('aria-disabled', 'true');
-      await dialog.getByRole('link', { name: 'Console', exact: true }).click();
+      await dialog
+        .getByRole('link', { name: 'Dashboard', exact: true })
+        .click();
       await expect(dialog).not.toBeVisible();
     } else {
       await expect(
@@ -67,6 +70,11 @@ for (const width of [360, 768, 1280]) {
     ).toBe(0);
     expect(apiRequests).toEqual([]);
     expect(errors).toEqual([]);
+    await expect(page.getByRole('application')).toBeVisible();
+    // Wait for ResizeObserver after sidebar transitions, not just the initial heading.
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+      .toBe(width);
     await page.screenshot({
       path: info.outputPath('shell.png'),
       fullPage: true,
@@ -80,7 +88,7 @@ test('keyboard skip link, drawer trap, Escape and focus restoration', async ({
   await page.setViewportSize({ width: 360, height: 900 });
   await page.goto('/admin');
   await expect(
-    page.getByRole('heading', { name: 'Identity Console', exact: true }),
+    page.getByRole('heading', { name: 'Dashboard', exact: true }),
   ).toBeVisible();
   await page.keyboard.press('Tab');
   await expect(
@@ -123,7 +131,7 @@ test('admin/public unknown paths return safely to the console without a document
     await page.getByRole('button', { name: 'Back to console' }).click();
     await expect(page).toHaveURL(/\/admin$/);
     await expect(
-      page.getByRole('heading', { name: 'Identity Console', level: 1 }),
+      page.getByRole('heading', { name: 'Dashboard', level: 1 }),
     ).toBeVisible();
     expect(navigations).toEqual([]);
     page.removeAllListeners('request');

@@ -9,6 +9,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as authApi from '@/features/auth/api';
 import { testProfile } from '@/test/auth';
+import * as dashboardApi from '@/features/dashboard/api';
+import { testDashboard } from '@/test/dashboard';
 import { App } from '@/app/App';
 import { AppProviders } from '@/app/AppProviders';
 import { setTestViewport } from '@/test/viewport';
@@ -26,6 +28,7 @@ function renderApp(path = '/admin') {
 describe('console shell and routes', () => {
   beforeEach(() => {
     vi.spyOn(authApi, 'getSession').mockResolvedValue(testProfile);
+    vi.spyOn(dashboardApi, 'getDashboard').mockResolvedValue(testDashboard);
   });
   it('redirects the public index to the authenticated console without business data requests', async () => {
     const fetch = vi.spyOn(globalThis, 'fetch');
@@ -33,11 +36,11 @@ describe('console shell and routes', () => {
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'Identity Console',
+        name: 'Dashboard',
       }),
     ).toBeVisible();
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content');
-    expect(screen.queryByText(/Dashboard/)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeVisible();
     expect(
       screen.queryByRole('button', { name: /logout|sign out/i }),
     ).toBeInTheDocument();
@@ -46,7 +49,7 @@ describe('console shell and routes', () => {
 
   it('only enables the console link and supports desktop collapse/expand', async () => {
     renderApp();
-    await screen.findByRole('heading', { name: 'Identity Console' });
+    await screen.findByRole('heading', { name: 'Dashboard' });
     expect(
       screen.getByRole('navigation', { name: 'Primary navigation' }),
     ).toBeVisible();
@@ -87,13 +90,11 @@ describe('console shell and routes', () => {
     expect(
       within(drawer).getByRole('navigation', { name: 'Primary navigation' }),
     ).toBeVisible();
-    fireEvent.click(within(drawer).getByRole('link', { name: 'Console' }));
+    fireEvent.click(within(drawer).getByRole('link', { name: 'Dashboard' }));
     await waitFor(() =>
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
     );
-    expect(
-      screen.getByRole('heading', { name: 'Identity Console' }),
-    ).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 
   it.each(['/missing', '/account/activate', '/admin/users', '/admin/audit'])(
@@ -110,7 +111,7 @@ describe('console shell and routes', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Back to console' }));
       await waitFor(() =>
         expect(
-          screen.getByRole('heading', { level: 1, name: 'Identity Console' }),
+          screen.getByRole('heading', { level: 1, name: 'Dashboard' }),
         ).toBeVisible(),
       );
     },

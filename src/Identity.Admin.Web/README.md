@@ -2,11 +2,12 @@
 
 Frontend самостоятельного продукта Identity. Выполнены **11.1 — bootstrap** и
 **11.2 — HTTP-клиент, OpenAPI, CSRF**, **11.3 — тема и App Shell**,
-**11.4 — Login / Logout / Route Guards** из
+**11.4 — Login / Logout / Route Guards**, **11.5 — Dashboard** из
 [дополнения v1.2](../../Identity_Admin_Codex_Addendum_v1.2.md).
 Вход, выход, профиль и защита маршрутов работают через реальные cookie/CSRF API.
-Консоль пока содержит стартовую страницу и NotFound; бизнес-экраны — следующие подэтапы.
+`/admin` показывает реальные метрики и график регистраций; Users/Audit — следующие подэтапы.
 Подробности: [authentication](docs/authentication.md), [UI foundation](docs/shell.md).
+Контракт, обновление и проверки статистики: [Dashboard](docs/dashboard.md).
 
 ## Требования и запуск
 
@@ -64,7 +65,8 @@ src/
   api/          typed HTTP-клиент, ошибки, query keys, generated schema.d.ts
   components/   layouts, PageHeader, states, confirmation, StatusTag
   features/auth/ session API, auth context/provider, login, guards, session controls
-  pages/        ConsolePage, NotFoundPage; бизнес-страницы в следующих этапах
+  features/dashboard/ read API, Query hook, metrics, registrations chart
+  pages/        NotFoundPage
   test/         общий setup Vitest/RTL и очистка DOM между тестами
 ```
 

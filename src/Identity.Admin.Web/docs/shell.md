@@ -16,16 +16,17 @@ AdminLayout: sticky sidebar240px, автоматическое сворачив�
 slots для account/logout/breadcrumb, PageHeader с optional breadcrumbs/
 description/actions и h1 страницы. С11.4 topbar показывает серверный профиль и выход.
 
-| Route      | Текущее поведение                               |
-| ---------- | ----------------------------------------------- |
-| `/`        | Replace redirect на `/admin`                    |
-| `/admin`   | Стартовый workspace без метрик и backend данных |
-| `/admin/*` | NotFound внутри admin shell                     |
-| Прочие URL | NotFound в PublicLayout с тем же branding       |
+| Route      | Текущее поведение                         |
+| ---------- | ----------------------------------------- |
+| `/`        | Replace redirect на `/admin`              |
+| `/admin`   | Dashboard с серверной статистикой (11.5)  |
+| `/admin/*` | NotFound внутри admin shell               |
+| Прочие URL | NotFound в PublicLayout с тем же branding |
 
-Console — единственный активный пункт. Users/Audit disabled и не имеют ссылок.
+Dashboard — единственный активный пункт. Users/Audit disabled и не имеют ссылок.
 С11.4 `/admin/login` доступен публично; остальные admin paths закрыты AuthGate.
 Login/logout/profile/Forbidden/cache cleanup: [authentication](authentication.md).
+Метрики/UTC chart/refresh: [Dashboard](dashboard.md).
 User details и `/account/*` ещё не реализованы. Нет фиктивных метрик/сессий.
 
 ## Общие компоненты
