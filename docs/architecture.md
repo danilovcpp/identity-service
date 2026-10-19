@@ -1,5 +1,12 @@
 # Архитектура Identity 1.0.0
 
+Этап10: отдельные command slices для admin writes и public invitation acceptance;
+AdminWriteAuthorization повторно проверяет actor/session/role внутри транзакции.
+Общий порядок: advisory lock -> sorted actor/target user rows -> sessions/tokens.
+InvitationIssuer переиспользуется invite/resend без вызова handler из handler. Domain
+сохраняет prior status; Infrastructure отвечает за purpose-specific locks, SMTP/AES outbox
+и startup options. [Контракт и решения](admin-write-api.md). Новых NuGet dependencies нет.
+
 Этап9: пять admin query slices с typed validators/DTO и явным DI. Отдельный
 IAdminReadRepository реализован Infrastructure через AsNoTracking Select/GroupBy;
 никаких EF/ASP.NET типов в Application и DbContext в Controllers. Count/page и dashboard

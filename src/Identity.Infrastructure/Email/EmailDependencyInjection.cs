@@ -15,6 +15,12 @@ internal static class EmailDependencyInjection
     {
         services.AddOptions<RegistrationOptions>().BindConfiguration("Registration").ValidateOnStart();
         services.AddOptions<PasswordResetOptions>().BindConfiguration("PasswordReset").ValidateOnStart();
+        services.AddOptions<InvitationOptions>().BindConfiguration("Invitations")
+            .Validate(options => options.LifetimeSeconds is >= 60 and <= 259200, "Invitation lifetime must be between 60 seconds and 72 hours.")
+            .Validate<IOptions<OutboxOptions>, IServiceProvider>((options, outbox, provider) => !options.Enabled
+                || provider.GetService<IHostEnvironment>()?.IsProduction() != true || outbox.Value.Enabled,
+                "Production invitations require the email outbox worker.").ValidateOnStart();
+        services.AddSingleton<IInvitationSettings>(provider => provider.GetRequiredService<IOptions<InvitationOptions>>().Value);
         services.AddSingleton<IValidateOptions<PasswordResetOptions>, PasswordResetOptionsValidator>();
         services.AddSingleton<IPasswordResetSettings>(provider => provider.GetRequiredService<IOptions<PasswordResetOptions>>().Value);
         services.AddOptions<PasswordHashOptions>().BindConfiguration("PasswordHash")
@@ -24,14 +30,17 @@ internal static class EmailDependencyInjection
                 && options.PollSeconds is >= 0.05 and <= 60 && options.BaseRetrySeconds is >= 0.1 and <= 300,
                 "Email outbox limits are invalid.").ValidateOnStart();
         services.AddOptions<EmailOptions>().BindConfiguration("Email")
-            .Validate<IOptions<RegistrationOptions>, IOptions<OutboxOptions>, IOptions<PasswordResetOptions>, IServiceProvider>((options, registration, outbox, reset, provider) =>
-                (!registration.Value.Enabled && !outbox.Value.Enabled && !reset.Value.Enabled)
+            .Validate<IOptions<RegistrationOptions>, IOptions<OutboxOptions>, IOptions<PasswordResetOptions>, IOptions<InvitationOptions>, IServiceProvider>((options, registration, outbox, reset, invitations, provider) =>
+                (!registration.Value.Enabled && !outbox.Value.Enabled && !reset.Value.Enabled && !invitations.Value.Enabled)
                 || EmailOptions.IsValid(options, provider.GetService<IHostEnvironment>()?.IsProduction() == true,
-                    requireVerification: registration.Value.Enabled, requireReset: reset.Value.Enabled),
-                "Email delivery configuration is missing or insecure.").ValidateOnStart();
+                    requireVerification: registration.Value.Enabled, requireReset: reset.Value.Enabled, requireInvitation: invitations.Value.Enabled),
+                "Email delivery configuration is missing or insecure.")
+            .Validate<IOptions<AdminAccessOptions>, IOptions<PasswordResetOptions>, IServiceProvider>((options, admin, reset, provider) =>
+                !admin.Value.Enabled || !reset.Value.Enabled || EmailOptions.IsValidFragmentTemplate(options.ResetPasswordUrlTemplate,
+                    provider.GetService<IHostEnvironment>()?.IsProduction() == true), "Administrative password reset requires a fragment-only token URL.").ValidateOnStart();
         services.AddOptions<OutboxEncryptionOptions>().BindConfiguration("OutboxEncryption")
-            .Validate<IOptions<RegistrationOptions>, IOptions<OutboxOptions>, IOptions<PasswordResetOptions>, IServiceProvider>((options, registration, outbox, reset, provider) =>
-                (!registration.Value.Enabled && !outbox.Value.Enabled && !reset.Value.Enabled) || (OutboxEncryptionOptions.IsValid(options)
+            .Validate<IOptions<RegistrationOptions>, IOptions<OutboxOptions>, IOptions<PasswordResetOptions>, IOptions<InvitationOptions>, IServiceProvider>((options, registration, outbox, reset, invitations, provider) =>
+                (!registration.Value.Enabled && !outbox.Value.Enabled && !reset.Value.Enabled && !invitations.Value.Enabled) || (OutboxEncryptionOptions.IsValid(options)
                     && (provider.GetService<IHostEnvironment>()?.IsProduction() != true || options.Keys.Keys.All(key =>
                         !key.StartsWith("dev-", StringComparison.OrdinalIgnoreCase) && !key.StartsWith("test-", StringComparison.OrdinalIgnoreCase)))),
                 "An active outbox encryption key and absolute secret file paths are required.").ValidateOnStart();
@@ -44,6 +53,8 @@ internal static class EmailDependencyInjection
         services.AddSingleton<IOutboxPayloadProtector, OutboxPayloadProtector>();
         services.AddSingleton<IVerificationEmailFactory, VerificationEmailFactory>();
         services.AddSingleton<IPasswordResetEmailFactory, PasswordResetEmailFactory>();
+        services.AddSingleton<IInvitationEmailFactory, InvitationEmailFactory>();
+        services.AddScoped<IInvitationRepository, InvitationRepository>();
         services.AddScoped<IPasswordResetRepository, PasswordResetRepository>();
         services.AddScoped<IEmailVerificationRepository, EmailVerificationRepository>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();

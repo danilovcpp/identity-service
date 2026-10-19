@@ -1,5 +1,11 @@
 # Безопасность Identity 1.0.0
 
+Этап10 [admin commands](admin-write-api.md): cookie/CSRF + transactional actor recheck,
+last-admin protection, disable отзывает обе session families и все one-time links.
+Enable не верифицирует email и не оживляет sessions. Invitation/reset links только
+во fragment для admin flows; hash-only single use + encrypted whole-message outbox.
+Новые роли не назначаются invitation acceptance. Downstream JWT действует до exp/skew.
+
 Этап9 [read-only admin API](admin-read-api.md) использует прежнюю cookie-политику обеих
 системных ролей. GET queries не меняют business state; auth validation отдельно обновляет
 last_seen_at. DTO projections не выбирают credentials/token hashes/outbox/произвольную

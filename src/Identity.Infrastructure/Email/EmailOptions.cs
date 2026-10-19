@@ -7,6 +7,7 @@ public sealed class EmailOptions
     public string FromAddress { get; set; } = string.Empty;
     public string VerificationUrlTemplate { get; set; } = string.Empty;
     public string ResetPasswordUrlTemplate { get; set; } = string.Empty;
+    public string InvitationUrlTemplate { get; set; } = string.Empty;
     public SmtpOptions Smtp { get; set; } = new();
 
     public static bool IsValidTemplate(string template, bool production)
@@ -21,9 +22,13 @@ public sealed class EmailOptions
             && string.IsNullOrEmpty(uri.UserInfo) && (uri.Scheme == "https" || (!production && uri.Scheme == "http" && uri.IsLoopback));
     }
 
-    public static bool IsValid(EmailOptions options, bool production, bool requireVerification = true, bool requireReset = false) =>
+    public static bool IsValidFragmentTemplate(string template, bool production) => IsValidTemplate(template, production)
+        && new Uri(template.Replace("{token}", "one-time-token", StringComparison.Ordinal)).Fragment == "#token=one-time-token";
+
+    public static bool IsValid(EmailOptions options, bool production, bool requireVerification = true, bool requireReset = false, bool requireInvitation = false) =>
         (!requireVerification || IsValidTemplate(options.VerificationUrlTemplate, production))
             && (!requireReset || IsValidTemplate(options.ResetPasswordUrlTemplate, production))
+            && (!requireInvitation || IsValidFragmentTemplate(options.InvitationUrlTemplate, production))
             && MailAddress.TryCreate(options.FromAddress, out var address) && address.Address == options.FromAddress
             && !options.FromAddress.Any(char.IsControl)
             && !string.IsNullOrWhiteSpace(options.Smtp.Host) && !options.Smtp.Host.Any(char.IsControl)

@@ -46,6 +46,8 @@ public sealed class SecurityAuditEvent
             SecurityEventType.AdminDisabledUser => "admin_disabled_user",
             SecurityEventType.AdminEnabledUser => "admin_enabled_user",
             SecurityEventType.AdminRevokedSession => "admin_revoked_session",
+            SecurityEventType.AdminRevokedAllSessions => "admin_revoked_all_sessions",
+            SecurityEventType.InvitationAccepted => "invitation_accepted",
             _ => throw new ArgumentOutOfRangeException(nameof(eventType))
         };
         return new SecurityAuditEvent

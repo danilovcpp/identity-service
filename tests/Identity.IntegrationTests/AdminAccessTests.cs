@@ -408,8 +408,8 @@ public sealed class AdminAccessTests(RegistrationFixture fixture) : IClassFixtur
         Assert.Equal(HttpStatusCode.Unauthorized, admin.StatusCode);
         using var user = await client.PostAsJsonAsync("/api/v1/auth/login", new { email = Email, password = Password, clientId = "native" });
         Assert.Equal(HttpStatusCode.Unauthorized, user.StatusCode);
-        using var acceptanceNotYetImplemented = await client.PostAsJsonAsync("/api/v1/auth/invitations/accept", new { });
-        Assert.Equal(HttpStatusCode.NotFound, acceptanceNotYetImplemented.StatusCode);
+        using var invalidAcceptance = await client.PostAsJsonAsync("/api/v1/auth/invitations/accept", new { });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidAcceptance.StatusCode);
     }
 
     [Fact]

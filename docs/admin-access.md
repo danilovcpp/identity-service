@@ -2,8 +2,8 @@
 
 The v1.1 addendum extends v1.0. Stage 8 provides domain/schema, bootstrap CLI and
 browser authentication. Stage9 adds [read-only administrative API](admin-read-api.md).
-Invitation flows, administrative write commands and React UI belong to stages10–12
-and are not exposed yet.
+Stage10 adds [administrative commands and invitation acceptance](admin-write-api.md).
+React UI and integrated production packaging remain stages11–12.
 
 ## Configuration and boundary
 
@@ -73,7 +73,7 @@ PostgreSQL advisory lock, then user locks. Direct SQL bypasses these protections
 Recover a forgotten password through existing email reset. To retire a compromised last
 admin, grant a second independently verified account first, then revoke the compromised
 role. CLI revoke removes admin access, not ordinary native/BFF access. Disable/enable user
-commands are stage 10; do not confuse role revocation with account blocking.
+commands are documented in stage10; do not confuse role revocation with account blocking.
 
 ## HTTP / cookie / CSRF contract
 
@@ -119,8 +119,8 @@ request; requests already authorized may finish. Downstream JWT exp/skew lag rem
 
 `20261019020843_AdminSecureAccess` adds two tables, nullable disable metadata and indexed
 audit actor/target IDs. Existing rows/enum values remain. Legacy disabled metadata is
-unknown/null. `Invited=4`, `Invitation=2` (72-hour max) prepare schema/domain only;
-invitation HTTP flows are not available. Users without credentials are safely rejected.
+unknown/null. `Invited=4`, `Invitation=2` (72-hour max) are used by the
+[stage10 invitation flow](admin-write-api.md). Users without credentials are safely rejected.
 Do not downgrade after new enum/audit data is written without a reviewed compatibility
 plan; Down does not silently delete incompatible rows.
 

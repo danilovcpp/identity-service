@@ -9,11 +9,12 @@ namespace Identity.Infrastructure.Maintenance;
 
 public sealed class SecurityMaintenanceWorker(IServiceScopeFactory scopes, IOptions<SecurityMaintenanceOptions> options,
     IOptions<JwtOptions> jwt, IOptions<RegistrationOptions> registration, IOptions<PasswordResetOptions> reset,
-    IOptions<OutboxOptions> outbox, IOptions<AdminAccessOptions> admin, TimeProvider clock, ILogger<SecurityMaintenanceWorker> logger) : BackgroundService
+    IOptions<OutboxOptions> outbox, IOptions<AdminAccessOptions> admin, IOptions<InvitationOptions> invitations,
+    TimeProvider clock, ILogger<SecurityMaintenanceWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!options.Value.Enabled || (!jwt.Value.Enabled && !registration.Value.Enabled && !reset.Value.Enabled && !outbox.Value.Enabled && !admin.Value.Enabled)) { return; }
+        if (!options.Value.Enabled || (!jwt.Value.Enabled && !registration.Value.Enabled && !reset.Value.Enabled && !outbox.Value.Enabled && !admin.Value.Enabled && !invitations.Value.Enabled)) { return; }
         while (!stoppingToken.IsCancellationRequested)
         {
             try

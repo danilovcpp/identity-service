@@ -1,5 +1,10 @@
 # Identity 1.0.0: production deployment
 
+Этап10 [admin writes/invitations](admin-write-api.md): примените AdminWriteLifecycle,
+настройте отдельный Invitations opt-in и fragment-only activation/reset URLs. Production
+invitations требуют outbox worker + SMTP TLS/AES keys; UI pages будут в этапе11. Все
+admin endpoints по-прежнему за VPN/доверенным контуром до MFA.
+
 Для дополнения v1.1 (этап 8) дополнительно выполните [admin access runbook](admin-access.md):
 отдельный постоянный writable Data Protection mount, CLI bootstrap, HTTPS и VPN/сетевое
 закрытие всего admin API. Текущий Compose не включает admin автоматически. После restore

@@ -6,7 +6,8 @@ using Microsoft.Extensions.Options;
 namespace Identity.Infrastructure.Security;
 
 public sealed class OutboxKeyRing(IOptions<OutboxEncryptionOptions> options,
-    IOptions<RegistrationOptions> registration, IOptions<OutboxOptions> outbox, IOptions<PasswordResetOptions> reset) : IHostedService, IDisposable
+    IOptions<RegistrationOptions> registration, IOptions<OutboxOptions> outbox, IOptions<PasswordResetOptions> reset,
+    IOptions<InvitationOptions> invitations) : IHostedService, IDisposable
 {
     private readonly Dictionary<string, byte[]> _keys = new(StringComparer.Ordinal);
     public string ActiveKeyId => options.Value.ActiveKeyId;
@@ -16,7 +17,7 @@ public sealed class OutboxKeyRing(IOptions<OutboxEncryptionOptions> options,
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        if (!registration.Value.Enabled && !outbox.Value.Enabled && !reset.Value.Enabled) { return; }
+        if (!registration.Value.Enabled && !outbox.Value.Enabled && !reset.Value.Enabled && !invitations.Value.Enabled) { return; }
         try
         {
             foreach (var pair in options.Value.Keys)

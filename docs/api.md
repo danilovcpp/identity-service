@@ -5,7 +5,8 @@
 под тем же `/api/v1/admin/auth`). Отдельная Secure HttpOnly cookie-схема и CSRF на login/logout;
 пользовательский Bearer не предоставляет admin-доступ. Этап9 добавляет пять
 [read-only admin GET endpoints](admin-read-api.md) для dashboard, users/details/sessions и audit.
-Изменяющие административные операции и frontend пока не реализованы.
+Этап10 добавляет [admin commands и публичное invitation acceptance](admin-write-api.md).
+Frontend пока не реализован.
 
 ## Первый end-to-end сценарий
 

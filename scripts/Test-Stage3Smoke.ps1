@@ -50,7 +50,8 @@ try {
         "MAILPIT_HTTP_PORT=$mailpitPort", "MAILPIT_SMTP_PORT=$smtpPort",
         "OUTBOX_KEY_FILE=$($outboxPath.Replace('\', '/'))", "JWT_KEY_FILE=$($jwtPath.Replace('\', '/'))",
         'JWT_ISSUER=https://identity.localhost', 'EMAIL_VERIFICATION_URL_TEMPLATE=http://localhost:3000/verify#token={token}',
-        'RESET_PASSWORD_URL_TEMPLATE=http://localhost:3000/reset#token={token}', 'AUTH_IP_PERMIT_LIMIT=1000', 'AUTH_ACCOUNT_PERMIT_LIMIT=100'
+        'RESET_PASSWORD_URL_TEMPLATE=http://localhost:3000/reset#token={token}', 'AUTH_IP_PERMIT_LIMIT=1000', 'AUTH_ACCOUNT_PERMIT_LIMIT=100',
+        'INVITATIONS_ENABLED=false'
     ))
     Invoke-Compose config --quiet
     $started = $true

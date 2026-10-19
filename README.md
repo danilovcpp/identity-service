@@ -6,6 +6,10 @@ secure cookie/CSRF API. [Настройка и runbook](docs/admin-access.md). A
 Существующие REST Bearer API сохраняются. **Этап 9** добавляет [read-only admin API](docs/admin-read-api.md):
 dashboard, users/details/sessions и audit с pagination/filters. Admin frontend пока отсутствует.
 
+**Этап 10**: [приглашения, admin reset/disable/enable и session revoke](docs/admin-write-api.md),
+публичное принятие приглашения, transactional encrypted outbox и audit actor/target.
+Приглашения включаются отдельно через Invitations; web-страницы остаются этапом11.
+
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):
 registration/verification, RS256 JWT/JWKS, refresh rotation/replay, собственные sessions/

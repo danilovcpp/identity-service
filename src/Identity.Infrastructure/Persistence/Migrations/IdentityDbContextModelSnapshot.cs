@@ -386,7 +386,7 @@ namespace Identity.Infrastructure.Persistence.Migrations
 
                     b.ToTable("security_audit_events", null, t =>
                         {
-                            t.HasCheckConstraint("ck_audit_event_type", "event_type IN ('register', 'verify_email', 'login_success', 'login_failed', 'refresh_rotated', 'refresh_replay_detected', 'logout', 'logout_all', 'password_changed', 'password_reset', 'account_deactivated', 'admin_login', 'admin_login_failed', 'admin_logout', 'admin_role_granted', 'admin_role_revoked', 'admin_invited_user', 'admin_resent_invitation', 'admin_requested_password_reset', 'admin_disabled_user', 'admin_enabled_user', 'admin_revoked_session')");
+                            t.HasCheckConstraint("ck_audit_event_type", "event_type IN ('register', 'verify_email', 'login_success', 'login_failed', 'refresh_rotated', 'refresh_replay_detected', 'logout', 'logout_all', 'password_changed', 'password_reset', 'account_deactivated', 'admin_login', 'admin_login_failed', 'admin_logout', 'admin_role_granted', 'admin_role_revoked', 'admin_invited_user', 'admin_resent_invitation', 'admin_requested_password_reset', 'admin_disabled_user', 'admin_enabled_user', 'admin_revoked_session', 'admin_revoked_all_sessions', 'invitation_accepted')");
 
                             t.HasCheckConstraint("ck_audit_metadata", "jsonb_typeof(metadata) = 'object' AND metadata - 'attemptCount' = '{}'::jsonb AND CASE WHEN NOT (metadata ? 'attemptCount') THEN true WHEN jsonb_typeof(metadata->'attemptCount') = 'number' THEN (metadata->>'attemptCount')::numeric BETWEEN 0 AND 2147483647 AND mod((metadata->>'attemptCount')::numeric, 1) = 0 ELSE false END");
                         });
@@ -461,7 +461,7 @@ namespace Identity.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_sessions_client", "length(btrim(client_id)) > 0");
 
-                            t.HasCheckConstraint("ck_sessions_revocation", "(revoked_at IS NULL) = (revoke_reason IS NULL) AND (revoke_reason IS NULL OR revoke_reason BETWEEN 0 AND 6)");
+                            t.HasCheckConstraint("ck_sessions_revocation", "(revoked_at IS NULL) = (revoke_reason IS NULL) AND (revoke_reason IS NULL OR revoke_reason BETWEEN 0 AND 8)");
 
                             t.HasCheckConstraint("ck_sessions_times", "absolute_expires_at > created_at AND absolute_expires_at <= created_at + interval '720 hours' AND last_used_at >= created_at AND last_used_at < absolute_expires_at AND (revoked_at IS NULL OR revoked_at >= last_used_at)");
                         });
@@ -527,6 +527,10 @@ namespace Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("status");
 
+                    b.Property<short?>("StatusBeforeDisable")
+                        .HasColumnType("smallint")
+                        .HasColumnName("status_before_disable");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -563,6 +567,8 @@ namespace Identity.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_users_email", "length(btrim(email)) > 0 AND email !~ '[[:cntrl:]]' AND length(btrim(normalized_email)) > 0 AND normalized_email !~ '[[:cntrl:]]'");
 
                             t.HasCheckConstraint("ck_users_login_failures", "failed_login_count >= 0 AND (locked_until IS NULL OR locked_until > created_at)");
+
+                            t.HasCheckConstraint("ck_users_previous_status", "status_before_disable IS NULL OR (status = 2 AND status_before_disable IN (0, 1, 4) AND ((status_before_disable = 1) = (email_verified_at IS NOT NULL)))");
 
                             t.HasCheckConstraint("ck_users_status", "status IN (0, 1, 2, 3, 4)");
 

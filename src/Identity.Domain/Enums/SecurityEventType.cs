@@ -23,5 +23,7 @@ public enum SecurityEventType
     AdminRequestedPasswordReset,
     AdminDisabledUser,
     AdminEnabledUser,
-    AdminRevokedSession
+    AdminRevokedSession,
+    AdminRevokedAllSessions,
+    InvitationAccepted
 }

@@ -4,7 +4,7 @@ These JSON routes extend [admin authentication](admin-access.md). Both
 IdentityAdministrator and IdentityReadOnly use IdentityAdminRead + the existing secure
 admin cookie; ordinary Bearer tokens do not authorize these routes. HTTPS, opt-in
 AdminAccess, durable Data Protection and restricted network ingress remain required.
-No frontend or administrative write commands are included.
+Stage10 adds [administrative write commands](admin-write-api.md); frontend is still pending.
 
 | GET endpoint | Result |
 |---|---|
@@ -73,7 +73,7 @@ createdAt DESC, id DESC. Items: id, clientId, userAgent, createdAt, lastUsedAt,
 absoluteExpiresAt, revokedAt, revokeReason (enum name/null), isActive. No token/hash.
 These are user native/BFF families, not admin-cookie sessions. Recent means history
 retained by existing cleanup; deleted families are not archived. Foreign-user sessions
-are excluded. Revoke commands remain stage10.
+are excluded. Revoke commands are documented in [stage10](admin-write-api.md).
 
 Audit parameters: page/pageSize, userId, actorUserId, eventType, from, to (combined AND).
 userId matches legacy user_id OR target_user_id; actorUserId matches actor_user_id.

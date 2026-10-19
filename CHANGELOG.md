@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–9
+## Unreleased — v1.1, stages 8–10
+
+- Administrative invite/resend/reset/disable/enable/session revocation, protected by
+  cookie/CSRF and transactional actor revalidation. Last-administrator race protection.
+- Email invitation acceptance with recipient-chosen password, hash-only single-use
+  token and encrypted transactional outbox; additive AdminWriteLifecycle migration.
+- Exact prior-status restoration on enable; disabling revokes both session transports
+  and one-time links. Invitation settings/fragment-only templates and PostgreSQL/Mailpit tests.
 
 - Read-only admin dashboard/users/details/sessions/audit API for both system roles,
   server pagination, fixed sort whitelist, bounded literal ILIKE search and UTC filters.
@@ -13,7 +20,7 @@
 - Atomic last-administrator protection including existing self-deactivation; password
   change/reset/logout-all revoke admin sessions alongside existing refresh sessions.
 - Additive AdminSecureAccess migration, Invited/Invitation schema preparation. Existing
-  Bearer REST protocol preserved; no admin UI or administrative write endpoints yet.
+  Bearer REST protocol preserved; admin frontend remains stage11.
 
 ## 1.0.0 — 2026-10-19
 

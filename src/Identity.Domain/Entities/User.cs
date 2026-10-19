@@ -21,6 +21,7 @@ public sealed class User
     public DateTimeOffset? DisabledAt { get; private set; }
     public Guid? DisabledBy { get; private set; }
     public string? DisableReason { get; private set; }
+    public UserStatus? StatusBeforeDisable { get; private set; }
 
     public static User Create(string email, string? displayName, DateTimeOffset now)
     {
@@ -54,8 +55,10 @@ public sealed class User
 
     public void Disable(DateTimeOffset now)
     {
-        DomainRules.Require(Status == UserStatus.Active, "invalid_user_state", "Only an active user can be disabled.");
+        DomainRules.Require(Status is UserStatus.Active or UserStatus.PendingVerification or UserStatus.Invited,
+            "invalid_user_state", "The user cannot be disabled in this state.");
         UpdatedAt = DomainRules.Time(now, UpdatedAt);
+        StatusBeforeDisable = Status;
         DisabledAt = UpdatedAt;
         Status = UserStatus.Disabled;
     }
@@ -69,12 +72,36 @@ public sealed class User
         DisableReason = text;
     }
 
+    public void Enable(DateTimeOffset now)
+    {
+        DomainRules.Require(Status == UserStatus.Disabled, "invalid_user_state", "Only a disabled user can be enabled.");
+        var previous = StatusBeforeDisable ?? (EmailVerifiedAt is null ? UserStatus.PendingVerification : UserStatus.Active);
+        DomainRules.Require((previous is UserStatus.Active or UserStatus.PendingVerification or UserStatus.Invited)
+            && (previous == UserStatus.Active) == (EmailVerifiedAt is not null), "invalid_user_state", "The previous user state is invalid.");
+        UpdatedAt = DomainRules.Time(now, UpdatedAt);
+        Status = previous;
+        StatusBeforeDisable = null;
+        DisabledAt = null;
+        DisabledBy = null;
+        DisableReason = null;
+    }
+
+    public void AcceptInvitation(DateTimeOffset now)
+    {
+        DomainRules.Require(Status == UserStatus.Invited && EmailVerifiedAt is null,
+            "invalid_user_state", "The invitation cannot be accepted in this state.");
+        UpdatedAt = DomainRules.Time(now, UpdatedAt);
+        EmailVerifiedAt = UpdatedAt;
+        Status = UserStatus.Active;
+    }
+
     public void Deactivate(DateTimeOffset now)
     {
         DomainRules.Require(Status != UserStatus.Deactivated, "invalid_user_state", "The user is already deactivated.");
         UpdatedAt = DomainRules.Time(now, UpdatedAt);
         DeactivatedAt = UpdatedAt;
         Status = UserStatus.Deactivated;
+        StatusBeforeDisable = null;
         FailedLoginCount = 0;
         LockedUntil = null;
     }

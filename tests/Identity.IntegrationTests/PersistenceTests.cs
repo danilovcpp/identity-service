@@ -38,12 +38,13 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
         await using var context = database.CreateContext();
         var migrator = context.GetService<IMigrator>();
         var applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(5, applied.Length);
+        Assert.Equal(6, applied.Length);
         Assert.EndsWith("_InitialIdentity", applied[0]);
         Assert.EndsWith("_SessionAudienceBinding", applied[1]);
         Assert.EndsWith("_SecurityMaintenanceIndex", applied[2]);
         Assert.EndsWith("_AdminSecureAccess", applied[3]);
         Assert.EndsWith("_AdminReadIndexes", applied[4]);
+        Assert.EndsWith("_AdminWriteLifecycle", applied[5]);
         Assert.False(context.Database.HasPendingModelChanges());
         Assert.Contains("IF NOT EXISTS", migrator.GenerateScript(options: MigrationsSqlGenerationOptions.Idempotent));
         await migrator.MigrateAsync("0");
@@ -51,7 +52,7 @@ public sealed class PersistenceTests(PostgreSqlFixture database) : IClassFixture
         var tables = await context.Database.SqlQueryRaw<string>("SELECT tablename AS \"Value\" FROM pg_tables WHERE schemaname = 'public' AND tablename <> '__EFMigrationsHistory'").ToListAsync();
         Assert.Empty(tables);
         await migrator.MigrateAsync();
-        Assert.Equal(5, (await context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(6, (await context.Database.GetAppliedMigrationsAsync()).Count());
         Assert.False(context.Database.HasPendingModelChanges());
     }
 

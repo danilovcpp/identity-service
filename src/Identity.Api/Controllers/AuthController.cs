@@ -2,6 +2,7 @@ using Identity.Api.Configuration;
 using Identity.Api.Contracts;
 using Identity.Application.Abstractions.Cqrs;
 using Identity.Application.Common;
+using Identity.Application.Features.Auth.AcceptInvitation;
 using Identity.Application.Features.Auth.Login;
 using Identity.Application.Features.Auth.Logout;
 using Identity.Application.Features.Auth.LogoutAll;
@@ -24,6 +25,15 @@ public sealed class AuthController(ICommandDispatcher commands) : ApiController
 {
     private static readonly VerificationAcceptedResponse AcceptedResponse = new("If the request is eligible, a verification email will be sent.");
     private static readonly VerificationAcceptedResponse ResetAcceptedResponse = new("If the request is eligible, a password reset email will be sent.");
+
+    [HttpPost("invitations/accept")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> AcceptInvitation(AcceptInvitationRequest request, CancellationToken cancellationToken)
+    {
+        await commands.Execute<AcceptInvitationCommand, Unit>(new(request.Token ?? "", request.NewPassword ?? ""), cancellationToken);
+        return NoContent();
+    }
 
     [HttpPost("password/forgot")]
     [AllowAnonymous]

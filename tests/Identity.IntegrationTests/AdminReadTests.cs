@@ -181,8 +181,9 @@ public sealed class AdminReadTests(RegistrationFixture fixture, ITestOutputHelpe
         Assert.Equal("Disabled", details!.Status);
         Assert.Equal(target.Id, details.Id);
         Assert.Equal(target.CreatedAt, details.DisabledAt);
-        using var write = await client.PostAsJsonAsync(Prefix + $"/users/{target.Id}/disable", new { reason = "not implemented" });
-        Assert.Equal(HttpStatusCode.NotFound, write.StatusCode);
+        // Stage 10 now exposes this route; unsafe calls require CSRF and the full write role.
+        using var write = await client.PostAsJsonAsync(Prefix + $"/users/{target.Id}/disable", new { reason = "Read test" });
+        Assert.Equal(role == AdministratorRole.IdentityReadOnly ? HttpStatusCode.Forbidden : HttpStatusCode.BadRequest, write.StatusCode);
         using var api = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
         var paths = api.RootElement.GetProperty("paths");
         foreach (var path in new[] { "/dashboard", "/users", "/users/{userId}", "/users/{userId}/sessions", "/audit-events" })

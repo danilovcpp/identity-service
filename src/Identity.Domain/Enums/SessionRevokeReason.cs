@@ -8,5 +8,7 @@ public enum SessionRevokeReason : short
     RefreshReplay = 3,
     PasswordChanged = 4,
     PasswordReset = 5,
-    AccountDeactivated = 6
+    AccountDeactivated = 6,
+    AccountDisabled = 7,
+    AdministratorRevoked = 8
 }

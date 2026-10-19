@@ -12,6 +12,26 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsSer
         ProblemDetails problem;
         switch (exception)
         {
+            case AdminUserConflictException:
+                problem = new ProblemDetails { Status = StatusCodes.Status409Conflict, Title = "The operation is not allowed for this user state" };
+                problem.Extensions["code"] = "admin_user_conflict";
+                break;
+            case AdminEmailConflictException:
+                problem = new ProblemDetails { Status = StatusCodes.Status409Conflict, Title = "An account with this email already exists" };
+                problem.Extensions["code"] = "admin_email_conflict";
+                break;
+            case InvitationUnavailableException:
+                problem = new ProblemDetails { Status = StatusCodes.Status503ServiceUnavailable, Title = "Invitations are unavailable" };
+                problem.Extensions["code"] = "invitations_unavailable";
+                break;
+            case PasswordResetUnavailableException:
+                problem = new ProblemDetails { Status = StatusCodes.Status503ServiceUnavailable, Title = "Password reset is unavailable" };
+                problem.Extensions["code"] = "password_reset_unavailable";
+                break;
+            case InvalidInvitationTokenException:
+                problem = new ProblemDetails { Status = StatusCodes.Status400BadRequest, Title = "Invalid invitation token" };
+                problem.Extensions["code"] = "invalid_invitation_token";
+                break;
             case AdminUserNotFoundException:
                 problem = new ProblemDetails { Status = StatusCodes.Status404NotFound, Title = "User not found" };
                 problem.Extensions["code"] = "user_not_found";

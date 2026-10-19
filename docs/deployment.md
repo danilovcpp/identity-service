@@ -1,5 +1,9 @@
 # Запуск и конфигурация Identity 1.0.0
 
+Этап10: [параметры invitations/admin writes](admin-write-api.md). Новая шестая миграция
+AdminWriteLifecycle, Invitations.Enabled=false по умолчанию. Включение требует fragment-only
+template, SMTP/AES keys и outbox worker в production. AdminAccess остаётся отдельным opt-in.
+
 Этап9 добавляет [read-only admin API](admin-read-api.md) с теми же AdminAccess settings,
 без новых secrets/services. Примените пятую миграцию AdminReadIndexes отдельно; обычное
 создание индексов может блокировать writers, для больших таблиц запланируйте окно.

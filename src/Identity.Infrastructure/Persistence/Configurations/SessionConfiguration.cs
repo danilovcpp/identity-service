@@ -13,7 +13,7 @@ internal sealed class SessionConfiguration : IEntityTypeConfiguration<Session>
             table.HasCheckConstraint("ck_sessions_client", "length(btrim(client_id)) > 0");
             table.HasCheckConstraint("ck_sessions_audience", "audience IS NULL OR (length(btrim(audience)) > 0 AND audience !~ '[[:cntrl:]]')");
             table.HasCheckConstraint("ck_sessions_times", "absolute_expires_at > created_at AND absolute_expires_at <= created_at + interval '720 hours' AND last_used_at >= created_at AND last_used_at < absolute_expires_at AND (revoked_at IS NULL OR revoked_at >= last_used_at)");
-            table.HasCheckConstraint("ck_sessions_revocation", "(revoked_at IS NULL) = (revoke_reason IS NULL) AND (revoke_reason IS NULL OR revoke_reason BETWEEN 0 AND 6)");
+            table.HasCheckConstraint("ck_sessions_revocation", "(revoked_at IS NULL) = (revoke_reason IS NULL) AND (revoke_reason IS NULL OR revoke_reason BETWEEN 0 AND 8)");
         });
         builder.HasKey(session => session.Id);
         builder.Property(session => session.Id).ValueGeneratedNever();
