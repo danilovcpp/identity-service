@@ -188,6 +188,12 @@ public sealed class AdminReadTests(RegistrationFixture fixture, ITestOutputHelpe
         var paths = api.RootElement.GetProperty("paths");
         foreach (var path in new[] { "/dashboard", "/users", "/users/{userId}", "/users/{userId}/sessions", "/audit-events" })
         { Assert.True(paths.GetProperty(Prefix + path).TryGetProperty("get", out _)); }
+        foreach (var (path, schema) in new[] { ("/users/{userId}", "AdminUserDetails"), ("/users/{userId}/sessions", "PageResultOfAdminUserSession") })
+        {
+            Assert.Equal("#/components/schemas/" + schema, paths.GetProperty(Prefix + path).GetProperty("get")
+                .GetProperty("responses").GetProperty("200").GetProperty("content").GetProperty("application/json")
+                .GetProperty("schema").GetProperty("$ref").GetString());
+        }
         Assert.DoesNotContain(logs.Lines, line => line.Contains(Password, StringComparison.Ordinal)
             || line.Contains("target@identity.example", StringComparison.Ordinal) || line.Contains("encoded-secret-hash-sentinel", StringComparison.Ordinal));
         await using var verify = fixture.CreateContext();

@@ -1,4 +1,192 @@
-# Текущий статус: этап 11.1 завершён
+# Текущий статус: этап 11.2 завершён
+
+**Completed: 11.2**
+
+**Next: 11.3 — только по отдельному запросу пользователя.**
+
+## 1. Этап
+
+**11.2 — Типизированный HTTP-клиент, OpenAPI, CSRF**, 2026-10-19.
+Источники: AGENTS.md, Identity_Codex_Spec.md, Identity_Admin_Codex_Addendum_v1.2.md
+(§2, §8/11.2, §9), предыдущий статус и текущие Controllers/DTO/configuration.
+Дерево на старте чистое. Этап11.1 подтверждён **b296d60**, backend10 — **c87306d**.
+
+Обнаружен конкретный пробел OpenAPI: GET users/{userId} и /sessions содержали только404,
+без200 и схем AdminUserDetails/AdminUserSession. До исправления получено **явное
+разрешение пользователя** добавить только два ProducesResponseType(200) attributes.
+Исключение к запрету backend-изменений согласовано, бизнес-логика/ответы не менялись.
+
+## 2. Реализовано
+
+- `scripts/generate-api.mjs`, команды **api:generate / api:check**, dev-only
+  openapi-typescript7.13.0; `src/api/schema.d.ts` сгенерирован из живого Identity.Api
+  OpenAPI3.1.1, хранится в Git. Нет локальных schema overlays/ручных DTO/runtime SDK.
+- Generator проверяет наличие успешных контрактов details/sessions, форматирует вывод,
+  не пишет файл при ошибке загрузки/валидации. api:check сравнивает точный generated output.
+  IDENTITY_OPENAPI_URL — только Node/tooling env, не browser config.
+- `src/api/contracts.ts`: вывод методов/path/query/body/success response из generated
+  paths. Доступны admin endpoints и public invitation acceptance/password reset;
+  native token protocol не используется для браузерной авторизации.
+- `src/api/httpClient.ts`: injectable Fetch factory + production apiClient, relative
+  same-origin paths, credentials:same-origin, JSON, no-store, redirect:error,
+  path/query encoding, AbortSignal. 204 не читает body; пустой202 ->undefined.
+- `src/api/errors.ts`: ApiError c authoritative HTTP status/code/traceId/fieldErrors;
+  network/aborted/timeout/invalid_response/invalid_request — отдельные ClientError kinds.
+  HTTP400/401/403/404/409/429/5xx сохраняют статус даже при не-JSON/сломанных error bodies.
+  Сырые детали/URL/Response/Request/fetch cause/неизвестные metadata не сохраняются.
+- CSRF GET получает настоящий `{token}`, хранит его только в закрытой памяти и
+  автоматически добавляет X-CSRF-TOKEN ко всем unsafe admin calls, включая login/logout.
+  prepareCsrf возвращает void; сам CSRF route исключён из публичного typed request API.
+  Concurrent acquisition объединяется; отмена одного caller не ломает другого,
+  отмена последнего прерывает общий fetch. Late result после invalidation отклоняется.
+  После успешного login/logout, HTTP401 или csrf_invalid кеш CSRF очищается;
+  ни команда, ни получение CSRF в рамках этой команды автоматически не повторяются.
+- `src/api/queryKeys.ts`: auth.me/dashboard/users/detail/sessions/audit factories,
+  все server-side параметры в ключах, стабильные resource prefixes для invalidation.
+- `src/app/queryClient.ts`, AppProviders.tsx, main.tsx: fresh QueryClient на root mount,
+  retry:false для queries/mutations, networkMode:always для mutations без offline queue,
+  gcTime0 для неактивных mutations. В тестах fresh clients, никакого global query cache.
+- HTTP tests, Query/cache/provider tests и расширение существующего PostgreSQL/API
+  AdminReadTests для двух schema refs. Из backend production code — только два attributes
+  в AdminUsersController. CQRS/DI/Domain/Infrastructure/security policies не менялись.
+- README/frontend README/CHANGELOG/.env.example обновлены, scripts/*.mjs включены в ESLint.
+  Пустой api/.gitkeep удалён. Новых миграций, DB/config secret changes, endpoint routes нет.
+
+## 3. Решения
+
+Типы не дублируются: OpenAPI сохраняет number|string, nullable/optional properties,
+строковые role/status и реальный casing query parameters. Ошибки с динамическими
+ProblemDetails extensions проверяются runtime по документированному transport contract.
+Полная runtime DTO schema validation не вводилась; JSON success доверяет backend schema,
+на границе ровно один assertion результата; CSRF shape проверяется отдельно.
+
+openapi-typescript7.13 требует TypeScript^5.x. Первая установка с TS6 закономерно дала
+ERESOLVE без изменений dependency tree. Закреплён TS**5.9.3**, strict/noUncheckedIndexedAccess
+и ESLint type-aware checks сохранены. --force/--legacy-peer-deps не использовались.
+
+Отмена/таймаут принадлежат вызывающей стороне: signal, AbortController,
+AbortSignal.timeout/any. Нет скрытого deadline/retry. При отмене отправленной команды
+сервер мог уже выполнить её; требуется обновить read data, а не автоматически replay.
+CSRF/password/one-time tokens нельзя помещать в Query keys/data/mutation variables;
+будущие sensitive calls используют клиент напрямую и кешируют лишь безопасный результат.
+
+Визуальное представление bootstrap не менялось. UI-тема/навигация/App Shell — 11.3,
+auth lifecycle/route guards/cache clearing/navigation при401/Forbidden UI — 11.4.
+В этом этапе клиент лишь различает статусы, не делает redirect или скрытый login.
+Стартовое приложение не вызывает API; feature hooks/бизнес-экраны не добавлены.
+
+## 4. Проверки
+
+### Commands run
+
+Из frontend:
+
+```powershell
+npm ci
+npm run format
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test:run
+npm run test -- --run
+npm run build
+$env:IDENTITY_OPENAPI_URL = 'http://127.0.0.1:5085/openapi/v1.json'
+npm run api:generate
+npm run api:check
+$env:IDENTITY_API_PROXY_TARGET = 'http://127.0.0.1:5085'
+npm run dev
+```
+
+Из корня:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet format Identity.slnx --no-restore --verify-no-changes
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage11-2'
+dotnet tool restore
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet ef migrations script --idempotent --project src/Identity.Infrastructure --configuration Release --no-build --output migration.sql
+$env:ASPNETCORE_ENVIRONMENT = 'Development'
+dotnet run --project src/Identity.Api --no-build --configuration Release --no-launch-profile --urls http://127.0.0.1:5085
+node TestResults/stage11-2-browser-smoke.mjs
+pwsh -NoProfile -File scripts/Test-Stage7Smoke.ps1
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+Дополнительно: реальный OpenAPI и ProblemDetails прочитаны Invoke-RestMethod;
+negative generator run с IDENTITY_OPENAPI_URL=/health/live ->expected exit1,
+SHA256 schema.d.ts до/после совпал; затем api:check с реальным контрактом exit0.
+Generated check повторён после добавления generated-file header.
+
+### Observed results
+
+- npm ci exit0:333 packages, audit334, известных уязвимостей не обнаружено.
+- typecheck/lint/format:check/build exit0, frontend build без warnings.
+  **48 frontend tests passed, 0 failed/skipped**, 4 files. Первый test:run —44 passed;
+  после четырёх дополнительных cancellation/DELETE cases итоговый test -- --run —48.
+  Compile-time negative tests проверяют неизвестный route/method/body, отсутствующий
+  path parameter, запрет native login и прямого CSRF request.
+- GET/POST/DELETE, credentials/headers, CSRF reuse/login/logout/reset/401/invalidCSRF,
+  пустые202/204, public flows без admin CSRF, HTTP status matrix, network error,
+  cancellation/timeout/concurrent cancellation/late invalidation, no retry/storage/logs,
+  query keys/prefixes/cache isolation/offline mutation/provider remount проверены.
+- Browser Chromium: real Vite ->actual backend401 unauthorized и503 admin_unavailable
+  с traceId, ровно2 requests/без retries; bootstrap не выполняет API calls.
+  360/768/1280px, без overflow/page errors, storage пуст. Это transport/bootstrap smoke,
+  не authenticated login E2E. Script в ignored TestResults, production mocks нет.
+- .NET restore/build/format exit0; **0 warnings/0 errors**.
+  **470 backend tests passed, 0 failed/skipped**: Unit147, API45, Integration278.
+  Реальные PostgreSQL/Mailpit, включая concurrency/lifecycle/migrations и OpenAPI regression.
+- EF model check exit0, pending model changes нет; idempotent migration.sql создан.
+- Docker compatibility smoke exit0: новый non-root API image healthy/version1.0.0,
+  migrations/register/Mailpit/verify/login/refresh/restart/replay/me/logout/sessions/
+  password reset/change/deactivation/headers. Только прежние совместимые сценарии;
+  frontend/admin deployment не заявляется. Свой Compose project
+  identity-stage7-smoke-7e1885ccc7d44931ae3a5eaad73c4884 очищен.
+- Secret guard self-tests + current tracked/untracked tree и diff --check проходят.
+
+Промежуточные ошибки исправлены: ERESOLVE TS6/openapi-typescript ->совместимый TS5.9;
+TS erasableSyntaxOnly запретил parameter properties новых Error classes ->обычные fields;
+typed lint и позиция ts-expect-error уточнены. Итоговые команды прошли.
+Блокер отсутствующих200 в OpenAPI устранён только после отдельного разрешения человека.
+
+Ignored artifacts: TestResults/stage11-2-docker-smoke.log, stage11-2-browser-smoke.mjs,
+TRX stage11-2 в тестовых проектах, migration.sql/dist/node_modules. Никаких deploy,
+registry publication, commit/tag, production accounts или внешних messages.
+
+## 5. Безопасность
+
+CSRF request token в closure, не Query cache/storage/cookie JS; credentials отправляются
+только same-origin и в JSON, redirect заблокирован. Unsafe команды не replayятся после
+network/401/CSRF, mutation offline queue отключена. Нет логирования request/body/token,
+raw transport exception details не сохраняются. URL source env и generated types —
+tooling/type-only; никакой backend configuration/private keys в browser bundle.
+Все прежние backend HTTPS/CSRF/cookie/role/session checks сохранены и прошли регрессию.
+
+## 6. Ограничения / Known issues
+
+Блокеров11.2 нет. Cookie-auth/login/logout UI, access guards/401 redirect/cache clearing,
+Forbidden screen и feature queries — последующие этапы. Наличие клиента само по себе
+не предоставляет доступ к admin данным. Настройка HTTPS сертификатов/production VPN/MFA/
+SMTP/load/CSP, frontend Docker/CI/proxy deployment и полноценные user E2E — не проверялись
+и не реализованы; stage12 не начат. Полная runtime DTO validation не входит в этот этап.
+OpenAPI стандартная ProblemDetails schema не перечисляет runtime extensions; адаптер
+читаёт только документированные code/traceId/errors с проверкой формы.
+
+Текущие REST API и архитектура совместимы. Согласованное исключение — только OpenAPI
+metadata + regression test. Query/HTTP инфраструктура не меняет UI и не вызывает API сама.
+
+## 7. Следующий этап
+
+**Next: 11.3 — UI-тема, навигация и адаптивный App Shell.**
+Не начат; продолжение только по отдельному запросу пользователя.
+
+---
+
+# Исторический отчёт: этап 11.1
 
 **Completed: 11.1**
 

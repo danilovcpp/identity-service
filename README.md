@@ -12,8 +12,12 @@ dashboard, users/details/sessions и audit с pagination/filters.
 
 **Этап 11.1**: создан [frontend-каркас Identity Console](src/Identity.Admin.Web/README.md)
 на React/TypeScript/Vite с Ant Design, dev proxy и инструментами качества.
-Реализована только стартовая страница; подключение API и доменные экраны — следующие
+Реализована только стартовая страница; подключение API к экранам — следующие
 отдельные подэтапы [дополнения v1.2](Identity_Admin_Codex_Addendum_v1.2.md).
+
+**Этап 11.2**: добавлены generated OpenAPI types, единый typed Fetch-клиент с
+in-memory CSRF, безопасными ошибками/отменой и TanStack Query provider/key factories.
+Стартовая страница по-прежнему не вызывает API; auth и экраны — следующие подэтапы.
 
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):

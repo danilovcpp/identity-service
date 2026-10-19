@@ -19,11 +19,13 @@ public sealed class AdminUsersController(IQueryDispatcher queries) : ControllerB
         Ok(await queries.Execute<ListUsersQuery, PageResult<AdminUserListItem>>(query, cancellationToken));
 
     [HttpGet("{userId:guid}")]
+    [ProducesResponseType<AdminUserDetails>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<AdminUserDetails>> Details(Guid userId, CancellationToken cancellationToken) =>
         Ok(await queries.Execute<GetUserDetailsQuery, AdminUserDetails>(new GetUserDetailsQuery(userId), cancellationToken));
 
     [HttpGet("{userId:guid}/sessions")]
+    [ProducesResponseType<PageResult<AdminUserSession>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PageResult<AdminUserSession>>> Sessions(Guid userId, CancellationToken cancellationToken,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? state = null) =>

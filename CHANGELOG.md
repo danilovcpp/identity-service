@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10, 11.1
+## Unreleased — v1.1, stages 8–10, 11.1–11.2
+
+- Generated OpenAPI types, typed same-origin Fetch client with memory-only CSRF,
+  cancellation, normalized errors and no automatic command retries.
+- Isolated TanStack Query providers/key factories and transport/cache tests.
+  Successful user details/session OpenAPI metadata corrected with explicit approval;
+  existing HTTP contracts and business behavior preserved.
 
 - Identity Console bootstrap: React 19, strict TypeScript, Vite, Ant Design 6,
   pinned npm dependencies, typed linting, formatting and Vitest/RTL smoke test.
