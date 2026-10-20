@@ -84,6 +84,11 @@ profile, password lifecycle, deactivation, encrypted SMTP outbox и security aud
 
 ## Быстрый локальный запуск
 
+Для просмотра консоли с готовыми данными на Windows: `pwsh -NoProfile -File scripts/Start-Demo.ps1`.
+Скрипт поднимает отдельное локальное окружение, создаёт две административные и десять
+обычных учёток, сохраняет пароли между запусками и открывает браузер.
+Креды: `secrets/demo/ACCOUNTS.md`. [Запуск, остановка и сброс демо](docs/local-demo.md).
+
 Все команды выполняются из корня checkout в PowerShell 7.4+. Это dev окружение:
 loopback HTTP, Development и Mailpit. Production описан [отдельно](docs/production.md).
 
