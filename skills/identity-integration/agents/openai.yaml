@@ -1,0 +1,4 @@
+interface:
+  display_name: "Identity Integration"
+  short_description: "Integrate reusable Identity auth and user accounts"
+  default_prompt: "Use $identity-integration to add secure authentication and user accounts to this application using the existing Identity service."

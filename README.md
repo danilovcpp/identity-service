@@ -225,6 +225,10 @@ sessions, refresh_tokens, one_time_tokens, outbox_messages, security_audit_event
 - [Security checklist и ограничения](docs/security.md).
 - [Options, SDK, миграции, key rotation, retention/metrics](docs/deployment.md).
 - [Production runbook: TLS, Console, bootstrap, secrets, deploy/backup/restore](docs/console-production.md).
+- [AI-agent skill для интеграции Identity в другие проекты](skills/identity-integration/SKILL.md).
+  Переносимая папка `skills/identity-integration` содержит протокол, BFF/JWT/refresh
+  guidance и карту исходников. Для автоматического обнаружения установите её в
+  каталог skills своего агента; в Codex — `$CODEX_HOME/skills` или `~/.codex/skills`.
 
 ## Сборка, тесты и CI
 
