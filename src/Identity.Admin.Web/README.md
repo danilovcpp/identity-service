@@ -21,7 +21,23 @@ Read-only журнал, URL-фильтры и переходы к пользов
 По отдельному запросу20.10 UI приведён к стандартному Ant Design6.6.6 light:
 без overrides палитры/контролов/теней; штатные Form/Grid/Modal/Table patterns.
 [Исторический baseline](docs/ant-design-alignment.md). В11.14 theme tokens уточнены
-для контраста AA; геометрия Ant Design сохранена. Scope — до11.14, этап12 не начат.
+для контраста AA; геометрия Ant Design сохранена.
+
+Этап12: [Production guide/runbook](../../docs/console-production.md), multi-stage
+Dockerfile и Nginx для одного HTTPS origin. Backend/API без изменений, admin ingress
+закрыт по умолчанию. CSP разрешает inline CSS для runtime-стилей Ant Design;
+inline scripts и eval запрещены. Причины и ограничения описаны в production guide.
+
+Полный прогон через Production API и собранный frontend image (без Vite):
+
+```powershell
+# Из корня repository, после Release build и установки Chromium
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1 -Production
+```
+
+CI устанавливает locked dependencies, выполняет typecheck/lint/format/unit, проверяет
+OpenAPI и весь browser suite. Production edge тестируется на cache/CSP/headers,
+API404, неизвестный Host и denied-source admin ACL со spoofed forwarding headers.
 
 ## Требования и запуск
 
@@ -128,7 +144,8 @@ HTTP startup подходит для bootstrap, он не подтверждае
 Заголовок `X-Forwarded-Proto` от Vite не считается доверенным автоматически:
 backend HTTPS listener либо явно настроенные по его runbook trusted proxy и HTTPS
 обязательны. Не ослабляйте CSRF/CORS/cookie policy ради локального запуска.
-Same-origin публикация, production Docker/reverse proxy/CSP/CI — этап 12.
+Same-origin публикация и production Docker/reverse proxy/CSP/CI реализованы в этапе12;
+используйте [production guide](../../docs/console-production.md).
 
 ## Конфигурация и секреты
 

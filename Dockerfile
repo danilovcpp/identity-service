@@ -12,7 +12,7 @@ RUN dotnet publish src/Identity.Api/Identity.Api.csproj -c Release --no-restore 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:d5633778c754e89a386882eddf8dbee6942447a8a4b8267c19cf1e1158d0b0ac AS final
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="Identity" \
-      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.version="1.1.0" \
       org.opencontainers.image.revision=$VCS_REF
 WORKDIR /app
 COPY --from=build /app/publish ./

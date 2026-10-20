@@ -3,7 +3,10 @@
 The v1.1 addendum extends v1.0. Stage 8 provides domain/schema, bootstrap CLI and
 browser authentication. Stage9 adds [read-only administrative API](admin-read-api.md).
 Stage10 adds [administrative commands and invitation acceptance](admin-write-api.md).
-React UI and integrated production packaging remain stages11–12.
+Stages11–12 deliver React UI and integrated production packaging.
+See [Console production deployment](console-production.md)
+for the current TLS/CIDR boundary, persistent key mount and complete release procedure.
+Earlier stage-specific topology notes below are historical; cookie/CLI contracts remain valid.
 
 ## Configuration and boundary
 

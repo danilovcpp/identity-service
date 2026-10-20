@@ -1,4 +1,191 @@
-# Текущий статус: этап 11.14 — сквозная доработка frontend и приёмка
+# Текущий статус: этап 12 — Production hardening & release
+
+**Completed: 12**
+
+**Next: отдельного этапа в дополнении больше нет; deployment — только по отдельному разрешению.**
+
+## 1. Этап
+
+12 из Identity_Admin_Codex_Addendum_v1.2.md, 21.10.2026. Прочитаны AGENTS.md,
+базовое ТЗ, дополнение, текущие API/config/tests и статус. Git-история от b296d60
+до c1bf5de и код подтверждают завершение11.1–11.14. Начальный HEAD c1bf5de,
+рабочее дерево чистое. Реализована только поставка/hardening; demo launcher сохранён.
+
+## 2. Реализовано
+
+- Identity.Admin.Web/Dockerfile: locked npm ci и Vite build в pinned official Node22,
+  финальная static Nginx image без Node, non-root101:101, healthcheck и OCI metadata.
+  Frontend build context исключает env/secrets/node_modules/artifacts; API context
+  теперь исключает frontend. Release metadata .NET/npm/images/CHANGELOG —1.1.0.
+- nginx/: единый TLS origin, admin/account SPA fallback; API/JWKS proxy без HTML
+  fallback, API404 сохраняет JSON. Health/OpenAPI/direct index/unknown paths закрыты.
+  Entry no-store; immutable только существующие hashed JS/CSS assets.
+- Restricted admin ingress: пустой default CIDR allowlist означает deny-all для
+  admin SPA и всего case-insensitive admin API, включая CSRF/login. Exact-host TLS,
+  overwritten forwarding headers, trusted exact proxy IP/один hop, без unsafe retry.
+  HSTS/nosniff/no-referrer/frame/permissions/CSP,16k body и bounded timeouts.
+- deploy/compose.production.yaml теперь API + identity-admin-web: только HTTPS edge
+  публикует порт на явно заданном частном/loopback IP; API host port отсутствует.
+  Обе службы read-only/non-root/cap_drop ALL/no-new-privileges, bounded tmpfs/pids/
+  memory/logs. Persistent DP bind и read-only config binds должны существовать заранее;
+  RSA/AES/TLS — external secret mounts. Admin/invitations по-прежнему explicit opt-in.
+- scripts/AdminWebProductionFixture.ps1 + -Production/-SecurityOnly в существующем
+  harness: свежие PostgreSQL17/Mailpit, отдельный non-owner identity_app с минимальными
+  grants, Production API и built static image без Vite; настоящий STARTTLS с
+  isolated trust anchor. OpenAPI drift проверяется на временном Development API
+  до переключения на production, где OpenAPI остаётся выключенным.
+- Denied-source network probes: admin pages/API, case/percent-encoding/spoofed
+  headers запрещены; account pages доступны без admin CIDR. Прямой неизвестный
+  HTTP peer API не может подделать forwarded HTTPS. Проверены отсутствие API port,
+  non-root/read-only и сохранение cookie/DP/DB session после API restart.
+- Четыре production Playwright cases: headers/cache/hashed assets, edge404/private
+  routes/unknown Host, forwarding401/CSRF400/JWKS, runtime styles/chart/modal/toast
+  и фактический запрет inline script. Существующие91 cases запускаются через edge;
+  shell unknown route assertion учитывает deliberate edge404 вне SPA namespaces.
+- Проверка известных fixture secrets в выводе/dist, SHA-256 match реально выдаваемых
+  entry/assets с проверенным bundle; privacy guards/screenshot policy сохранены.
+- CI: pinned setup-node, locked install, TS/ESLint/Prettier/Vitest/Chromium, OpenAPI
+  и полный Production browser suite дополнены к существующим backend/EF/smoke steps.
+  GitHub workflow не публикует images и не выполняет deployment.
+- docs/console-production.md: новые env/mounts/CIDRs, build/migrations/launch,
+  bootstrap первого verified Active admin без default password, least-privilege
+  grants, TLS/key rotation, backup/restore/incident response, ограничения и acceptance.
+  Старые deployment/admin docs отмечают актуальный guide; restore SQL включает
+  admin_sessions. README, frontend README, env samples и release notes обновлены.
+
+## 3. Решения / API / миграции / конфигурация
+
+Business C#/REST/DTO/CQRS/схема не менялись; новых NuGet/npm dependencies нет.
+Остаются6 миграций, применяемых отдельной deployment-командой.
+
+Production Compose изменяет прежнюю API-only topology: нужны web image/TLS/config/
+CIDR/key-directory/private-bind/network variables из нового sample; API_PORT больше
+не публикует production API. Это migration конфигурации, не изменение REST contracts.
+PostgreSQL/SMTP/VPN/DNS/certificate provisioning остаётся операторским.
+
+CSP для SPA: script-src self, без inline scripts/eval; styles разрешены self + unsafe-inline.
+API/JWKS сохраняют отдельную deny-all CSP; разрешение стилей не применяется к JSON API.
+Nonce-only policy была проверена и отклонена: pinned @rc-component/portal scrollbar
+utilities вызывают dynamicCSS без CSP nonce (подтверждено исходниками зависимостей
+и browser violation events). Сохранены штатные scroll locks/измерения, без dependency
+patches, DOM interception или отключения negative script test. Это явный CSS-injection
+tradeoff, описанный в guide; полноценная CSP с nonce-only styles не заявляется.
+Edge rejections могут иметь Nginx error body; upstream API responses не подменяются.
+
+## 4. Проверки
+
+### Commands run
+
+Repository root:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet tool restore
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage-12'
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage-12-final'
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet ef migrations script --idempotent --project src/Identity.Infrastructure --configuration Release --no-build --output migration.sql
+dotnet format Identity.slnx --no-restore --verify-no-changes
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1 -Production
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1 -Production -SecurityOnly
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+Frontend (src/Identity.Admin.Web):
+
+```powershell
+npx prettier --write src/app/AppProviders.tsx index.html
+npx prettier --write playwright.config.ts e2e/production.spec.ts
+npx prettier --write e2e/shell.spec.ts
+npx prettier --write README.md e2e/production.spec.ts
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test:run
+```
+
+Harness фактически выполняет docker build обеих images, npm ci в frontend build
+stage, compose config --quiet/up --wait/nginx -t/restart, api:check и test:e2e
+(включая npm run build); затем удаляет только свои containers/networks/volumes/
+env/cert/key files. Дополнительно проверен PowerShell AST обоих fixture scripts.
+Official Docker base digests и setup-node SHA разрешены read-only командами pull/
+git ls-remote; внешнего deployment не было.
+
+### Observed results
+
+- Release restore/build:0 errors/0 warnings. Финальные **470 backend tests passed**:
+  147Unit +45API +278Integration,0failed/skipped; real PostgreSQL/Mailpit,1m30s.
+- TS/ESLint/Prettier exit0; **330 Vitest tests passed**,19files,0failed/skipped,
+  финальный run20.67s. Runtime frontend source после CSP эксперимента сохранён.
+- EF pending model changes отсутствуют; idempotent SQL generated; dotnet format exit0.
+  В изолированных fixtures применены все6 migrations.
+- Docker builds/locked npm ci/production Vite build и OpenAPI drift проходят.
+  Final CSS~4.26kB, index JS112.31kB, максимальный Dashboard chunk357.44kB.
+- Полный production harness: **95 Chromium tests passed**,0failed/skipped,retries0,
+  workers4,2.8m, exit0 вместе с post-check/cleanup. Проверены реальные API+static
+  image+PostgreSQL+STARTTLS Mailpit,40 axe reports:0confirmed violations; только
+  incomplete color-contrast/target-size для ручной оценки.
+- После финального разделения CSP для SPA и JSON API: targeted **4 security cases
+  passed**,3.4s, exit0. Повторены image builds/nginx -t/ACL/direct-peer400/DB runtime
+  grants/session persistence/served-file SHA-256/secret checks/cleanup. Продуктовые
+  flows не менялись;95-case full run предшествует только этому header refinement.
+- Secret guard/self-tests/untracked и whitespace/fixture syntax checks exit0.
+
+Промежуточные ошибки и исправления: YAML flow-list разделяла tmpfs options по
+запятой — строка заключена в кавычки. Fixture env filter ошибочно исключал Identity__
+clients — уточнён regex; production validation не отключалась. Probe использовал
+fetch с Host — заменён на Node HTTPS request с явным Host. ESLint any-return и
+временные TS/Prettier errors диагностики исправлены, диагностика удалена.
+Первый browser run27passed/1failed: /missing вне SPA namespaces должен быть edge404,
+а admin/account unknown routes сохраняют UI404. Следующий94passed/1failed выявил
+три nonce-less inline styles — принят описанный CSP tradeoff. После95passed
+post-check захватил stock50x.html из Nginx, который не публикуется; сравнение уточнено
+до реальных entry/assets и весь harness повторён. Ошибки не скрыты увеличением retries
+или отключением негативных сценариев. SecurityOnly диагностический запуск до фикса
+временного TS assertion завершился ошибкой; финальный default suite включает все4 cases.
+
+## 5. Безопасность
+
+Неизвестные сети не получают admin HTML/CSRF/login/API, forwarding нельзя подделать
+для получения HTTPS/cookie session. API не имеет прямого опубликованного порта.
+Cookie HttpOnly/Secure/Strict/host-only, backend roles и CSRF сохранены; реальный
+ReadOnly403/anonymous401/CSRF400 проверяются через edge. Нет default admin/password,
+автоматического promotion или HTTP role-management API.
+
+Runtime DB connection не owner/superuser и не может назначать роли; CLI/migrations
+отдельно. Durable DP keys переживают restart; secrets не входят в images/bundle/Git.
+Логи proxy не содержат raw URL/access bodies. Known-fixture guard не является
+exhaustive scanner всех возможных секретов. Политика CSS allowance и downstream JWT
+exp/skew остаются явными ограничениями.
+
+## 6. Ограничения / Known issues
+
+Функциональных блокеров12 нет. Deployment в реальный VPS/аккаунт, registry push,
+GitHub Actions execution, настоящие VPN/firewall/DNS/TLS renewal/external SMTP и
+production restore drill не выполнялись: это операторская приёмка по runbook.
+Не заявляются MFA, OAuth/OIDC/SSO, мгновенный downstream JWT revoke или WCAG certification.
+До MFA administrative ingress остаётся в доверенном контуре; public account routes
+должны быть достижимы в выбранной оператором network topology. Verification UI не
+добавлялась: сохраняется базовый JSON verify contract/operator/client flow.
+
+Chromium only, Lighthouse/Firefox/WebKit/assistive-technology certification не запускались.
+Axe incomplete color-contrast/target-size требуют ручной оценки, как в11.14.
+CSS inline allowance — осознанное ограничение CSP. Старые constraints и operational
+risks из истории сохраняются. Отдельный legacy Stage7 smoke локально не повторялся;
+его существующий CI step сохранён, выполнен новый полный production smoke.
+
+## 7. Следующий этап
+
+План0–12 и frontend11.1–11.14 завершён. Следующие изменения — только по отдельному
+запросу. Рекомендуется операторская приёмка реальной инфраструктуры по runbook;
+внешний deployment/push не выполнялись. Git summary/commit — на английском.
+
+---
+
+# История: этап 11.14 — сквозная доработка frontend и приёмка
 
 **Completed: 11.14**
 

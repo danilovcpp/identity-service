@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 const baseURL = process.env.IDENTITY_E2E_BASE_URL;
 const port = process.env.IDENTITY_E2E_PORT;
+const production = process.env.IDENTITY_E2E_PRODUCTION === 'true';
 if (!baseURL || !port || !process.env.IDENTITY_E2E_PASSWORD) {
   throw new Error(
     'Run scripts/Test-AdminWebSmoke.ps1 to create the disposable HTTPS backend and test accounts.',
@@ -25,9 +26,20 @@ export default defineConfig({
     screenshot: 'off', // Only the privacy-guarded explicit screenshots are allowed.
   },
   projects: [
+    ...(production
+      ? [
+          {
+            name: 'chromium-production',
+            testMatch: '**/production.spec.ts',
+            dependencies: ['chromium-visual'],
+            use: { ...devices['Desktop Chrome'] },
+          },
+        ]
+      : []),
     {
       name: 'chromium',
       testIgnore: [
+        '**/production.spec.ts',
         '**/invitations.spec.ts',
         '**/accountStatus.spec.ts',
         '**/antDesign.spec.ts',
@@ -90,10 +102,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: `npm run dev -- --port ${port}`,
-    url: baseURL,
-    reuseExistingServer: false,
-    timeout: 30_000,
-  },
+  webServer: production
+    ? undefined
+    : {
+        command: `npm run dev -- --port ${port}`,
+        url: baseURL,
+        reuseExistingServer: false,
+        timeout: 30_000,
+      },
 });

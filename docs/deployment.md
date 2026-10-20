@@ -1,5 +1,10 @@
 # Запуск и конфигурация Identity 1.0.0
 
+**Актуальная поставка1.1:** [Console production guide](console-production.md).
+Этап12 добавляет frontend image, TLS edge, restricted admin ingress и production
+Compose без опубликованного API-порта. Исторические заметки ниже описывают развитие
+backend; для новой установки используйте guide1.1 и все6 миграций.
+
 Этап10: [параметры invitations/admin writes](admin-write-api.md). Новая шестая миграция
 AdminWriteLifecycle, Invitations.Enabled=false по умолчанию. Включение требует fragment-only
 template, SMTP/AES keys и outbox worker в production. AdminAccess остаётся отдельным opt-in.

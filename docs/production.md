@@ -1,5 +1,11 @@
 # Identity 1.0.0: production deployment
 
+**Identity1.1:** актуальная инструкция — [Console production/runbook](console-production.md).
+Ниже сохранён backend/API-only runbook1.0 для описания grants, keys и recovery.
+Его topology/Compose команды заменены этапом12: API больше не публикует host-порт,
+добавлен TLS web edge, обязательные CIDR/config/TLS/Data Protection mounts и все6
+миграций. Используйте новый guide для подготовки и запуска текущего Compose.
+
 Этап10 [admin writes/invitations](admin-write-api.md): примените AdminWriteLifecycle,
 настройте отдельный Invitations opt-in и fragment-only activation/reset URLs. Production
 invitations требуют outbox worker + SMTP TLS/AES keys; UI pages будут в этапе11. Все
@@ -63,6 +69,8 @@ GRANT CONNECT ON DATABASE identity TO identity_app;
 GRANT USAGE ON SCHEMA public TO identity_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE users, credentials, sessions,
   refresh_tokens, one_time_tokens, outbox_messages, security_audit_events TO identity_app;
+GRANT SELECT ON TABLE identity_administrators TO identity_app;
+GRANT SELECT, INSERT, UPDATE ON TABLE admin_sessions TO identity_app;
 ```
 
 На доверенном runner с SDK и исходниками этого выпуска задайте migration
@@ -166,6 +174,7 @@ Restore старого snapshot откатывает также password/status/
 BEGIN;
 UPDATE sessions SET revoked_at = GREATEST(CURRENT_TIMESTAMP, created_at), revoke_reason = 1 WHERE revoked_at IS NULL;
 UPDATE refresh_tokens SET revoked_at = GREATEST(CURRENT_TIMESTAMP, created_at) WHERE revoked_at IS NULL;
+UPDATE admin_sessions SET revoked_at = GREATEST(CURRENT_TIMESTAMP, created_at) WHERE revoked_at IS NULL;
 UPDATE one_time_tokens SET consumed_at = created_at WHERE consumed_at IS NULL;
 COMMIT;
 ```

@@ -1,4 +1,9 @@
-# Identity 1.0.0
+# Identity 1.1.0
+
+**Этап12 завершает поставку Identity Console:** [production guide/runbook](docs/console-production.md),
+multi-stage frontend Dockerfile, restricted HTTPS Nginx, API без host-порта,
+Compose и CI для backend/frontend/OpenAPI/E2E. Административный доступ остаётся
+opt-in и закрыт VPN/CIDR-контуром до MFA. Внешний deployment не выполняется автоматически.
 
 Развитие v1.1: **этап 8** добавляет системные административные роли, CLI bootstrap и
 secure cookie/CSRF API. [Настройка и runbook](docs/admin-access.md). Admin access выключен
@@ -77,7 +82,7 @@ Backend/API/миграции сохранены; auto-login и новая пуб
 **Этап 11.14**: [frontend acceptance](src/Identity.Admin.Web/docs/frontend-acceptance.md):
 доступность и keyboard/focus, контраст через Ant Design theme tokens, общая политика
 ошибок команд, исправления query-cache и сквозные privacy/axe проверки.
-Frontend11.1–11.14 завершён; Docker/proxy/CI/release hardening — отдельный этап12.
+Frontend11.1–11.14 и этап12 завершены; [release deployment/runbook](docs/console-production.md).
 
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):
@@ -101,7 +106,7 @@ profile, password lifecycle, deactivation, encrypted SMTP outbox и security aud
 Креды: `secrets/demo/ACCOUNTS.md`. [Запуск, остановка и сброс демо](docs/local-demo.md).
 
 Все команды выполняются из корня checkout в PowerShell 7.4+. Это dev окружение:
-loopback HTTP, Development и Mailpit. Production описан [отдельно](docs/production.md).
+loopback HTTP, Development и Mailpit. Production описан [отдельно](docs/console-production.md).
 
 1. Восстановите инструменты и соберите API:
 
@@ -219,7 +224,7 @@ sessions, refresh_tokens, one_time_tokens, outbox_messages, security_audit_event
 - [Все API contracts и curl](docs/api.md), включая пример JWT validation в отдельном .NET API.
 - [Security checklist и ограничения](docs/security.md).
 - [Options, SDK, миграции, key rotation, retention/metrics](docs/deployment.md).
-- [Production runbook: TLS, secrets, PostgreSQL, deploy/backup/restore](docs/production.md).
+- [Production runbook: TLS, Console, bootstrap, secrets, deploy/backup/restore](docs/console-production.md).
 
 ## Сборка, тесты и CI
 
@@ -232,6 +237,8 @@ dotnet build Identity.slnx --configuration Release --no-restore
 dotnet format Identity.slnx --no-restore --verify-no-changes
 dotnet test Identity.slnx --configuration Release --no-build --no-restore
 pwsh -NoProfile -File scripts/Test-Stage7Smoke.ps1
+# Frontend dependencies + Chromium: see src/Identity.Admin.Web/README.md
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1 -Production
 ```
 
 Tests применяют/revert/reapply migrations на временном PostgreSQL 17; EF InMemory/SQLite
@@ -240,7 +247,8 @@ Tests применяют/revert/reapply migrations на временном Postg
 используйте команды [миграций](docs/deployment.md#миграции); SQL output ignored.
 
 [GitHub Actions CI](.github/workflows/ci.yml) запускает те же проверки на Ubuntu/Docker,
-включая migrations и container smoke. Actions pinned по SHA, permissions contents:read,
+включая frontend typecheck/lint/format/unit, OpenAPI, migrations и полный browser suite
+через production images/HTTPS. Actions pinned по SHA, permissions contents:read,
 checkout без сохранения credentials; workflow не публикует image/release и не deploy.
 Guard проверяет текущие tracked files (локально также untracked с флагом), запрещает
 secret file paths и известные PEM/token literals; не заменяет проверку всей Git history

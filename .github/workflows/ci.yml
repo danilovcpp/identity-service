@@ -15,7 +15,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_NOLOGO: "1"
@@ -26,6 +26,11 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 10.0.x
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: src/Identity.Admin.Web/package-lock.json
       - name: Repository secret guard
         shell: pwsh
         run: ./scripts/Test-RepositorySecrets.ps1 -SelfTest
@@ -33,6 +38,15 @@ jobs:
       - run: dotnet tool restore
       - run: dotnet build Identity.slnx --configuration Release --no-restore
       - run: dotnet format Identity.slnx --no-restore --verify-no-changes
+      - name: Frontend install, types, lint, formatting and component tests
+        working-directory: src/Identity.Admin.Web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run lint
+          npm run format:check
+          npm run test:run
+          npx playwright install --with-deps chromium
       - name: Unit, API and PostgreSQL/Mailpit integration tests (includes migration Up/Down)
         run: dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger "trx;LogFilePrefix=ci"
       - name: Migration model and SQL
@@ -44,6 +58,9 @@ jobs:
       - name: Container build and end-to-end smoke
         shell: pwsh
         run: ./scripts/Test-Stage7Smoke.ps1
+      - name: Production Console images, OpenAPI, HTTPS boundary and complete browser suite
+        shell: pwsh
+        run: ./scripts/Test-AdminWebSmoke.ps1 -Production
       - name: Test reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

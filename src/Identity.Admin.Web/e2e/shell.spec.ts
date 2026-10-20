@@ -132,7 +132,15 @@ test('admin/public unknown paths return safely to the console without a document
     '/account/not-implemented',
     '/missing',
   ]) {
-    await page.goto(route);
+    const response = await page.goto(route);
+    if (
+      route === '/missing' &&
+      process.env.IDENTITY_E2E_PRODUCTION === 'true'
+    ) {
+      // The release edge deliberately provides SPA fallback only under admin/account.
+      expect(response?.status()).toBe(404);
+      continue;
+    }
     await expect(
       page.getByRole('heading', { level: 1, name: 'Page not found' }),
     ).toBeVisible();

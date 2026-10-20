@@ -1,7 +1,8 @@
 #requires -Version 7.4
-param([switch]$AcceptanceOnly)
+param([switch]$AcceptanceOnly, [switch]$Production, [switch]$SecurityOnly)
 # Local, disposable HTTPS fixture. No production settings or global certificate trust are changed.
 $ErrorActionPreference = 'Stop'
+if ($SecurityOnly -and (-not $Production -or $AcceptanceOnly)) { throw 'SecurityOnly requires Production and cannot be combined with AcceptanceOnly.' }
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $suffix = [Guid]::NewGuid().ToString('N')
 $project = "identity-admin-web-$suffix"
@@ -9,6 +10,7 @@ $directory = Join-Path $root "secrets/admin-web-$suffix"
 $environmentFile = Join-Path $directory 'compose.env'
 $process = $null
 $started = $false
+$productionStarted = $false
 $previous = @{}
 $ports = [Collections.Generic.HashSet[int]]::new()
 function Set-TestEnvironment([string] $name, [string] $value) {
@@ -40,6 +42,7 @@ try {
             [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)
         $san = [Security.Cryptography.X509Certificates.SubjectAlternativeNameBuilder]::new()
         $san.AddDnsName('localhost')
+        $san.AddDnsName('mailpit')
         $san.AddIpAddress([Net.IPAddress]::Loopback)
         $request.CertificateExtensions.Add($san.Build())
         $certificate = $request.CreateSelfSigned([DateTimeOffset]::UtcNow.AddMinutes(-1), [DateTimeOffset]::UtcNow.AddDays(1))
@@ -126,12 +129,14 @@ try {
     try {
         & npm run api:check
         if ($LASTEXITCODE -ne 0) { throw 'Generated API contract drift detected.' }
+        if ($Production) { . (Join-Path $PSScriptRoot 'AdminWebProductionFixture.ps1') }
         $browserArguments = @('run', 'test:e2e')
         if ($AcceptanceOnly) { $browserArguments += @('--', '--project=chromium-acceptance', '--no-deps') }
+        if ($SecurityOnly) { $browserArguments += @('--', '--project=chromium-production', '--no-deps') }
         $unsafeOutput = $false
         & npm @browserArguments 2>&1 | ForEach-Object {
             $line = [string]$_
-            if ($line.Contains($password) -or $line.Contains($databasePassword) -or $line.Contains($pfxPassword)) {
+            if ($line.Contains($password) -or $line.Contains($databasePassword) -or $line.Contains($pfxPassword) -or ($Production -and $line.Contains($runtimeDatabasePassword))) {
                 $unsafeOutput = $true
                 Write-Output '[Suppressed credential-bearing browser output]'
             } else { Write-Output $line }
@@ -140,11 +145,25 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Browser smoke failed.' }
         foreach ($file in Get-ChildItem -LiteralPath 'dist' -Recurse -File) {
             $content = [IO.File]::ReadAllText($file.FullName)
-            if ($content.Contains($password) -or $content.Contains($databasePassword) -or $content.Contains($pfxPassword)) { throw 'Fixture secret found in frontend bundle.' }
+            if ($content.Contains($password) -or $content.Contains($databasePassword) -or $content.Contains($pfxPassword) -or ($Production -and $content.Contains($runtimeDatabasePassword))) { throw 'Fixture secret found in frontend bundle.' }
+        }
+        if ($Production) {
+            $imageHashes = & docker exec $webContainer sh -c 'cd /usr/share/nginx/html && sha256sum ./index.html && find ./assets -type f -exec sha256sum {} \;'
+            if ($LASTEXITCODE -ne 0) { throw 'Could not verify served release assets.' }
+            foreach ($line in $imageHashes) {
+                if ($line -notmatch '^([a-f0-9]{64})\s+\./(.+)$') { throw 'Invalid release asset hash output.' }
+                $expectedHash = $Matches[1]
+                $relative = $Matches[2]
+                if ($relative.Contains('..') -or [IO.Path]::IsPathRooted($relative)) { throw 'Invalid release asset path.' }
+                $localFile = Join-Path 'dist' $relative
+                if (-not (Test-Path -LiteralPath $localFile) -or (Get-FileHash -LiteralPath $localFile -Algorithm SHA256).Hash -ne $expectedHash) { throw 'Served release assets differ from the verified frontend bundle.' }
+            }
+            Write-Output 'Served release assets match the verified credential-free frontend bundle.'
         }
     } finally { Pop-Location }
 } finally {
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+    if ($productionStarted) { Invoke-ProductionCompose down --volumes --remove-orphans }
     if ($started) { Invoke-TestCompose down --volumes --remove-orphans }
     foreach ($name in $previous.Keys) { [Environment]::SetEnvironmentVariable($name, $previous[$name]) }
     # Delete only this invocation's generated files, after validating the absolute target.

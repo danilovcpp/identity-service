@@ -1,6 +1,7 @@
 name: identity-production
 
-# Standalone API only. Supply PostgreSQL, TLS terminator and SMTP separately.
+# PostgreSQL and SMTP are operator-managed. Only the TLS edge publishes a port.
+# The private bind address and network allowlist are mandatory until admin MFA exists.
 services:
   api:
     image: ${IDENTITY_IMAGE:?Set IDENTITY_IMAGE to a reviewed image digest}
@@ -9,14 +10,23 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_HTTP_PORTS: "8080"
       Jwt__PrivateKeyPath: /run/secrets/identity_jwt_key
-    ports:
-      - "127.0.0.1:${API_PORT:-5080}:8080"
+      AdminAccess__DataProtectionKeyPath: /var/lib/identity/data-protection-keys
+      TransportSecurity__ForwardedHeadersEnabled: "true"
+      TransportSecurity__KnownProxies__0: ${IDENTITY_PROXY_IP:?Set IDENTITY_PROXY_IP inside the isolated edge subnet}
+      TransportSecurity__ForwardLimit: "1"
+    networks:
+      edge:
+        ipv4_address: ${IDENTITY_API_IP:?Set IDENTITY_API_IP inside the isolated edge subnet}
     secrets:
       - identity_jwt_key
       - identity_outbox_key
+    volumes:
+      - type: bind
+        source: ${ADMIN_KEY_DIRECTORY:?Provision a persistent protected Data Protection directory}
+        target: /var/lib/identity/data-protection-keys
+        bind: { create_host_path: false }
     read_only: true
-    tmpfs:
-      - /tmp:size=16777216,mode=1777
+    tmpfs: ["/tmp:size=16777216,mode=1777"]
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     pids_limit: 256
@@ -24,12 +34,55 @@ services:
     restart: unless-stopped
     logging:
       driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+      options: { max-size: "10m", max-file: "3" }
+
+  identity-admin-web:
+    image: ${IDENTITY_ADMIN_WEB_IMAGE:?Set IDENTITY_ADMIN_WEB_IMAGE to a reviewed image digest}
+    ports:
+      - "${IDENTITY_HTTPS_BIND_IP:?Bind the edge to a private VPN or loopback interface}:${IDENTITY_HTTPS_PORT:-443}:8443"
+    networks:
+      edge:
+        ipv4_address: ${IDENTITY_PROXY_IP:?Set IDENTITY_PROXY_IP}
+    depends_on:
+      api:
+        condition: service_healthy
+    secrets:
+      - identity_tls_certificate
+      - identity_tls_key
+    volumes:
+      - type: bind
+        source: ${IDENTITY_HOST_CONFIG:?Set the reviewed exact-host TLS server configuration}
+        target: /etc/nginx/identity-host.conf
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${ADMIN_NETWORKS_FILE:?Set the reviewed VPN CIDR allowlist}
+        target: /etc/nginx/admin-networks.conf
+        read_only: true
+        bind: { create_host_path: false }
+    read_only: true
+    tmpfs: ["/tmp:size=16777216,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 128m
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: ${IDENTITY_EDGE_SUBNET:?Choose a non-overlapping isolated Docker subnet}
 
 secrets:
   identity_jwt_key:
     file: ${JWT_KEY_FILE:?Set JWT_KEY_FILE}
   identity_outbox_key:
     file: ${OUTBOX_KEY_FILE:?Set OUTBOX_KEY_FILE}
+  identity_tls_certificate:
+    file: ${TLS_CERTIFICATE_FILE:?Set TLS_CERTIFICATE_FILE}
+  identity_tls_key:
+    file: ${TLS_KEY_FILE:?Set TLS_KEY_FILE}

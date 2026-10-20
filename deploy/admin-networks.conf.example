@@ -1,0 +1,3 @@
+# Replace with actual VPN client CIDRs as seen at this edge. Empty = deny all.
+# Do not allow the whole internet or accept client-supplied forwarded headers.
+# 10.8.0.0/24 1;

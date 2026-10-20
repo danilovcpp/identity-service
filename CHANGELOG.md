@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10, 11.1–11.14
+## 1.1.0 — 2026-10-21
+
+- Package the complete Identity Console as a non-root static Nginx image with
+  pinned official base manifests and locked frontend builds.
+- Add same-origin TLS routing, fail-closed admin CIDR restrictions, exact trusted
+  forwarding, enforced script CSP with documented runtime-style allowance, and safe asset caching.
+- Ship restricted production Compose with no published API port, persistent protected
+  admin key storage, external secrets and bounded read-only runtime containers.
+- Extend CI with frontend quality checks, OpenAPI verification and full real-backend
+  browser coverage through the production images, including negative edge probes.
+- Document first-admin bootstrap, release artifacts, migration/deployment steps,
+  key/certificate rotation, backup, incident response and recovery.
+
+### Administrative domain and Console — stages 8–11
 
 - Complete frontend acceptance with responsive/keyboard/focus review, automated axe
   audits and shared browser privacy guards across the real-backend scenario suite.
@@ -8,8 +21,7 @@
   the shared password visibility target while retaining standard component geometry.
 - Share command error presentation; invalidate audit after invitations and clear
   protected cached data when a session-check refetch returns 401.
-- Add navigation examples, safe screenshots and an acceptance/limitations matrix;
-  production deployment and release infrastructure remain a separate stage12.
+- Add navigation examples, safe screenshots and an acceptance/limitations matrix.
 
 - Anonymous invitation activation and password reset pages using existing JSON APIs,
   immediate fragment cleanup and component-only credential handling outside Query caches.
