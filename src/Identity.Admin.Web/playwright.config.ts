@@ -22,6 +22,7 @@ export default defineConfig({
     reducedMotion: 'reduce',
     trace: 'off',
     video: 'off',
+    screenshot: 'off', // Only the privacy-guarded explicit screenshots are allowed.
   },
   projects: [
     {
@@ -34,12 +35,19 @@ export default defineConfig({
         '**/sessions.spec.ts',
         '**/audit.spec.ts',
         '**/account.spec.ts',
+        '**/acceptance.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'chromium-visual',
       testMatch: '**/antDesign.spec.ts',
+      dependencies: ['chromium-acceptance'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'chromium-acceptance',
+      testMatch: '**/acceptance.spec.ts',
       dependencies: ['chromium-account'],
       use: { ...devices['Desktop Chrome'] },
     },

@@ -31,6 +31,12 @@ export function AdminLayout({
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const navigationTrigger = useRef<GetRef<typeof Button>>(null);
+  const main = useRef<HTMLDivElement>(null);
+  const restoreTrigger = useRef(true);
+  const navigateFromDrawer = () => {
+    restoreTrigger.current = false;
+    setDrawerOpen(false);
+  };
   return (
     <Layout className="admin-layout">
       <a href="#main-content" className="skip-link">
@@ -73,7 +79,10 @@ export function AdminLayout({
                 ref={navigationTrigger}
                 aria-expanded={drawerOpen}
                 aria-controls="mobile-navigation"
-                onClick={() => setDrawerOpen(true)}
+                onClick={() => {
+                  restoreTrigger.current = true;
+                  setDrawerOpen(true);
+                }}
               />
             ) : (
               <Tooltip
@@ -107,6 +116,7 @@ export function AdminLayout({
         </Layout.Header>
         <Layout.Content
           id="main-content"
+          ref={main}
           className="admin-content"
           role="main"
           tabIndex={-1}
@@ -116,7 +126,7 @@ export function AdminLayout({
       </Layout>
       {mobile && (
         <Drawer
-          title={<Brand onNavigate={() => setDrawerOpen(false)} />}
+          title={<Brand onNavigate={navigateFromDrawer} />}
           placement="left"
           size={280}
           open={drawerOpen}
@@ -125,13 +135,16 @@ export function AdminLayout({
           afterOpenChange={(open) => {
             // Restore after the drawer's focus lock has released its DOM node.
             if (!open)
-              requestAnimationFrame(() => navigationTrigger.current?.focus());
+              requestAnimationFrame(() => {
+                if (restoreTrigger.current) navigationTrigger.current?.focus();
+                else main.current?.focus({ preventScroll: true });
+              });
           }}
           onKeyDown={containTabFocus}
           styles={{ body: { padding: 0 } }}
         >
           <div id="mobile-navigation">
-            <Navigation onNavigate={() => setDrawerOpen(false)} />
+            <Navigation onNavigate={navigateFromDrawer} />
           </div>
         </Drawer>
       )}

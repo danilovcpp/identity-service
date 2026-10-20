@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10, 11.1–11.13
+## Unreleased — v1.1, stages 8–10, 11.1–11.14
+
+- Complete frontend acceptance with responsive/keyboard/focus review, automated axe
+  audits and shared browser privacy guards across the real-backend scenario suite.
+- Improve text/semantic/accent contrast through Ant Design theme tokens and enlarge
+  the shared password visibility target while retaining standard component geometry.
+- Share command error presentation; invalidate audit after invitations and clear
+  protected cached data when a session-check refetch returns 401.
+- Add navigation examples, safe screenshots and an acceptance/limitations matrix;
+  production deployment and release infrastructure remain a separate stage12.
 
 - Anonymous invitation activation and password reset pages using existing JSON APIs,
   immediate fragment cleanup and component-only credential handling outside Query caches.

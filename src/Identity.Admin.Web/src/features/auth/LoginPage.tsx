@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { ApiError, ClientError, isRecord } from '@/api/errors';
 import { PageHeader } from '@/components/PageHeader';
+import { PasswordInput } from '@/components/PasswordInput';
 import { useAuth } from './authContext';
 import { SessionState } from './AuthGate';
 import { safeReturnPath } from './returnPath';
@@ -81,6 +82,7 @@ export function LoginPage() {
             ]}
           >
             <Input
+              size="large"
               type="email"
               autoComplete="username"
               maxLength={320}
@@ -93,7 +95,7 @@ export function LoginPage() {
             label="Password"
             rules={[{ required: true, message: 'Enter your password.' }]}
           >
-            <Input.Password autoComplete="current-password" />
+            <PasswordInput autoComplete="current-password" />
           </Form.Item>
           <Button
             aria-label="Sign in"

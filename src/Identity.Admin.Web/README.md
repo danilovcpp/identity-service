@@ -2,7 +2,7 @@
 
 Frontend самостоятельного продукта Identity. Выполнены **11.1 — bootstrap** и
 **11.2 — HTTP-клиент, OpenAPI, CSRF**, **11.3 — тема и App Shell**,
-**11.4 — Login / Logout / Route Guards**, **11.5 — Dashboard**, **11.6 — Users catalog**, **11.7 — User details**, **11.8 — Invite/resend**, **11.9 — Disable/enable**, **11.10 — Password reset request**, **11.11 — User sessions**, **11.12 — Audit log**, **11.13 — Public account pages** из
+**11.4 — Login / Logout / Route Guards**, **11.5 — Dashboard**, **11.6 — Users catalog**, **11.7 — User details**, **11.8 — Invite/resend**, **11.9 — Disable/enable**, **11.10 — Password reset request**, **11.11 — User sessions**, **11.12 — Audit log**, **11.13 — Public account pages**, **11.14 — Frontend acceptance** из
 [дополнения v1.2](../../Identity_Admin_Codex_Addendum_v1.2.md).
 Вход, выход, профиль и защита маршрутов работают через реальные cookie/CSRF API.
 `/admin` показывает реальные метрики и график регистраций; `/admin/users` — серверный каталог с поиском, фильтрами и пагинацией; `/admin/audit` — журнал безопасности с серверными фильтрами.
@@ -16,10 +16,12 @@ Frontend самостоятельного продукта Identity. Выпол�
 Серверный список сессий и подтверждаемый отзыв одной/всех: [Sessions](docs/sessions.md).
 Read-only журнал, URL-фильтры и переходы к пользователям: [Audit log](docs/audit.md).
 Анонимные активация и сброс пароля по email: [Public account pages](docs/public-account.md).
+Матрица сценариев, доступность, политика ошибок и снимки: [Frontend acceptance](docs/frontend-acceptance.md).
 
 По отдельному запросу20.10 UI приведён к стандартному Ant Design6.6.6 light:
 без overrides палитры/контролов/теней; штатные Form/Grid/Modal/Table patterns.
-[Аудит и визуальная проверка](docs/ant-design-alignment.md). Функциональный scope — до11.13.
+[Исторический baseline](docs/ant-design-alignment.md). В11.14 theme tokens уточнены
+для контраста AA; геометрия Ant Design сохранена. Scope — до11.14, этап12 не начат.
 
 ## Требования и запуск
 
@@ -63,6 +65,7 @@ Shell/theme/navigation и keyboard/browser checks: [UI foundation](docs/shell.md
 | `npm run preview`      | Локальный просмотр `dist/` на порту 4173, без dev proxy       |
 | `npm run api:generate` | Генерация TypeScript из реального OpenAPI Identity.Api        |
 | `npm run api:check`    | Проверка drift без изменения файла типов                      |
+| `npm run test:e2e`     | Build + Playwright; fixture/env задаёт smoke harness          |
 
 Тесты проверяют реальный рендер `App`, Query provider/cache isolation и
 HTTP-клиент через injected fake-fetch (только в тестах, не runtime fallback).

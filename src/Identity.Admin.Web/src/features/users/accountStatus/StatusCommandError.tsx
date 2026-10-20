@@ -1,5 +1,5 @@
-import { Alert } from 'antd';
-import { ApiError, ClientError } from '@/api/errors';
+import { ApiError } from '@/api/errors';
+import { CommandError } from '@/components/CommandError';
 
 export function StatusCommandError({ error }: { error: unknown }) {
   if (!error) return null;
@@ -8,20 +8,13 @@ export function StatusCommandError({ error }: { error: unknown }) {
       ? 'The last active administrator cannot be disabled. Another active administrator must be retained.'
       : error instanceof ApiError && error.status === 409
         ? 'The account state has changed. Refresh the account before trying again.'
-        : error instanceof ApiError && error.code === 'csrf_invalid'
-          ? 'Your security check expired. Submit again to request a new check.'
-          : error instanceof ClientError &&
-              ['network', 'timeout'].includes(error.kind)
-            ? 'The result could not be confirmed. The request may have completed. Refresh the account before submitting again.'
-            : error instanceof ApiError || error instanceof ClientError
-              ? error.message
-              : 'Identity could not update the account.';
+        : undefined;
   return (
-    <Alert
-      type="error"
-      showIcon
+    <CommandError
+      error={error}
       title="Unable to update account"
       description={description}
+      recovery="Refresh the account before submitting again."
     />
   );
 }

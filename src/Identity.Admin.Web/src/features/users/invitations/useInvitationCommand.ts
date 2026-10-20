@@ -32,8 +32,8 @@ export function useInvitationCommand() {
         void client.invalidateQueries({
           queryKey: queryKeys.users.detail(command.userId),
         });
-        void client.invalidateQueries({ queryKey: queryKeys.audit.all });
       }
+      void client.invalidateQueries({ queryKey: queryKeys.audit.all });
     },
   });
   return {

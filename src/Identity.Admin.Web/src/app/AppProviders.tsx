@@ -9,7 +9,11 @@ export function AppProviders({ children }: PropsWithChildren) {
   const [queryClient] = useState(createQueryClient);
   return (
     <QueryClientProvider client={queryClient}>
-      <ConfigProvider theme={consoleTheme} locale={enUS}>
+      <ConfigProvider
+        theme={consoleTheme}
+        locale={enUS}
+        card={{ styles: { title: { whiteSpace: 'normal' } } }}
+      >
         <AntApp className="identity-app">{children}</AntApp>
       </ConfigProvider>
     </QueryClientProvider>

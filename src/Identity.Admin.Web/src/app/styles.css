@@ -97,6 +97,14 @@ body {
   max-width: 26rem;
   margin-inline: auto;
 }
+.password-visibility-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  vertical-align: middle;
+}
 .login-error {
   margin-bottom: var(--ant-margin-lg);
 }

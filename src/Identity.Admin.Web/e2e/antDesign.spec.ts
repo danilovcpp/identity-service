@@ -1,8 +1,9 @@
-import { expect, test } from '@playwright/test';
+import { test } from './fixture';
+import { expect } from '@playwright/test';
 import { signIn } from './authFixture';
 
 for (const width of [360, 768, 1280]) {
-  test(`default Ant Design Dashboard, Users and Invite at ${width}px`, async ({
+  test(`standard Ant Design geometry and accessible theme at ${width}px`, async ({
     page,
   }, info) => {
     await page.setViewportSize({ width, height: 900 });
@@ -22,7 +23,7 @@ for (const width of [360, 768, 1280]) {
       exact: true,
     });
     // Verify actual browser styles, not only presence of Ant component markup.
-    await expect(invite).toHaveCSS('background-color', 'rgb(22, 119, 255)');
+    await expect(invite).toHaveCSS('background-color', 'rgb(9, 88, 217)');
     await expect(invite).toHaveCSS('height', '32px');
     await expect(invite).toHaveCSS('border-radius', '6px');
     await expect(
@@ -59,7 +60,7 @@ for (const width of [360, 768, 1280]) {
       name: 'Send invitation',
       exact: true,
     });
-    await expect(send).toHaveCSS('background-color', 'rgb(22, 119, 255)');
+    await expect(send).toHaveCSS('background-color', 'rgb(9, 88, 217)');
     await expect(dialog.getByLabel('Email', { exact: true })).toHaveCSS(
       'height',
       '32px',

@@ -6,6 +6,7 @@ import { PublicLayout } from '@/components/layout/PublicLayout';
 import { useAuth } from './authContext';
 import { safeReturnPath } from './returnPath';
 import { SessionControls } from './SessionControls';
+import { PageTitle } from '@/components/PageTitle';
 
 export function SessionState() {
   const auth = useAuth();
@@ -15,7 +16,7 @@ export function SessionState() {
     return (
       <Result
         status="403"
-        title={<h1>Access denied</h1>}
+        title={<PageTitle>Access denied</PageTitle>}
         subTitle="Your session does not have access to Identity administration."
         extra={
           <>

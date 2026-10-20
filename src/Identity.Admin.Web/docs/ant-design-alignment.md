@@ -1,5 +1,9 @@
 # Standard Ant Design UI alignment
 
+Stage11.14 update: standard geometry remains; theme tokens now use darker official
+palette shades and readable secondary text for AA contrast. Exact colors below
+describe the earlier baseline. See [frontend acceptance](frontend-acceptance.md).
+
 2026-10-20. Explicit UI maintenance after11.9; no later feature stage started.
 The new request replaces the previous custom teal theme with the installed **Ant Design
 6.6.6 default light theme**. React19, TypeScript, Vite and business/API behavior remain.

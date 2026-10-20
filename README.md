@@ -72,7 +72,12 @@ Revoke session / Revoke all sessions. ReadOnly только читает; отз
 на `/account/activate` и `/account/reset-password`: анонимные формы, немедленное
 удаление email fragment, существующие JSON API и пароль только в памяти формы.
 Backend/API/миграции сохранены; auto-login и новая публичная регистрация не добавлены.
-Следующий этап —11.14 по отдельному запросу.
+Итоговая приёмка frontend описана в11.14 ниже.
+
+**Этап 11.14**: [frontend acceptance](src/Identity.Admin.Web/docs/frontend-acceptance.md):
+доступность и keyboard/focus, контраст через Ant Design theme tokens, общая политика
+ошибок команд, исправления query-cache и сквозные privacy/axe проверки.
+Frontend11.1–11.14 завершён; Docker/proxy/CI/release hardening — отдельный этап12.
 
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):

@@ -51,7 +51,7 @@ function Details({ userId }: { userId: string }) {
         />
         <Button
           icon={<ReloadOutlined aria-hidden="true" />}
-          aria-label="Refresh user details"
+          aria-label="Refresh account"
           loading={query.isFetching}
           disabled={query.isFetching}
           onClick={() => {

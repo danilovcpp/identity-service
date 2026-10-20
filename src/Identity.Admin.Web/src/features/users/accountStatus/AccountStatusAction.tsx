@@ -1,4 +1,10 @@
-import { useRef, useState } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentRef,
+  type RefObject,
+} from 'react';
 import { App, Button, Form, Input, Typography } from 'antd';
 import { ApiError } from '@/api/errors';
 import { ConfirmAction } from '@/components/ConfirmAction';
@@ -15,7 +21,11 @@ function StatusAction({
   userId,
   email,
   action,
-}: Omit<Props, 'status'> & { action: Action }) {
+  trigger,
+}: Omit<Props, 'status'> & {
+  action: Action;
+  trigger: RefObject<ComponentRef<typeof Button> | null>;
+}) {
   const [open, setOpen] = useState(false);
   const confirmedDialog = useRef(false);
   const [form] = Form.useForm<Values>();
@@ -65,6 +75,7 @@ function StatusAction({
   return (
     <>
       <Button
+        ref={trigger}
         danger={disabling}
         onClick={() => {
           command.reset();
@@ -147,18 +158,28 @@ function StatusAction({
 
 export function AccountStatusAction({ userId, email, status }: Props) {
   const { canWrite } = useAuth();
+  const trigger = useRef<ComponentRef<typeof Button>>(null);
+  const previous = useRef<string | null>(null);
   const action =
     status === 'Disabled'
       ? 'enable'
       : ['Active', 'PendingVerification', 'Invited'].includes(status)
         ? 'disable'
         : null;
+  useEffect(() => {
+    // A successful status transition replaces the old trigger and its modal.
+    // Restore focus to the new action instead of a removed DOM node.
+    if (previous.current && previous.current !== action)
+      trigger.current?.focus();
+    previous.current = action;
+  }, [action]);
   return canWrite && action ? (
     <StatusAction
       key={`${userId}:${action}`}
       userId={userId}
       email={email}
       action={action}
+      trigger={trigger}
     />
   ) : null;
 }

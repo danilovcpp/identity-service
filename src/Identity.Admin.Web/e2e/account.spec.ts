@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { test, protectPage } from './fixture';
+import { expect, type Page } from '@playwright/test';
 import { signIn } from './authFixture';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -146,26 +147,6 @@ async function storageIsEmpty(page: Page) {
   ).toBe(0);
 }
 
-test.afterEach(async ({ page }) => {
-  // Do not leave password values in Playwright's failure-context snapshot.
-  if (!page.isClosed())
-    await page
-      .evaluate(() => {
-        document
-          .querySelectorAll<HTMLInputElement>('input[type=password]')
-          .forEach((input) => {
-            input.value = '';
-          });
-        if (location.hash)
-          history.replaceState(
-            history.state,
-            '',
-            location.pathname + location.search,
-          );
-      })
-      .catch(() => undefined);
-});
-
 test('Mailpit invitation activation and password reset work anonymously, reject replay and revoke the old refresh session', async ({
   page,
   browser,
@@ -180,8 +161,10 @@ test('Mailpit invitation activation and password reset work anonymously, reject 
     baseURL: process.env.IDENTITY_E2E_BASE_URL,
     ignoreHTTPSErrors: true,
   });
+  let privacy: ReturnType<typeof protectPage> | undefined;
   try {
     const account = await context.newPage();
+    privacy = protectPage(account, [invitation, password, newPassword]);
     let adminRequests = 0;
     let secretInConsole = false;
     const secrets = [invitation, password, newPassword];
@@ -234,6 +217,7 @@ test('Mailpit invitation activation and password reset work anonymously, reject 
       ).status(),
     ).toBe(202);
     const recovery = await emailToken(email, /reset/i);
+    privacy.addSecret(recovery);
     secrets.push(recovery);
     await visit(account, reset, recovery);
     await expect(
@@ -274,7 +258,9 @@ test('Mailpit invitation activation and password reset work anonymously, reject 
     expect(adminRequests).toBe(0);
     expect(secretInConsole).toBe(false);
     await storageIsEmpty(account);
+    await privacy.verify();
   } finally {
+    await privacy?.dispose();
     await context.close();
   }
 });

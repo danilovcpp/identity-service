@@ -8,7 +8,11 @@ export async function signIn(page: Page, readOnly = false) {
   await page
     .getByLabel('Email', { exact: true })
     .fill(readOnly ? 'reader@identity.example' : 'admin@identity.example');
-  await page.getByLabel('Password', { exact: true }).fill(password);
+  try {
+    await page.getByLabel('Password', { exact: true }).fill(password);
+  } catch {
+    throw new Error('Could not enter disposable sign-in credentials.');
+  }
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Dashboard', exact: true }),

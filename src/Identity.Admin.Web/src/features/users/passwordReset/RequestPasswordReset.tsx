@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Alert, App, Button, Typography } from 'antd';
-import { ApiError, ClientError } from '@/api/errors';
+import { App, Button, Typography } from 'antd';
+import { ApiError } from '@/api/errors';
+import { CommandError } from '@/components/CommandError';
 import { ConfirmAction } from '@/components/ConfirmAction';
 import { useAuth } from '@/features/auth/authContext';
 import { usePasswordResetCommand } from './usePasswordResetCommand';
@@ -19,20 +20,13 @@ function ResetError({ error }: { error: unknown }) {
       ? 'This account is no longer eligible for password reset. Refresh the account before trying again.'
       : error instanceof ApiError && error.code === 'password_reset_unavailable'
         ? 'Password reset is unavailable. Contact the Identity operator.'
-        : error instanceof ApiError && error.code === 'csrf_invalid'
-          ? 'Your security check expired. Submit again to request a new check.'
-          : error instanceof ClientError &&
-              ['network', 'timeout'].includes(error.kind)
-            ? 'The result could not be confirmed. The request may have completed. Check security activity before submitting again.'
-            : error instanceof ApiError || error instanceof ClientError
-              ? error.message
-              : 'Identity could not request a password reset.';
+        : undefined;
   return (
-    <Alert
-      type="error"
-      showIcon
+    <CommandError
+      error={error}
       title="Unable to request password reset"
       description={description}
+      recovery="Check security activity before submitting again."
     />
   );
 }

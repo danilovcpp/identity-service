@@ -1,4 +1,5 @@
 #requires -Version 7.4
+param([switch]$AcceptanceOnly)
 # Local, disposable HTTPS fixture. No production settings or global certificate trust are changed.
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -125,7 +126,17 @@ try {
     try {
         & npm run api:check
         if ($LASTEXITCODE -ne 0) { throw 'Generated API contract drift detected.' }
-        & npm run test:e2e
+        $browserArguments = @('run', 'test:e2e')
+        if ($AcceptanceOnly) { $browserArguments += @('--', '--project=chromium-acceptance', '--no-deps') }
+        $unsafeOutput = $false
+        & npm @browserArguments 2>&1 | ForEach-Object {
+            $line = [string]$_
+            if ($line.Contains($password) -or $line.Contains($databasePassword) -or $line.Contains($pfxPassword)) {
+                $unsafeOutput = $true
+                Write-Output '[Suppressed credential-bearing browser output]'
+            } else { Write-Output $line }
+        }
+        if ($unsafeOutput) { throw 'Browser output attempted to expose fixture credentials.' }
         if ($LASTEXITCODE -ne 0) { throw 'Browser smoke failed.' }
         foreach ($file in Get-ChildItem -LiteralPath 'dist' -Recurse -File) {
             $content = [IO.File]::ReadAllText($file.FullName)

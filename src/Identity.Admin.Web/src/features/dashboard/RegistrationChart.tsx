@@ -50,6 +50,7 @@ export function RegistrationChart({ data }: { data: Dashboard }) {
           )}
           <div
             className="registration-chart"
+            role="group"
             aria-label="Daily registrations chart"
           >
             <ResponsiveContainer

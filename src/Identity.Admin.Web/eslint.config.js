@@ -27,6 +27,51 @@ export default defineConfig([
     languageOptions: { globals: globals.browser },
   },
   {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: [
+      'src/**/*.test.{ts,tsx}',
+      'src/test/**',
+      'src/api/httpClient.ts',
+      'src/api/schema.d.ts',
+    ],
+    rules: {
+      'no-console': 'error',
+      'no-restricted-globals': [
+        'error',
+        { name: 'fetch', message: 'Use the typed central API client.' },
+        {
+          name: 'localStorage',
+          message: 'Do not persist console data or credentials.',
+        },
+        {
+          name: 'sessionStorage',
+          message: 'Do not persist console data or credentials.',
+        },
+      ],
+      'no-restricted-properties': [
+        'error',
+        ...['window', 'globalThis'].flatMap((object) =>
+          ['fetch', 'localStorage', 'sessionStorage'].map((property) => ({
+            object,
+            property,
+            message: 'Use the central API client and in-memory state.',
+          })),
+        ),
+      ],
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/test/**', '**/test/**'],
+              message: 'Production code must not import test fixtures.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['*.js', 'scripts/*.mjs', 'vite.config.ts', 'playwright.config.ts'],
     extends: [js.configs.recommended],
     languageOptions: { globals: globals.node },

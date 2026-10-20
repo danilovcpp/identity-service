@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { test } from './fixture';
+import { expect } from '@playwright/test';
 import { signIn } from './authFixture';
 // The registration scenario mutates this run's shared, disposable database.
 test.describe.configure({ mode: 'serial' });

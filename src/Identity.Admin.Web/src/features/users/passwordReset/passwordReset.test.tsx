@@ -211,7 +211,7 @@ describe('administrator password reset request', () => {
     [404, 'user_not_found', 'The requested resource was not found'],
     [429, 'rate_limited', 'Too many requests'],
     [503, 'password_reset_unavailable', 'Password reset is unavailable'],
-    [500, 'internal_error', 'Identity could not complete the request'],
+    [500, 'internal_error', 'The result could not be confirmed'],
   ])(
     'handles %i / %s without success, retry or invalidation',
     async (status, code, text) => {

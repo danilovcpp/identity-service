@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { test } from './fixture';
+import { expect } from '@playwright/test';
 import { signIn } from './authFixture';
 
 test('anonymous protected routes require a session and invalid credentials stay generic', async ({

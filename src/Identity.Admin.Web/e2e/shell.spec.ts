@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { test } from './fixture';
+import { expect } from '@playwright/test';
 import { signIn } from './authFixture';
 
 test.beforeEach(async ({ page }) => {
@@ -90,7 +91,14 @@ test('keyboard skip link, drawer trap, Escape and focus restoration', async ({
   await expect(
     page.getByRole('heading', { name: 'Dashboard', exact: true }),
   ).toBeVisible();
-  await page.keyboard.press('Tab');
+  const heading = page.getByRole('heading', { name: 'Dashboard', exact: true });
+  await expect(heading).toBeFocused();
+  const skip = page.getByRole('link', { name: 'Skip to content' });
+  for (let i = 0; i < 8; i++) {
+    if (await skip.evaluate((element) => element === document.activeElement))
+      break;
+    await page.keyboard.press('Shift+Tab');
+  }
   await expect(
     page.getByRole('link', { name: 'Skip to content' }),
   ).toBeFocused();

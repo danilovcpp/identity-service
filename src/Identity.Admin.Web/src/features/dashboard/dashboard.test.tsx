@@ -71,6 +71,9 @@ describe('dashboard', () => {
       'time[datetime="2026-10-19T12:30:00Z"]',
     );
     expect(snapshot).toHaveAttribute('title', '2026-10-19T12:30:00.000Z');
+    expect(
+      screen.getByRole('group', { name: 'Daily registrations chart' }),
+    ).toBeVisible();
     fireEvent.click(screen.getByText('View daily values'));
     expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(
       31,

@@ -1,4 +1,5 @@
-import { Button, Result, Typography } from 'antd';
+import { Button, Result } from 'antd';
+import { PageTitle } from '@/components/PageTitle';
 import { useNavigate } from 'react-router-dom';
 
 export function NotFoundPage() {
@@ -6,7 +7,7 @@ export function NotFoundPage() {
   return (
     <Result
       status="404"
-      title={<Typography.Title level={1}>Page not found</Typography.Title>}
+      title={<PageTitle>Page not found</PageTitle>}
       subTitle="This page does not exist or is not available yet."
       extra={
         <Button

@@ -14,6 +14,7 @@ import { testDashboard } from '@/test/dashboard';
 import { App } from '@/app/App';
 import { AppProviders } from '@/app/AppProviders';
 import { setTestViewport } from '@/test/viewport';
+import '@/features/dashboard/DashboardPage';
 
 function renderApp(path = '/admin') {
   return render(

@@ -17,6 +17,8 @@ import { testProfile } from '@/test/auth';
 import * as dashboardApi from '@/features/dashboard/api';
 import { testDashboard } from '@/test/dashboard';
 import { safeReturnPath } from './returnPath';
+// Resolve the real lazy module outside short DOM-assertion waits.
+import '@/features/dashboard/DashboardPage';
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -261,6 +263,33 @@ describe('administrative authentication', () => {
     expect(screen.getByLabelText('Current path')).toHaveTextContent(
       '/admin/login',
     );
+  });
+
+  it('a /me refetch returning 401 clears a previously cached identity and protected data', async () => {
+    const fetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(json(testProfile));
+    const client = mount('/admin/missing');
+    await screen.findByRole('heading', { name: 'Page not found' });
+    act(() => {
+      client.setQueryData(queryKeys.audit.list(), { private: 'old audit' });
+      client.setQueryData(queryKeys.users.detail(testProfile.id), {
+        private: 'old profile',
+      });
+    });
+    fetch.mockResolvedValue(json({ code: 'unauthorized' }, 401));
+    await act(async () => {
+      await client.refetchQueries({ queryKey: queryKeys.auth.me() });
+    });
+    await screen.findByRole('button', { name: 'Sign in' });
+    await waitFor(() =>
+      expect(client.getQueryData(queryKeys.auth.me())).toBeNull(),
+    );
+    expect(client.getQueryData(queryKeys.audit.list())).toBeUndefined();
+    expect(
+      client.getQueryData(queryKeys.users.detail(testProfile.id)),
+    ).toBeUndefined();
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   });
 
   it('logout network failure keeps the session and permits a manual retry', async () => {

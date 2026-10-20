@@ -1,5 +1,5 @@
-import { Alert } from 'antd';
-import { ApiError, ClientError } from '@/api/errors';
+import { ApiError } from '@/api/errors';
+import { CommandError } from '@/components/CommandError';
 
 export function InvitationError({ error }: { error: unknown }) {
   if (!error) return null;
@@ -10,20 +10,13 @@ export function InvitationError({ error }: { error: unknown }) {
         : 'The account state has changed. Refresh the account before trying again.'
       : error instanceof ApiError && error.code === 'invitations_unavailable'
         ? 'Invitations are currently unavailable. Contact your Identity operator.'
-        : error instanceof ApiError && error.code === 'csrf_invalid'
-          ? 'Your security check expired. Submit again to request a new check.'
-          : error instanceof ClientError &&
-              ['network', 'timeout'].includes(error.kind)
-            ? 'The result could not be confirmed. The request may have been accepted. Check Users or recent security activity before submitting again.'
-            : error instanceof ApiError || error instanceof ClientError
-              ? error.message
-              : 'Identity could not complete the request.';
+        : undefined;
   return (
-    <Alert
-      type="error"
-      showIcon
+    <CommandError
+      error={error}
       title="Unable to request invitation"
       description={description}
+      recovery="Check Users or recent security activity before submitting again."
     />
   );
 }

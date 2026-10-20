@@ -6,6 +6,7 @@ import {
   type BreadcrumbProps,
 } from 'antd';
 import type { ReactNode } from 'react';
+import { PageTitle } from './PageTitle';
 
 type PageHeaderProps = {
   title: string;
@@ -25,7 +26,7 @@ export function PageHeader({
       {breadcrumbs && <Breadcrumb items={breadcrumbs} />}
       <Flex align="start" justify="space-between" gap="middle" wrap>
         <div className="page-heading">
-          <Typography.Title level={1}>{title}</Typography.Title>
+          <PageTitle>{title}</PageTitle>
           {description && (
             <Typography.Text type="secondary">{description}</Typography.Text>
           )}

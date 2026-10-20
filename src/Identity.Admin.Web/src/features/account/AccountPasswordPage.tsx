@@ -1,8 +1,10 @@
-import { Alert, Button, Card, Form, Input, Result, Typography } from 'antd';
+import { Alert, Button, Card, Form, Result, Typography } from 'antd';
+import { PasswordInput } from '@/components/PasswordInput';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError } from '@/api/errors';
 import { PageHeader } from '@/components/PageHeader';
+import { PageTitle } from '@/components/PageTitle';
 import type { AccountFlow, AccountLink, LinkState } from './accountLink';
 import { setAccountPassword } from './api';
 import { passwordHint, passwordProblem } from './passwordPolicy';
@@ -95,9 +97,9 @@ export function AccountPasswordPage({
         <Result
           status="success"
           title={
-            <Typography.Title level={1}>
+            <PageTitle>
               {activation ? 'Account activated' : 'Password changed'}
-            </Typography.Title>
+            </PageTitle>
           }
           subTitle="Sign in through the application that uses your Identity account. Identity administrators can use the console sign-in below."
           extra={<Link to="/admin/login">Administrator sign in</Link>}
@@ -110,11 +112,11 @@ export function AccountPasswordPage({
         <Result
           status="warning"
           title={
-            <Typography.Title level={1}>
+            <PageTitle>
               {link.problem === 'missing'
                 ? 'Link required'
                 : 'Link unavailable'}
-            </Typography.Title>
+            </PageTitle>
           }
           subTitle={
             link.problem === 'missing'
@@ -168,7 +170,7 @@ export function AccountPasswordPage({
               },
             ]}
           >
-            <Input.Password
+            <PasswordInput
               autoComplete="new-password"
               aria-describedby="password-policy"
             />
@@ -187,7 +189,7 @@ export function AccountPasswordPage({
               }),
             ]}
           >
-            <Input.Password autoComplete="new-password" />
+            <PasswordInput autoComplete="new-password" />
           </Form.Item>
           <Button
             aria-label={action}

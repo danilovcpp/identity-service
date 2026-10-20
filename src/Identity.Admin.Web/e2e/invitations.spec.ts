@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { test } from './fixture';
+import { expect, type Page } from '@playwright/test';
 import { signIn } from './authFixture';
 
 test.describe.configure({ mode: 'serial' });

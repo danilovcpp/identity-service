@@ -50,7 +50,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   useEffect(() => {
+    const expired =
+      session.error instanceof ApiError && session.error.status === 401;
     if (
+      expired ||
       session.data === null ||
       accessError?.status === 403 ||
       (session.error instanceof ApiError && session.error.status === 403)
@@ -63,6 +66,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
         predicate: (query) => query.queryKey[1] !== 'auth',
       });
       client.getMutationCache().clear();
+      // /me is excluded from global access notifications. A failed refetch can
+      // still carry old profile data: replace it as well as the business cache.
+      if (expired) client.setQueryData(queryKeys.auth.me(), null);
     }
   }, [client, session.data, session.error, accessError]);
 

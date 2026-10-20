@@ -7,6 +7,7 @@ import { testDashboard } from '@/test/dashboard';
 import { App } from '@/app/App';
 import { MemoryRouter } from 'react-router-dom';
 import { AppProviders } from '@/app/AppProviders';
+import '@/features/dashboard/DashboardPage';
 
 describe('App', () => {
   it('renders the authenticated Identity Console application', async () => {

@@ -1,4 +1,188 @@
-# Текущий статус: этап 11.13 — публичные страницы активации и сброса пароля
+# Текущий статус: этап 11.14 — сквозная доработка frontend и приёмка
+
+**Completed: 11.14**
+
+**Next: 12 — только по отдельному запросу пользователя.**
+
+## 1. Этап
+
+11.14 из Identity_Admin_Codex_Addendum_v1.2.md, 20–21.10.2026. Прочитаны AGENTS.md,
+base Spec, дополнение, статус и текущие API/UI/tests. Начальное дерево чистое,
+HEAD **14bc31b**. Сохранены backend0–10, frontend11.1–11.13 и demo launcher.
+Этап12, backend/API/schema/migrations/MFA/proxy/deployment не изменялись.
+
+## 2. Реализовано
+
+- UX review основных маршрутов/диалогов при360/768/1280, keyboard-only сценарий,
+  доступность полей/кнопок и подтверждений. PageTitle даёт heading focus и document
+  title при mount/result; filter/refetch не крадёт фокус. PublicLayout получил skip link.
+  Drawer navigation переводит фокус в main, отмена возвращает trigger; Disable/Enable
+  после ответа сервера переводит фокус на новый action, заменивший старый.
+- При визуальной проверке исправлено обрезание длинных Card headings на mobile:
+  единый ConfigProvider card.styles.title.whiteSpace=normal. Graph wrapper получил
+  role=group для своего aria-label; сохранены Recharts keyboard layer и values table.
+  Accessible name Refresh account совпадает с видимой подписью.
+- Общий CommandError для4 групп admin writes: inline business conflicts, CSRF,
+  transport/invalid-response/5xx uncertainty с конкретным recovery. Успешные Ant
+  message toasts остаются единственными и только после HTTP success;202 означает
+  принятие в обработку. Нет automatic unsafe retry/дублирующих global error toasts.
+  Auth/public password flows сохранили отдельную безопасную presentation и не
+  передают пароли/one-time tokens в Query.
+- Invitation success теперь инвалидирует audit вместе с users/dashboard;401 от
+  refetch /auth/me очищает старый profile и protected query/mutation data даже при
+  retained successful Query data. Regression assertions для обеих проблем.
+- app/theme.ts: AA text contrast через централизованные Ant Design tokens:
+  official blue7/8/9, читаемые description/placeholder/semantic text и scoped
+  Tag/Button status colors. Это явное уточнение exact-default color baseline11.9
+  ради требования11.14 contrast; стандартные layout/spacing/radii/shadows сохранены,
+  CSS color overrides нет. PasswordInput общий для3 форм: standard large input
+  и24px visibility target; login email также large для согласованности.
+- ESLint guards против случайного fetch вне central client, console/storage/test
+  fixture imports в production. Существующие4 command hooks не переписывались
+  в универсальную абстракцию. Контракты REST, cookie/CSRF и backend policies прежние.
+- Dev-only @axe-core/playwright **4.14.0** (registry verified, exact pin + lockfile,
+  2 added packages). Runtime dependencies не менялись.
+- e2e/acceptance.spec.ts:12 новых real-backend scenarios:40 axe page/dialog audits,
+  ReadOnly/no writes, реальные CSRF400 и manual retry, все anonymous admin routes,
+  in-place /me401, focus после обоих status transitions и keyboard-only journey.
+  Project после public account, перед visual; default полный suite с retries0.
+- e2e/fixture.ts применяется ко всем specs и отдельному anonymous account context:
+  known secrets не должны попасть в console/request/page URLs, storage пуст,
+  cookie flags проверяются через context/browser. Screenshot guard запрещает
+  заполненные password fields (включая revealed text) и credential-bearing URLs;
+  cleanup убирает значения перед failure snapshots. Traces/video/automatic screenshots
+  выключены, реальные Mailpit tokens только Node memory. Sign-in input failures
+  sanitized; harness подавляет строки с известными fixture passwords перед выводом.
+- scripts/Test-AdminWebSmoke.ps1: optional -AcceptanceOnly для isolated UX/axe checks,
+  без изменения default full suite; новая БД/почта/env/ключи и cleanup на каждый run.
+- README frontend/root, CHANGELOG, docs/frontend-acceptance.md и исторический
+  Ant Design baseline обновлены; добавлены3 проверенных safe screenshots.
+  Матрица сценариев, env/dev HTTPS proxy, команды и navigation examples задокументированы.
+
+## 3. Решения / API / конфигурация / миграции
+
+Новых API/DTO/backend/migrations/runtime config flags нет. Production release,
+Docker frontend/proxy/CI/CSP hardening остаются12. Dev-only axe нужен для реальных
+contrast/aria/target checks, не попадает в production bundle. Общая текстовая
+политика использует props/constants, en-US и Intl/local-time helpers; полноценная
+локализация не вводилась. Цветовые уточнения и40px password controls — стандартные
+theme tokens/large variant, а24px icon layout — собственный geometry class.
+
+Чтение использует ErrorState и явный GET retry; admin write errors inline в modal,
+server-confirmed success один раз через App.message. Password/account completion
+inline без autologin. Семантика конфликтов/ошибок определяется существующим API.
+
+## 4. Проверки
+
+### Commands run
+
+Frontend:
+
+```powershell
+npm view @axe-core/playwright version
+npm install --save-dev --save-exact @axe-core/playwright@4.14.0 --no-audit --no-fund
+npx prettier --write src/app/AppProviders.tsx src/features/dashboard/dashboard.test.tsx e2e/acceptance.spec.ts e2e/antDesign.spec.ts playwright.config.ts
+npx prettier --write src/features/users/userDetails.test.tsx
+npx prettier --write README.md docs/frontend-acceptance.md docs/ant-design-alignment.md
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test:run
+npm run api:check
+npm run test:e2e
+```
+
+Prettier фактически запускался на затронутых отдельных файлах/каталогах; без изменений
+unrelated sources. api:check/test:e2e выполняет harness, test:e2e включает npm run build.
+Repository root:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage-11-14'
+dotnet tool restore
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet format Identity.slnx --no-restore --verify-no-changes
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1 -AcceptanceOnly
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+### Observed results
+
+- Final TypeScript/ESLint/Prettier exit0; **330 Vitest tests passed**,19files,
+  0failed/skipped. Это324 прежних+5 common-error cases+1 session-refetch regression.
+  Invite audit invalidation и chart group проверены дополнительными assertions
+  существующих cases. Последние полные runs330passed19.81s/19.03s/19.00s.
+- .NET restore/build exit0,0warnings/0errors. **470 tests passed**,147Unit/45API/
+  278Integration,0failed/skipped, real PostgreSQL/Mailpit; integration1m27s.
+  EF model changes отсутствуют; dotnet format exit0.
+- Production build и OpenAPI drift exit0. CSS~4.26kB, index~112kB, максимальный
+  Dashboard chunk357.44kB. Dist fixture-secret check проходит; axe только dev tools.
+- Final full HTTPS Docker smoke **91 Chromium tests passed**,0failed/skipped,
+  retries0/workers4,3.4m;79 прежних+12 новых. Предыдущий полный run91passed3.4m.
+  Все6 миграций применены к новой PostgreSQL17. Проверены оба system roles,
+  realMailpit accept/reset/replay и revoked refresh, permissions/status/session
+  commands, filters/cache,401/403/409/CSRF и responsive/keyboard. Harness очистил
+  свои API/Vite/processes/volumes/env/temporary secrets.
+- Targeted acceptance12passed20.4s перед последней semantic/mobile refinement.
+  Final40 axe reports:0 confirmed violations, без исключения правил/элементов.
+  Review-only findings перечислены ниже; JSON sanitized и ignored.
+- 3 screenshot artifacts просмотрены вручную; mobile headings перенесены,
+  таблицы скроллятся внутри региона, формы и кнопки доступны, секретов нет.
+  Достоверные example PNG в docs/screenshots, остальные test artifacts ignored.
+- Secret guard/self-tests/untracked tree и Git whitespace checks exit0.
+  npm ci отдельно не повторялся: выполнена actual locked dependency installation.
+  Lighthouse/Firefox/WebKit/production image/deployment не запускались.
+
+Промежуточные failures не скрыты: первый Vitest329/330 ожидал старый500 text;
+assertion обновлён на новую общую uncertainty policy. Lint выявил Playwright callback
+use, ошибочно трактуемый как React hook, и direct setState-effect path; callback
+переименован, cleanup реализован через external Query cache без own setState effect.
+Первый full smoke27passed/1failed/62not run: изменился initial focus, shell test теперь
+проверяет focused heading и Shift+Tab до skip link, сохраняя все skip/trap/Escape checks.
+Axe targeted iterations:5passed/7failed (два runs, второй сохранял diagnostics),
+8passed/4failed после text/button/toggle fixes,9passed/3failed после Tag tokens,
+затем12passed после danger tokens и ожидания завершённого modal/hover state.
+Никакие axe rules не выключались. Позже review исправил chart role и mobile title wrap,
+проверен итоговый код. Старые flaky lazy-route waits исправлены preloading реального
+Dashboard module, не заменой компонента или увеличением assertion timeouts.
+
+## 5. Безопасность
+
+UI capability не заменяет backend authorization. Cookies остаются HttpOnly/Secure/
+Strict; unsafe admin calls через central CSRF client. Нет backend security bypass.
+Protected cache удаляется на session-check401, приглашение обновляет аудит.
+Пароли/токены не пишутся в storage/Query/notifications/console; public link cleanup
+и same-document behavior сохранены. Guards не публикуют значения в assertions,
+screenshots пустых форм и failure cleanup учитывают password visibility toggle.
+Log/dist checks проверяют известные fixture secrets, это не exhaustive secret scanner.
+Code не содержит fake production fallback. API/database/crypto architecture сохранена.
+
+## 6. Ограничения / Known issues
+
+Функциональных блокеров11.14 нет.40 scans с0 confirmed violations не означают
+сертификацию WCAG. Остались axe incomplete color-contrast (SVG/transparent/clipped
+Select/button content) и target-size (collapsed Menu anchor pseudo-element hit areas).
+Используются читаемые token foregrounds, стандартные control sizes, Menu rows с
+extended hit areas и keyboard/table fallback для графика. Эти проверки требуют
+ручной/assistive-technology оценки и явно не считаются автоматически passed.
+Первоначальный incomplete aria-prohibited-attr у generic chart div исправлен role=group.
+Локальный keyboard/layout review выполнен; screen-reader certification и Lighthouse
+не запускались. Только Chromium. Реальные SMTP/VPN/MFA/release CI/proxy/production
+build deployment не проверялись и не менялись. JWT downstream живёт до exp; transport
+cancellation не отменяет уже завершённый server commit. Ограничения стадий0–13 сохранены.
+
+## 7. Следующий этап
+
+**12 — Production hardening & release**, только по отдельному запросу.
+Frontend11.1–11.14 завершён. Git summary/commit на английском; push/deploy не выполняются.
+
+---
+
+# История: этап 11.13 — публичные страницы активации и сброса пароля
 
 **Completed: 11.13**
 

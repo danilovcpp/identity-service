@@ -137,7 +137,7 @@ describe('invitation commands', () => {
     ).toBeVisible();
     expect(fetch).not.toHaveBeenCalled();
   });
-  it('confirms a trimmed invitation with CSRF, prevents double submission and invalidates users/dashboard after 202', async () => {
+  it('confirms a trimmed invitation with CSRF, prevents double submission and invalidates users/dashboard/audit after 202', async () => {
     let complete: ((response: Response) => void) | undefined;
     const fetch = mockCommand(
       () =>
@@ -183,6 +183,7 @@ describe('invitation commands', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
     );
     expect(invalidate).toHaveBeenCalledWith({ queryKey: queryKeys.users.all });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: queryKeys.audit.all });
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: queryKeys.dashboard(),
     });

@@ -357,9 +357,7 @@ describe('read-only user details', () => {
     mount();
     await screen.findByText(event.eventType);
     fetch.mockImplementation(() => Promise.resolve(json({}, 500)));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Refresh user details' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh account' }));
     await screen.findByRole('alert');
     expect(
       screen.queryByRole('region', { name: 'Account information' }),
