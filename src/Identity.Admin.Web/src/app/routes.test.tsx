@@ -91,7 +91,7 @@ describe('console shell and routes', () => {
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 
-  it.each(['/missing', '/account/activate', '/admin/users/missing/unknown'])(
+  it.each(['/missing', '/admin/users/missing/unknown'])(
     'shows a real not-found state for the unimplemented route %s',
     async (path) => {
       renderApp(path);

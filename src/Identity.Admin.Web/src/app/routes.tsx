@@ -8,6 +8,8 @@ import { AuthProvider } from '@/features/auth/AuthProvider';
 import { AuthGate } from '@/features/auth/AuthGate';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { SessionControls } from '@/features/auth/SessionControls';
+import { AccountPasswordPage } from '@/features/account/AccountPasswordPage';
+import type { AccountLink } from '@/features/account/accountLink';
 
 const DashboardPage = lazy(() =>
   import('@/features/dashboard/DashboardPage').then((module) => ({
@@ -30,7 +32,41 @@ const AuditPage = lazy(() =>
   })),
 );
 
-export function AppRoutes() {
+export function AppRoutes({
+  initialAccountLink,
+}: {
+  initialAccountLink?: AccountLink;
+}) {
+  return (
+    <Routes>
+      <Route element={<PublicLayout />}>
+        <Route
+          path="/account/activate"
+          element={
+            <AccountPasswordPage
+              key="activate"
+              flow="activate"
+              initialLink={initialAccountLink}
+            />
+          }
+        />
+        <Route
+          path="/account/reset-password"
+          element={
+            <AccountPasswordPage
+              key="reset"
+              flow="reset-password"
+              initialLink={initialAccountLink}
+            />
+          }
+        />
+      </Route>
+      <Route path="*" element={<AdminRoutes />} />
+    </Routes>
+  );
+}
+
+function AdminRoutes() {
   return (
     <AuthProvider>
       <Routes>

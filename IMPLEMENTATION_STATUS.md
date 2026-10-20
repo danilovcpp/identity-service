@@ -1,4 +1,171 @@
-# Текущий статус: этап 11.12 — журнал аудита
+# Текущий статус: этап 11.13 — публичные страницы активации и сброса пароля
+
+**Completed: 11.13**
+
+**Next: 11.14 — только по отдельному запросу пользователя.**
+
+## 1. Этап
+
+11.13 из Identity_Admin_Codex_Addendum_v1.2.md, 20.10.2026. Изучены AGENTS.md,
+основной Spec, дополнение, статус, Git, React architecture, generated OpenAPI,
+backend validators/handlers и password/token policies. Начальное дерево чистое,
+предыдущий commit **8090398** (Demo start), этап11.12 — **30ce1fc**. Сохранены backend0–10, frontend11.1–11.12 и
+стандартный Ant Design и локальный demo launcher. Этапы11.14/12 не реализовывались.
+
+## 2. Реализовано
+
+- `features/account/AccountPasswordPage.tsx`: общая типизированная Ant Design
+  форма для `/account/activate` и `/account/reset-password`, password/confirmation,
+  hint, validation, pending, duplicate-submit guard, timeout30s и abort on unmount.
+  Missing/malformed link, generic invalid/expired/consumed, server password policy,
+  mismatch, rate limit и uncertain network/server feedback; безопасные h1/live states.
+- `accountLink.ts` / `main.tsx`: fragment очищается через history.replaceState
+  до React/providers/router. Принимается один token43–512 ASCII base64url chars;
+  bootstrap handoff освобождается после commit, совместим со StrictMode. Native
+  popstate/hashchange handlers регистрируются до BrowserRouter, очищают URL до его
+  чтения и передают новую ссылку прямо форме. Повторное открытие email-ссылки в том
+  же document сбрасывает прежний success/error, очищает passwords и отменяет old flight.
+  Case/trailing-slash/URI-encoded варианты согласованы с router; encoded slash не
+  становится новым сегментом. После handoff observer не хранит token.
+- `passwordPolicy.ts`: 15–128 Unicode code points после NFKC, valid Unicode,
+  raw1024/normalized512 UTF-8 byte limits; пробелы разрешены, composition rules нет.
+  Password/confirmation сравниваются точно; пароль отправляется без Trim/normalization,
+  backend остаётся authoritative для denylist и hash/verify normalization.
+- `api.ts`: только существующие typed JSON POST invitations/accept и password/reset
+  через общий клиент; никаких Query queries/mutations с credentials. Пароли очищаются
+  после завершения попытки; token удаляется при success/terminal invalid, сохраняется
+  только в памяти формы для явного retry после policy/network failure.
+- `app/routes.tsx` / `App.tsx`: публичная ветка вне AuthProvider, поэтому нет admin
+  session/CSRF/data requests. Существующие admin/login/guards/REST endpoints сохранены.
+  Success без auto-login: обычный пользователь входит через своё приложение; ссылка
+  Administrator sign in ведёт на существующий /admin/login и не обещает admin-доступ.
+- `account.test.tsx`:31 новых cases для cleanup/history/StrictMode/native navigation,
+  anonymous forms, submission/JSON, safe errors, Unicode/size/confirmation, abort,
+  timeout, duplicate guard и отсутствия секретов в DOM/storage/Query caches.
+  Старый unimplemented-route case /account/activate удалён.
+- `e2e/account.spec.ts`:7 scenarios с HTTPS/API/PostgreSQL/Mailpit: invitation →
+  anonymous activation → native login → admin reset request → anonymous reset →
+  old refresh rejected/old password rejected/new login accepted. Реальный replay
+  обеих ссылок, hash cleanup/reload/encoded route, client/server validation, network
+  uncertainty, отсутствие admin requests/cookie/storage и console leaks; keyboard
+  и empty-form screenshots360/768/1280. Project после audit и перед visual.
+- Обновлены root/frontend README, docs/public-account.md, ссылки invitations/reset,
+  CHANGELOG и комментарии .env.example с фактическими account URL templates.
+
+## 3. Решения / API / миграции / конфигурация
+
+Generated OpenAPI использует /api/v1/Auth/... с uppercase Auth; сохранена его
+типизация, ASP.NET routing case-insensitive. Backend код/DTO/OpenAPI/DB/migrations/
+packages/lockfile и runtime defaults не менялись. .env.example получил только
+поясняющие комментарии, без нового config flag. SMTP templates уже существуют;
+оператор задаёт фактический frontend origin и /account route.
+
+Одноразовый токен не валидируется отдельным GET: сервер проверяет его при POST.
+Expired/consumed/invalid объединены намеренно по существующему generic API.
+Reload теряет in-memory token; нужно повторно открыть полную ссылку из письма.
+Отдельной пользовательской login/registration/forgot-password страницы и user-
+controlled redirect нет. Identity Console sign-in предназначен только админам.
+
+## 4. Проверки
+
+### Commands run
+
+Из frontend:
+
+```powershell
+npx prettier --write src/features/account src/main.tsx src/app/App.tsx src/app/routes.tsx src/app/routes.test.tsx
+npx prettier --write src/features/account e2e/account.spec.ts e2e/shell.spec.ts playwright.config.ts
+npx prettier --write README.md docs/public-account.md docs/invitations.md docs/password-reset.md
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test:run -- src/features/account/account.test.tsx src/app/routes.test.tsx
+npm run test:run
+npm run api:check
+npm run test:e2e
+```
+
+Последние две команды выполняются smoke harness; test:e2e запускает npm run build.
+Из корня:
+
+```powershell
+dotnet restore Identity.slnx
+dotnet build Identity.slnx --configuration Release --no-restore
+dotnet tool restore
+dotnet test Identity.slnx --configuration Release --no-build --no-restore --logger 'trx;LogFilePrefix=stage-11-13'
+$env:Database__ConnectionString = 'Host=localhost;Database=identity_design;Username=identity'
+dotnet ef migrations has-pending-model-changes --project src/Identity.Infrastructure --configuration Release --no-build
+dotnet format Identity.slnx --no-restore --verify-no-changes
+pwsh -NoProfile -File scripts/Test-AdminWebSmoke.ps1
+pwsh -NoProfile -File scripts/Test-RepositorySecrets.ps1 -SelfTest -IncludeUntracked
+git -c core.safecrlf=false diff --check
+```
+
+### Observed results
+
+- Итоговые TypeScript/ESLint/Prettier exit0. **324 frontend tests passed**,18files,
+  0failed/skipped,18.84s. До финального encoded-route case полный run323passed19.49s;
+  прежние runs320/321 также зелёные. Один concurrent run во время browser smoke:
+  319passed/3failed на старых Dashboard heading waits в App/routes/auth. Вероятна
+  конкуренция за CPU/imports, причинность не инструментирована. Последующие отдельные
+  полные runs323/324 прошли с прежними assertions/timeouts, без изменений тех тестов.
+  Ранний targeted run обнаружил нестабильное accessible name loading-кнопки:
+  добавлен aria-label. Timeout test ожидает async завершение catch. Исправлены
+  TypeScript exact option и nullable regex capture, lint require-await/format.
+- .NET restore/build exit0,0warnings/0errors. **470 backend tests passed**,
+  147Unit/45API/278Integration,0failed/skipped; integration1m32s, реальные PostgreSQL/
+  Mailpit. EF pending model changes отсутствуют; dotnet format exit0.
+- Production frontend build и OpenAPI drift check прошли. CSS4.13kB, index~111kB,
+  максимальный Dashboard chunk357.43kB; bundle secrets check прошёл.
+- Итоговый Docker HTTPS smoke: **79 Chromium scenarios passed**,0failed/skipped,
+  retries0/workers4,3.1m. 72 прежних+7 новых, включая реальный anonymous Mailpit flow,
+  native login/refresh revocation и оба replay. Все6 миграций применены на новой
+  PostgreSQL17. Временные API/Vite/Compose volumes/keys/env очищены harness.
+  Предыдущий полный smoke79passed3.0m также зелёный; после него добавлена проверка
+  URI-encoded path и выполнен ещё один полный smoke.
+- Три account PNG360/768/1280 просмотрены вручную: поля/кнопки доступны, текст
+  переносится, overflow отсутствует, стандартный Ant Design сохранён. Снимки пустых
+  форм, без fragment/password/token; artifacts ignored и не входят в Git.
+- Repository secret guard/self-test/untracked и Git whitespace check exit0.
+
+Первый smoke27passed/1failed/51not run: старый shell test ожидал404 на теперь
+реализованном /account/activate. Заменён только unknown path на /account/not-implemented.
+Второй smoke75passed/1failed/3not run выявил настоящий defect: повторное открытие
+ссылки на том же pathname не перезагружает document, bootstrap не запускался и hash
+оставался. Добавлены ранние native observers, прямой handoff в форму и component
+regression. Assertions hash cleanup/replay не ослаблены; оба повторных полных
+Mailpit сценария проходят. Ни один неуспешный промежуточный run не скрыт.
+
+## 5. Безопасность
+
+Credentials только в памяти формы и JSON body HTTPS API, без Query cache/browser
+storage/console/analytics/notifications/URL query. Нет получения пароля администратором,
+автологина, назначения роли или нового auth flow. Fragment убирается до router и
+побочных эффектов; referrer policy уже no-referrer. Bootstrap/observer очищают свои
+временные ссылки, терминальные состояния освобождают token, unmount отменяет flight.
+Это не обещание физического обнуления JS heap или отмены уже выполненного server commit.
+Invalid tokens и server messages не отражаются в UI; common-password policy на backend.
+E2E secret-bearing failures sanitized, traces/video выключены, screenshots только
+пустых форм; реальные tokens читаются из Mailpit в Node closure без вывода.
+
+## 6. Ограничения / Known issues
+
+Блокеров11.13 нет. Полная UX/security acceptance остаётся11.14, release/proxy/Docker
+frontend integration/CI production hardening —12. Проверен Chromium; Firefox/WebKit,
+axe/Lighthouse, production image/deployment и реальный SMTP не запускались. npm ci
+не повторялся, зависимости не менялись. Существующие ограничения MFA/network access
+и JWT до exp сохраняются. Неверные/просроченные/использованные ссылки не различаются
+по пользовательским деталям. Локальный harness адаптирует только origin из тестовых
+email templates; в эксплуатации оператор обязан настроить реальный origin UI.
+
+## 7. Следующий этап
+
+**11.14 — сквозная доработка frontend и приёмка**, только по отдельному запросу.
+Git summary/commit на английском; push/deploy не выполняются.
+
+---
+
+# История: этап 11.12 — журнал аудита
 
 **Completed: 11.12**
 

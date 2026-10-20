@@ -43,7 +43,7 @@ Playwright smoke с настоящими PostgreSQL/Mailpit и CLI bootstrap. Б
 **Этап 11.8**: [Invite/resend](src/Identity.Admin.Web/docs/invitations.md) — форма приглашения
 и подтверждение повторной отправки для Administrator. После202 обновляются каталог/
 dashboard либо detail/audit; UI сообщает принятие в обработку. ReadOnly только читает.
-Публичная страница активации остаётся этапом11.13.
+Публичная страница активации реализована отдельно в11.13.
 
 **Этап 11.9**: [блокировка и разблокировка](src/Identity.Admin.Web/docs/account-status.md)
 в карточке: подтверждение, обязательная причина, обработка last-admin/state409 и обновление
@@ -66,7 +66,13 @@ Revoke session / Revoke all sessions. ReadOnly только читает; отз
 **Этап 11.12**: [журнал аудита](src/Identity.Admin.Web/docs/audit.md) на `/admin/audit`:
 серверные pagination/actor/target-related/event/time filters с сохранением в URL,
 локальные даты с UTC tooltip, ссылки на карточки и безопасные labels/correlation ID.
-Доступен обеим ролям только для чтения. Следующий этап —11.13 по отдельному запросу.
+Доступен обеим ролям только для чтения.
+
+**Этап 11.13**: [публичные страницы активации и сброса пароля](src/Identity.Admin.Web/docs/public-account.md)
+на `/account/activate` и `/account/reset-password`: анонимные формы, немедленное
+удаление email fragment, существующие JSON API и пароль только в памяти формы.
+Backend/API/миграции сохранены; auto-login и новая публичная регистрация не добавлены.
+Следующий этап —11.14 по отдельному запросу.
 
 Самостоятельный self-hosted backend учётных записей и аутентификации на .NET 10 и
 PostgreSQL 17+. Реализованы этапы 0–7 [технического задания](Identity_Codex_Spec.md):

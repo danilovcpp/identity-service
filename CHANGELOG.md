@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased — v1.1, stages 8–10, 11.1–11.12
+## Unreleased — v1.1, stages 8–10, 11.1–11.13
+
+- Anonymous invitation activation and password reset pages using existing JSON APIs,
+  immediate fragment cleanup and component-only credential handling outside Query caches.
+- Unicode/NFKC-compatible password validation, confirmation, pending/cancellation guards,
+  safe missing/invalid/replayed/policy/network states and explicit administrator sign-in.
+- Real HTTPS/PostgreSQL/Mailpit browser coverage for activation, reset, replay rejection,
+  login and refresh revocation, plus responsive keyboard and credential-storage checks.
 
 - Protected read-only audit log for both administrative roles, with server pagination
   and actor, target/related-user, event and period filters preserved in the URL.

@@ -3,7 +3,8 @@
 IdentityAdministrator can use **Invite user** in the Users page and **Resend invitation**
 in an Invited account's details. Both controls are absent for IdentityReadOnly. Backend
 authorization remains authoritative; role management, password assignment and public
-invitation acceptance pages are outside this substage (acceptance UI: 11.13).
+invitation acceptance pages are outside this substage (implemented separately in
+[11.13 — Public account pages](public-account.md)).
 
 ## Existing contracts and configuration
 

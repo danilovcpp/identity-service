@@ -121,7 +121,7 @@ test('admin/public unknown paths return safely to the console without a document
 }) => {
   for (const route of [
     '/admin/users/missing/unknown',
-    '/account/activate',
+    '/account/not-implemented',
     '/missing',
   ]) {
     await page.goto(route);

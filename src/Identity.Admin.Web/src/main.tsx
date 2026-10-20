@@ -3,22 +3,28 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from '@/app/App';
 import { AppProviders } from '@/app/AppProviders';
+import { watchAccountLinks } from '@/features/account/accountLink';
 import 'antd/dist/reset.css';
 import '@/app/styles.css';
 
-const root = document.getElementById('root');
+function mountApplication() {
+  const initialAccountLink = watchAccountLinks(window);
+  const root = document.getElementById('root');
 
-if (!root) {
-  throw new Error('Application root element is missing.');
+  if (!root) {
+    throw new Error('Application root element is missing.');
+  }
+
+  // AppErrorBoundary renders the fallback; never echo caught exception details to console.
+  createRoot(root, { onCaughtError: () => undefined }).render(
+    <StrictMode>
+      <AppProviders>
+        <BrowserRouter>
+          <App initialAccountLink={initialAccountLink} />
+        </BrowserRouter>
+      </AppProviders>
+    </StrictMode>,
+  );
 }
 
-// AppErrorBoundary renders the fallback; never echo caught exception details to console.
-createRoot(root, { onCaughtError: () => undefined }).render(
-  <StrictMode>
-    <AppProviders>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </AppProviders>
-  </StrictMode>,
-);
+mountApplication();

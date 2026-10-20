@@ -1,10 +1,15 @@
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { AppRoutes } from '@/app/routes';
+import type { AccountLink } from '@/features/account/accountLink';
 
-export function App() {
+export function App({
+  initialAccountLink,
+}: {
+  initialAccountLink?: AccountLink;
+}) {
   return (
     <AppErrorBoundary>
-      <AppRoutes />
+      <AppRoutes initialAccountLink={initialAccountLink} />
     </AppErrorBoundary>
   );
 }

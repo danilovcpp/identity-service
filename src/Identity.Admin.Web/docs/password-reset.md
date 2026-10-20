@@ -31,7 +31,8 @@ explains that completion is uncertain and asks them to check security activity
 before manually submitting again. Existing global `401`/`403` handling clears the
 protected view; errors never render raw server details. There is no password input,
 reset link/token response, browser storage, console logging or analytics event.
-The public reset form remains stage **11.13**.
+The public reset form is implemented separately in
+[stage 11.13](public-account.md).
 
 ## Verification
 
